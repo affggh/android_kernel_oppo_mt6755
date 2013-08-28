@@ -1054,13 +1054,8 @@ retry_journal:
 		ext4_journal_stop(handle);
 		goto retry_grab;
 	}
-#ifndef VENDOR_EDIT
-//Zhilong.zhang@Phone.Bsp.Driver, 2016/03/30, added kernel patch: convert write_begin methods to stable_page_writes semantics	
-	wait_on_page_writeback(page);
-#else
 	/* In case writeback began while the page was unlocked */
 	wait_for_stable_page(page);
-#endif /*VENDOR_EDIT*/	
 
 	if (ext4_should_dioread_nolock(inode))
 		ret = __block_write_begin(page, pos, len, ext4_get_block_write);
@@ -2781,12 +2776,7 @@ retry_journal:
 		goto retry_grab;
 	}
 	/* In case writeback began while the page was unlocked */
-#ifndef VENDOR_EDIT
-//Zhilong.zhang@Phone.Bsp.Driver, 2016/03/30, added kernel patch: convert write_begin methods to stable_page_writes semantics	
-	wait_on_page_writeback(page);
-#else
 	wait_for_stable_page(page);
-#endif /*VENDOR_EDIT*/
 
 	ret = __block_write_begin(page, pos, len, ext4_da_get_block_prep);
 	if (ret < 0) {
