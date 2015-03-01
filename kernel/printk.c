@@ -159,14 +159,8 @@ static struct console *exclusive_console;
 /*
  *	Array of consoles built from command line options (console=)
  */
-struct console_cmdline
-{
-#ifndef VENDOR_EDIT 
-// wenxian.zhen@Phone.Bsp.Driver, 2016/01/26  modified console name size mismatch
-	char	name[8];			/* Name of the driver	    */ 
-#else
+struct console_cmdline {
 	char	name[16];			/* Name of the driver	    */
-#endif /*CONFIG_VENDOR_EDIT*/
 	int	index;				/* Minor dev. to use	    */
 	char	*options;			/* Options for the driver   */
 #ifdef CONFIG_A11Y_BRAILLE_CONSOLE
@@ -2606,12 +2600,8 @@ void register_console(struct console *newcon)
 	 */
 	for (i = 0; i < MAX_CMDLINECONSOLES && console_cmdline[i].name[0];
 			i++) {
-#ifdef VENDOR_EDIT 
-// wenxian.zhen@Phone.Bsp.Driver, 2016/01/26  added for console name size mismatch
 		BUILD_BUG_ON(sizeof(console_cmdline[i].name) !=
- 				    		 sizeof(newcon->name)); 
-#endif /*CONFIG_VENDOR_EDIT*/
-				
+			     sizeof(newcon->name));
 		if (strcmp(console_cmdline[i].name, newcon->name) != 0)
 			continue;
 		if (newcon->index >= 0 &&
