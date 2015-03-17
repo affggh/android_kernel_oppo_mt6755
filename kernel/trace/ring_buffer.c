@@ -2680,8 +2680,6 @@ static DEFINE_PER_CPU(unsigned int, current_context);
 
 static __always_inline int trace_recursive_lock(void)
 {
-	// Jingchun.Wang@Phone.Bsp.Driver, 2016/02/29  Modify for add linux patch 
-	//unsigned int val = this_cpu_read(current_context);
 	unsigned int val = __this_cpu_read(current_context);
 	int bit;
 
@@ -2699,23 +2697,15 @@ static __always_inline int trace_recursive_lock(void)
 		return 1;
 
 	val |= (1 << bit);
-	// Jingchun.Wang@Phone.Bsp.Driver, 2016/02/29  Modify for add linux patch 
-	//this_cpu_write(current_context, val);
-	__this_cpu_write(current_context, val); 
+	__this_cpu_write(current_context, val);
 
 	return 0;
 }
 
 static __always_inline void trace_recursive_unlock(void)
 {
-	// Jingchun.Wang@Phone.Bsp.Driver, 2016/02/29  Modify for add linux patch 
-	//unsigned int val = this_cpu_read(current_context);
-	unsigned int val = __this_cpu_read(current_context); 
+	unsigned int val = __this_cpu_read(current_context);
 
-	// Jingchun.Wang@Phone.Bsp.Driver, 2016/02/29  Modify for add linux patch 
-	//val--;
-	//val &= this_cpu_read(current_context);
-	//this_cpu_write(current_context, val);
 	val &= val & (val - 1);
 	__this_cpu_write(current_context, val);
 }
