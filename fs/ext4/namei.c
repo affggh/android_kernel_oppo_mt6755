@@ -1977,12 +1977,7 @@ static int ext4_add_entry(handle_t *handle, struct dentry *dentry,
 			  struct inode *inode)
 {
 	struct inode *dir = dentry->d_parent->d_inode;
-#ifndef VENDOR_EDIT 
-// Zhilong.zhang@Phone.Bsp.Driver, 2016/02/29  added kernel patch, ext4: make fsync to sync parent dir in no-journal for real this time, Make fsync sync new parent directories in no-journal mode		
-	struct buffer_head *bh;
-#else
 	struct buffer_head *bh = NULL;
-#endif /*VENDOR_EDIT*/	
 	struct ext4_dir_entry_2 *de;
 	struct ext4_dir_entry_tail *t;
 	struct super_block *sb;
@@ -2007,24 +2002,14 @@ static int ext4_add_entry(handle_t *handle, struct dentry *dentry,
 			return retval;
 		if (retval == 1) {
 			retval = 0;
-#ifndef VENDOR_EDIT 
-// Zhilong.zhang@Phone.Bsp.Driver, 2016/02/29  added kernel patch, ext4: make fsync to sync parent dir in no-journal for real this time, Make fsync sync new parent directories in no-journal mode			
-			return retval;
-#else		
 			goto out;
-#endif /*VENDOR_EDIT*/
 		}
 	}
 
 	if (is_dx(dir)) {
 		retval = ext4_dx_add_entry(handle, dentry, inode);
 		if (!retval || (retval != ERR_BAD_DX_DIR))
-#ifndef VENDOR_EDIT 
-// Zhilong.zhang@Phone.Bsp.Driver, 2016/02/29  added kernel patch, ext4: make fsync to sync parent dir in no-journal for real this time, Make fsync sync new parent directories in no-journal mode			
-			return retval;
-#else
 			goto out;
-#endif /*VENDOR_EDIT*/
 		ext4_clear_inode_flag(dir, EXT4_INODE_INDEX);
 		dx_fallback++;
 		ext4_mark_inode_dirty(handle, dir);
@@ -2036,29 +2021,15 @@ static int ext4_add_entry(handle_t *handle, struct dentry *dentry,
 			return PTR_ERR(bh);
 
 		retval = add_dirent_to_buf(handle, dentry, inode, NULL, bh);
-#ifndef VENDOR_EDIT 
-// Zhilong.zhang@Phone.Bsp.Driver, 2016/02/29  added kernel patch, ext4: make fsync to sync parent dir in no-journal for real this time, Make fsync sync new parent directories in no-journal mode		
-		if (retval != -ENOSPC) {
-			brelse(bh);
-			return retval;
-		}
-#else
 		if (retval != -ENOSPC)
 			goto out;
-#endif /*VENDOR_EDIT*/	
 
 		if (blocks == 1 && !dx_fallback &&
-#ifndef VENDOR_EDIT 
-// Zhilong.zhang@Phone.Bsp.Driver, 2016/02/29  added kernel patch, ext4: make fsync to sync parent dir in no-journal for real this time, Make fsync sync new parent directories in no-journal mode
-		    EXT4_HAS_COMPAT_FEATURE(sb, EXT4_FEATURE_COMPAT_DIR_INDEX))
-			return make_indexed_dir(handle, dentry, inode, bh);
-#else
 		    EXT4_HAS_COMPAT_FEATURE(sb, EXT4_FEATURE_COMPAT_DIR_INDEX)) {
-				retval = make_indexed_dir(handle, dentry, inode, bh);
-				bh = NULL; /* make_indexed_dir releases bh */
-				goto out;
+			retval = make_indexed_dir(handle, dentry, inode, bh);
+			bh = NULL; /* make_indexed_dir releases bh */
+			goto out;
 		}
-#endif /*VENDOR_EDIT*/	
 		brelse(bh);
 	}
 	bh = ext4_append(handle, dir, &block);
@@ -2074,10 +2045,7 @@ static int ext4_add_entry(handle_t *handle, struct dentry *dentry,
 	}
 
 	retval = add_dirent_to_buf(handle, dentry, inode, de, bh);
-#ifdef VENDOR_EDIT 
-// Zhilong.zhang@Phone.Bsp.Driver, 2016/02/29  added kernel patch, ext4: make fsync to sync parent dir in no-journal for real this time, Make fsync sync new parent directories in no-journal mode	
 out:
-#endif /*VENDOR_EDIT*/
 	brelse(bh);
 	if (retval == 0)
 		ext4_set_inode_state(inode, EXT4_STATE_NEWENTRY);
