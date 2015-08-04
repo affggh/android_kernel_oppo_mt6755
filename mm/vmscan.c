@@ -900,12 +900,7 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 
 			/* Case 2 above */
 			} else if (global_reclaim(sc) ||
-#ifndef VENDOR_EDIT
-// Jingchun.Wang@Phone.Bsp.Driver, 2016/04/29  Modify for Do not wait for page writeback for GFP_NOFS allocations
-			    !PageReclaim(page) || !(sc->gfp_mask & __GFP_IO)) {
-#else /*VENDOR_EDIT*/
-				!PageReclaim(page) || !may_enter_fs) {
-#endif /*VENDOR_EDIT*/
+			    !PageReclaim(page) || !may_enter_fs) {
 				/*
 				 * This is slightly racy - end_page_writeback()
 				 * might have just cleared PageReclaim, then
