@@ -1088,13 +1088,8 @@ free_it:
 cull_mlocked:
 		if (PageSwapCache(page))
 			try_to_free_swap(page);
-        unlock_page(page);
-        #ifdef VENDOR_EDIT
-        /* pdl@oppo.com: to fix memory leak */
-        list_add(&page->lru, &ret_pages);
-        #else
-        putback_lru_page(page);
-        #endif
+		unlock_page(page);
+		list_add(&page->lru, &ret_pages);
 		continue;
 
 activate_locked:
