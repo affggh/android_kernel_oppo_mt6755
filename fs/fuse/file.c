@@ -1319,11 +1319,7 @@ static ssize_t fuse_fill_write_pages(struct fuse_req *req,
 
 		mark_page_accessed(page);
 
-#ifdef VENDOR_EDIT
-// Jingchun.Wang@Phone.Bsp.Driver, 2016/05/30  Add for solve infinite loop 
 		iov_iter_advance(ii, tmp);
-#endif /*VENDOR_EDIT*/
-
 		if (!tmp) {
 			unlock_page(page);
 			page_cache_release(page);
@@ -1336,10 +1332,6 @@ static ssize_t fuse_fill_write_pages(struct fuse_req *req,
 		req->page_descs[req->num_pages].length = tmp;
 		req->num_pages++;
 
-#ifndef VENDOR_EDIT
-// Jingchun.Wang@Phone.Bsp.Driver, 2016/05/30  Delete for solve inifinite loop 
-		iov_iter_advance(ii, tmp);
-#endif /*VENDOR_EDIT*/
 		count += tmp;
 		pos += tmp;
 		offset += tmp;
