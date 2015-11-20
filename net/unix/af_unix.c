@@ -1621,7 +1621,6 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
 	int max_level;
 	int data_len = 0;
 	int sk_locked;
-	 
 	if (NULL == siocb->scm)
 		siocb->scm = &tmp_scm;
 	wait_for_unix_gc();
@@ -1713,7 +1712,9 @@ restart_locked:
 		sock_put(other);
 
 		if (!sk_locked)
-		unix_state_lock(sk);
+			unix_state_lock(sk);
+
+		err = 0;
 		if (unix_peer(sk) == other) {
 			unix_peer(sk) = NULL;
 			unix_dgram_peer_wake_disconnect_wakeup(sk, other);
@@ -1743,12 +1744,7 @@ restart_locked:
 			goto out_unlock;
 	}
 
-	/* other == sk && unix_peer(other) != sk if
-	 * - unix_peer(sk) == NULL, destination address bound to sk
-	 * - unix_peer(sk) == sk by time of get but disconnected before lock
-	 */
-	if (other != sk &&
-	    unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
+	if (unlikely(unix_peer(other) != sk && unix_recvq_full(other))) {
 		if (timeo) {
 			timeo = unix_wait_for_peer(other, timeo);
 
