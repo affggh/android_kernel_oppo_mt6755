@@ -761,19 +761,19 @@ has_zeroout:
 		if (ret != 0)
 			return ret;
 
-               /*
-                * Inodes with freshly allocated blocks where contents will be
-                * visible after transaction commit must be on transaction's
-                * ordered data list.
-                */
-               if (map->m_flags & EXT4_MAP_NEW &&
-                   !(map->m_flags & EXT4_MAP_UNWRITTEN) &&
-                   !IS_NOQUOTA(inode) &&
-                   ext4_should_order_data(inode)) {
-                       ret = ext4_jbd2_file_inode(handle, inode);
-                       if (ret)
-                               return ret;
-               }
+		/*
+		 * Inodes with freshly allocated blocks where contents will be
+		 * visible after transaction commit must be on transaction's
+		 * ordered data list.
+		 */
+		if (map->m_flags & EXT4_MAP_NEW &&
+		    !(map->m_flags & EXT4_MAP_UNWRITTEN) &&
+		    !IS_NOQUOTA(inode) &&
+		    ext4_should_order_data(inode)) {
+			ret = ext4_jbd2_file_inode(handle, inode);
+			if (ret)
+				return ret;
+		}
 	}
 	return retval;
 }
