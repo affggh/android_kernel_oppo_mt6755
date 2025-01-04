@@ -62,13 +62,13 @@ static DEFINE_MUTEX(akm8963_op_mutex);
 #define AKM8963_DEFAULT_DELAY	100
 
 #if AKM8963_DEBUG_MSG
-#define AKMDBG(format, ...)	printk(KERN_ERR "AKM8963 " format "\n", ## __VA_ARGS__)
+#define AKMDBG(format, ...)	pr_debug("AKM8963 " format "\n", ## __VA_ARGS__)
 #else
 #define AKMDBG(format, ...)
 #endif
 
 #if AKM8963_DEBUG_FUNC
-#define AKMFUNC(func) printk(KERN_ERR "AKM8963 " func " is called\n")
+#define AKMFUNC(func) pr_debug("AKM8963 " func " is called\n")
 #else
 #define AKMFUNC(func)
 #endif
@@ -117,6 +117,7 @@ typedef enum {
 	AMK_HWM_DEBUG  = 0X04,
 	AMK_CTR_DEBUG  = 0X08,
 	AMK_I2C_DEBUG  = 0x10,
+	AMK_LP_DEBUG   = 0x80,
 } AMK_TRC;
 
 
@@ -199,14 +200,14 @@ static void akm8963_power(struct mag_hw *hw, unsigned int on)
 		{
 			if(!hwPowerOn(hw->power_id, hw->power_vol, "akm8963")) 
 			{
-				printk(KERN_ERR "power on fails!!\n");
+				pr_err("power on fails!!\n");
 			}
 		}
 		else
 		{
 			if(!hwPowerDown(hw->power_id, "akm8963")) 
 			{
-				printk(KERN_ERR "power off fail!!\n");
+				pr_err("power off fail!!\n");
 			}
 		}
 	}
@@ -245,18 +246,18 @@ static long AKI2C_RxData(char *rxData, int length)
 	mutex_unlock(&akm8963_i2c_mutex);
 	if(loop_i >= AKM8963_RETRY_COUNT)
 	{
-		printk(KERN_ERR "%s retry over %d\n", __func__, AKM8963_RETRY_COUNT);
+		pr_err("%s retry over %d\n", __func__, AKM8963_RETRY_COUNT);
 		return -EIO;
 	}
 #if DEBUG
 	if(atomic_read(&data->trace) & AMK_I2C_DEBUG)
 	{
-		printk(KERN_INFO "RxData: len=%02x, addr=%02x\n  data=", length, addr);
+		pr_debug("RxData: len=%02x, addr=%02x\n  data=", length, addr);
 		for(i = 0; i < length; i++)
 		{
-			printk(KERN_INFO " %02x", rxData[i]);
+			pr_debug(" %02x", rxData[i]);
 		}
-	    printk(KERN_INFO "\n");
+	    pr_debug("\n");
 	}
 #endif
 	return 0;
@@ -291,18 +292,18 @@ static long AKI2C_TxData(char *txData, int length)
 	mutex_unlock(&akm8963_i2c_mutex);
 	if(loop_i >= AKM8963_RETRY_COUNT)
 	{
-		printk(KERN_ERR "%s retry over %d\n", __func__, AKM8963_RETRY_COUNT);
+		pr_err("%s retry over %d\n", __func__, AKM8963_RETRY_COUNT);
 		return -EIO;
 	}
 #if DEBUG
 	if(atomic_read(&data->trace) & AMK_I2C_DEBUG)
 	{
-		printk(KERN_INFO "TxData: len=%02x, addr=%02x\n  data=", length, txData[0]);
+		pr_debug("TxData: len=%02x, addr=%02x\n  data=", length, txData[0]);
 		for(i = 0; i < (length-1); i++)
 		{
-			printk(KERN_INFO " %02x", txData[i + 1]);
+			pr_debug(" %02x", txData[i + 1]);
 		}
-		printk(KERN_INFO "\n");
+		pr_debug("\n");
 	}
 #endif
 	return 0;
@@ -394,6 +395,23 @@ static long AKECS_Reset(int hard)
 	return err;
 }
 
+static void AKECS_GetMode(void)
+{
+	char buffer[2];
+	int ret;
+	/* Set measure mode */
+	buffer[0] = AK8963_REG_CNTL1;
+
+	/* Read data */
+	ret = AKI2C_RxData(buffer, 1);
+	if (ret < 0) {
+		AKMDBG("ret = %d\n", ret);
+	} else {
+		AKMDBG("reg[0x%x] = 0x%x, bit[3:0] should be 0x0. (%c)\n",
+			AK8963_REG_CNTL1, buffer[0], (buffer[0]&0xF) == 0x0?'O':'X');
+	}
+}
+
 static long AKECS_SetMode(char mode)
 {
 	long ret;
@@ -483,7 +501,7 @@ static long AKECS_GetData(char *rbuf, int size)
 
 	if(size < SENSOR_DATA_SIZE)
 	{
-		printk(KERN_ERR "buff size is too small %d!\n", size);
+		pr_err("buff size is too small %d!\n", size);
 		return -1;
 	}
 	
@@ -494,7 +512,7 @@ static long AKECS_GetData(char *rbuf, int size)
 	{
 		if((ret = AKI2C_RxData(rbuf, 1)))
 		{
-			printk(KERN_ERR "read ST1 resigster failed!\n");
+			pr_err("read ST1 resigster failed!\n");
 			return -1;
 		}
 		
@@ -508,7 +526,7 @@ static long AKECS_GetData(char *rbuf, int size)
 
 	if(loop_i >= AKM8963_RETRY_COUNT)
 	{
-		printk(KERN_ERR "Data read retry larger the max count!\n");
+		pr_err("Data read retry larger the max count!\n");
 		if(0 ==factory_mode)
 		{
 		  return -1;//if return we can not get data at factory mode
@@ -521,7 +539,7 @@ static long AKECS_GetData(char *rbuf, int size)
 	ret = AKI2C_RxData(&rbuf[1], SENSOR_DATA_SIZE -1);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "AKM8975 akm8975_work_func: I2C failed\n");
+		pr_err("AKM8975 akm8975_work_func: I2C failed\n");
 		return -1;
 	}
 	rbuf[0] = temp;
@@ -1022,21 +1040,21 @@ static ssize_t store_layout_value(struct device_driver *ddri, const char *buf, s
 		atomic_set(&data->layout, layout);
 		if(!hwmsen_get_convert(layout, &data->cvt))
 		{
-			printk(KERN_ERR "HWMSEN_GET_CONVERT function error!\r\n");
+			pr_err("HWMSEN_GET_CONVERT function error!\r\n");
 		}
 		else if(!hwmsen_get_convert(data->hw->direction, &data->cvt))
 		{
-			printk(KERN_ERR "invalid layout: %d, restore to %d\n", layout, data->hw->direction);
+			pr_err("invalid layout: %d, restore to %d\n", layout, data->hw->direction);
 		}
 		else
 		{
-			printk(KERN_ERR "invalid layout: (%d, %d)\n", layout, data->hw->direction);
+			pr_err("invalid layout: (%d, %d)\n", layout, data->hw->direction);
 			hwmsen_get_convert(0, &data->cvt);
 		}
 	}
 	else
 	{
-		printk(KERN_ERR "invalid format = '%s'\n", buf);
+		pr_err("invalid format = '%s'\n", buf);
 	}
 	
 	return count;            
@@ -1068,7 +1086,7 @@ static ssize_t show_trace_value(struct device_driver *ddri, char *buf)
 	struct akm8963_i2c_data *obj = i2c_get_clientdata(this_client);
 	if(NULL == obj)
 	{
-		printk(KERN_ERR "akm8963_i2c_data is null!!\n");
+		pr_err("akm8963_i2c_data is null!!\n");
 		return 0;
 	}	
 	
@@ -1082,7 +1100,7 @@ static ssize_t store_trace_value(struct device_driver *ddri, const char *buf, si
 	int trace;
 	if(NULL == obj)
 	{
-		printk(KERN_ERR "akm8963_i2c_data is null!!\n");
+		pr_err("akm8963_i2c_data is null!!\n");
 		return 0;
 	}
 	
@@ -1092,7 +1110,7 @@ static ssize_t store_trace_value(struct device_driver *ddri, const char *buf, si
 	}
 	else 
 	{
-		printk(KERN_ERR "invalid content: '%s', length = %d\n", buf, count);
+		pr_err("invalid content: '%s', length = %d\n", buf, count);
 	}
 	
 	return count;    
@@ -1131,7 +1149,7 @@ static int akm8963_create_attr(struct device_driver *driver)
 	{
 		if((err = driver_create_file(driver, akm8963_attr_list[idx])))
 		{            
-			printk(KERN_ERR "driver_create_file (%s) = %d\n", akm8963_attr_list[idx]->attr.name, err);
+			pr_err("driver_create_file (%s) = %d\n", akm8963_attr_list[idx]->attr.name, err);
 			break;
 		}
 	}    
@@ -1205,7 +1223,7 @@ static long akm8963_unlocked_ioctl(struct file *file, unsigned int cmd,unsigned 
 	hwm_sensor_data osensor_data;
 	uint32_t enable;
 
-  	//printk(KERN_ERR"akm8963 cmd:0x%x\n", cmd);	
+  	//pr_debug("akm8963 cmd:0x%x\n", cmd);	
 	switch (cmd)
 	{
 		case ECS_IOCTL_WRITE:
@@ -1373,7 +1391,7 @@ static long akm8963_unlocked_ioctl(struct file *file, unsigned int cmd,unsigned 
 		case MSENSOR_IOCTL_READ_CHIPINFO:
 			if(argp == NULL)
 			{
-				printk(KERN_ERR "IO parameter pointer is NULL!\r\n");
+				pr_err("IO parameter pointer is NULL!\r\n");
 				break;
 			}
 			
@@ -1387,7 +1405,7 @@ static long akm8963_unlocked_ioctl(struct file *file, unsigned int cmd,unsigned 
 		case MSENSOR_IOCTL_READ_SENSORDATA:			
 			if(argp == NULL)
 			{
-				printk(KERN_ERR "IO parameter pointer is NULL!\r\n");
+				pr_err("IO parameter pointer is NULL!\r\n");
 				break;    
 			}
 			
@@ -1403,7 +1421,7 @@ static long akm8963_unlocked_ioctl(struct file *file, unsigned int cmd,unsigned 
 			
 			if(argp == NULL)
 			{
-				printk(KERN_ERR "IO parameter pointer is NULL!\r\n");
+				pr_err("IO parameter pointer is NULL!\r\n");
 				break;
 			}
 			if(copy_from_user(&enable, argp, sizeof(enable)))
@@ -1413,7 +1431,7 @@ static long akm8963_unlocked_ioctl(struct file *file, unsigned int cmd,unsigned 
 			}
 			else
 			{
-			    printk( "MSENSOR_IOCTL_SENSOR_ENABLE enable=%d!\r\n",enable);
+			    pr_debug("MSENSOR_IOCTL_SENSOR_ENABLE enable=%d!\r\n",enable);
 				factory_mode = 1;
 				if(1 == enable)
 				{
@@ -1437,7 +1455,7 @@ static long akm8963_unlocked_ioctl(struct file *file, unsigned int cmd,unsigned 
 		case MSENSOR_IOCTL_READ_FACTORY_SENSORDATA:			
 			if(argp == NULL)
 			{
-				printk(KERN_ERR "IO parameter pointer is NULL!\r\n");
+				pr_err("IO parameter pointer is NULL!\r\n");
 				break;    
 			}
 			
@@ -1460,7 +1478,7 @@ static long akm8963_unlocked_ioctl(struct file *file, unsigned int cmd,unsigned 
 			break;
 			
 		default:
-			printk(KERN_ERR "%s not supported = 0x%04x", __FUNCTION__, cmd);
+			pr_err("%s not supported = 0x%04x", __FUNCTION__, cmd);
 			return -ENOIOCTLCMD;
 			break;		
 		}
@@ -1505,7 +1523,7 @@ int akm8963_operate(void* self, uint32_t command, void* buff_in, int size_in,
 		case SENSOR_DELAY:
 			if((buff_in == NULL) || (size_in < sizeof(int)))
 			{
-				printk(KERN_ERR "Set delay parameter error!\n");
+				pr_err("Set delay parameter error!\n");
 				err = -EINVAL;
 			}
 			else
@@ -1524,7 +1542,7 @@ int akm8963_operate(void* self, uint32_t command, void* buff_in, int size_in,
 		case SENSOR_ENABLE:
 			if((buff_in == NULL) || (size_in < sizeof(int)))
 			{
-				printk(KERN_ERR "Enable sensor parameter error!\n");
+				pr_err("Enable sensor parameter error!\n");
 				err = -EINVAL;
 			}
 			else
@@ -1554,7 +1572,7 @@ int akm8963_operate(void* self, uint32_t command, void* buff_in, int size_in,
 		case SENSOR_GET_DATA:
 			if((buff_out == NULL) || (size_out< sizeof(hwm_sensor_data)))
 			{
-				printk(KERN_ERR "get sensor data parameter error!\n");
+				pr_err("get sensor data parameter error!\n");
 				err = -EINVAL;
 			}
 			else
@@ -1580,7 +1598,7 @@ int akm8963_operate(void* self, uint32_t command, void* buff_in, int size_in,
 			}
 			break;
 		default:
-			printk(KERN_ERR "msensor operate function no this parameter %d!\n", command);
+			pr_err("msensor operate function no this parameter %d!\n", command);
 			err = -1;
 			break;
 	}
@@ -1612,7 +1630,7 @@ int akm8963_orientation_operate(void* self, uint32_t command, void* buff_in, int
 		case SENSOR_DELAY:
 			if((buff_in == NULL) || (size_in < sizeof(int)))
 			{
-				printk(KERN_ERR "Set delay parameter error!\n");
+				pr_err("Set delay parameter error!\n");
 				err = -EINVAL;
 			}
 			else
@@ -1631,7 +1649,7 @@ int akm8963_orientation_operate(void* self, uint32_t command, void* buff_in, int
 		case SENSOR_ENABLE:
 			if((buff_in == NULL) || (size_in < sizeof(int)))
 			{
-				printk(KERN_ERR "Enable sensor parameter error!\n");
+				pr_err("Enable sensor parameter error!\n");
 				err = -EINVAL;
 			}
 			else
@@ -1659,7 +1677,7 @@ int akm8963_orientation_operate(void* self, uint32_t command, void* buff_in, int
 		case SENSOR_GET_DATA:
 			if((buff_out == NULL) || (size_out< sizeof(hwm_sensor_data)))
 			{
-				printk(KERN_ERR "get sensor data parameter error!\n");
+				pr_err("get sensor data parameter error!\n");
 				err = -EINVAL;
 			}
 			else
@@ -1685,7 +1703,7 @@ int akm8963_orientation_operate(void* self, uint32_t command, void* buff_in, int
 			}
 			break;
 		default:
-			printk(KERN_ERR "gsensor operate function no this parameter %d!\n", command);
+			pr_err("gsensor operate function no this parameter %d!\n", command);
 			err = -1;
 			break;
 	}
@@ -1713,7 +1731,9 @@ static int akm8963_suspend(struct i2c_client *client, pm_message_t msg)
 		AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
 		return err;
 	}
-	
+	if (atomic_read(&obj->trace) & AMK_LP_DEBUG) {
+		AKECS_GetMode();
+	}
 		akm8963_power(obj->hw, 0);
 	}
 	return 0;
@@ -1725,12 +1745,14 @@ static int akm8963_resume(struct i2c_client *client)
 	struct akm8963_i2c_data *obj = i2c_get_clientdata(client);
 	if(NULL == obj)
 		{
-			AKMDBG(KERN_ERR "null pointer!!\n");
+			pr_err("null pointer!!\n");
 			return -1;
 		}
 
 	akm8963_power(obj->hw, 1);
-		
+	if (atomic_read(&obj->trace) & AMK_LP_DEBUG) {
+		AKECS_GetMode();
+	}
 	if ((err = AKECS_SetMode(AK8963_MODE_SNG_MEASURE)) < 0) {
 		AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
 		return err;
@@ -1755,7 +1777,9 @@ static void akm8963_early_suspend(struct early_suspend *h)
 		AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
 		return;
 	}
-
+	if (atomic_read(&obj->trace) & AMK_LP_DEBUG) {
+		AKECS_GetMode();
+	}
 	akm8963_power(obj->hw, 0);       
 }
 /*----------------------------------------------------------------------------*/
@@ -1771,7 +1795,9 @@ static void akm8963_late_resume(struct early_suspend *h)
 		return;
 	}
 	akm8963_power(obj->hw, 1);
-
+	if (atomic_read(&obj->trace) & AMK_LP_DEBUG) {
+		AKECS_GetMode();
+	}
 	if ((err = AKECS_SetMode(AK8963_MODE_SNG_MEASURE)) < 0) {
 		AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
 		return;
@@ -1817,12 +1843,12 @@ static int akm8963_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	
 	this_client = new_client;	
 
-     printk(KERN_ERR " AKM8963 akm8963_probe: befor init prob \n");
+     pr_debug(" AKM8963 akm8963_probe: befor init prob \n");
 	/* Check connection */
 	err = AKECS_CheckDevice();
 	if(err < 0)
 	{
-		printk(KERN_ERR "AKM8963 akm8963_probe: check device connect error\n");
+		pr_err("AKM8963 akm8963_probe: check device connect error\n");
 		goto exit_init_failed;
 	}
 	
@@ -1830,14 +1856,14 @@ static int akm8963_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	/* Register sysfs attribute */
 	if((err = akm8963_create_attr(&akm_sensor_driver.driver)))
 	{
-		printk(KERN_ERR "create attribute err = %d\n", err);
+		pr_err("create attribute err = %d\n", err);
 		goto exit_sysfs_create_group_failed;
 	}
 
 	
 	if((err = misc_register(&akm8963_device)))
 	{
-		printk(KERN_ERR "akm8963_device register failed\n");
+		pr_err("akm8963_device register failed\n");
 		goto exit_misc_device_register_failed;	}    
 
 	sobj_m.self = data;
@@ -1845,7 +1871,7 @@ static int akm8963_i2c_probe(struct i2c_client *client, const struct i2c_device_
     sobj_m.sensor_operate = akm8963_operate;
 	if((err = hwmsen_attach(ID_MAGNETIC, &sobj_m)))
 	{
-		printk(KERN_ERR "attach fail = %d\n", err);
+		pr_err("attach fail = %d\n", err);
 		goto exit_kfree;
 	}
 	
@@ -1854,7 +1880,7 @@ static int akm8963_i2c_probe(struct i2c_client *client, const struct i2c_device_
     sobj_o.sensor_operate = akm8963_orientation_operate;
 	if((err = hwmsen_attach(ID_ORIENTATION, &sobj_o)))
 	{
-		printk(KERN_ERR "attach fail = %d\n", err);
+		pr_err("attach fail = %d\n", err);
 		goto exit_kfree;
 	}
 	
@@ -1874,7 +1900,7 @@ static int akm8963_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	exit_kfree:
 	kfree(data);
 	exit:
-	printk(KERN_ERR "%s: err = %d\n", __func__, err);
+	pr_err("%s: err = %d\n", __func__, err);
 	return err;
 }
 /*----------------------------------------------------------------------------*/
@@ -1884,7 +1910,7 @@ static int akm8963_i2c_remove(struct i2c_client *client)
 	
 	if((err = akm8963_delete_attr(&akm_sensor_driver.driver)))
 	{
-		printk(KERN_ERR "akm8963_delete_attr fail: %d\n", err);
+		pr_err("akm8963_delete_attr fail: %d\n", err);
 	}
 	
 	this_client = NULL;
@@ -1897,27 +1923,27 @@ static int akm_gpio_rst_config(void)
 {
 	int ret = 0;	
 #ifdef GPIO_COMPASS_RST_PIN
-	printk("akm8963 reset pin is used for this project\n");
+	pr_debug("akm8963 reset pin is used for this project\n");
 	ret = mt_set_gpio_mode(GPIO_COMPASS_RST_PIN, GPIO_MODE_00);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "set gpio mode error\n");
+		pr_err("set gpio mode error\n");
 	}
 	ret = mt_set_gpio_dir(GPIO_COMPASS_RST_PIN, GPIO_DIR_OUT);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "set gpio dir error\n");
+		pr_err("set gpio dir error\n");
 	}
 	ret = mt_set_gpio_out(GPIO_COMPASS_RST_PIN, GPIO_OUT_ZERO);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "set gpio out value error\n");
+		pr_err("set gpio out value error\n");
 	}
 	mdelay(125);
 	ret = mt_set_gpio_out(GPIO_COMPASS_RST_PIN, 1);
 	if(ret < 0)
 	{
-		printk(KERN_ERR "set gpio out value error\n");
+		pr_err("set gpio out value error\n");
 	}
 #endif
 	return ret;
@@ -1935,7 +1961,7 @@ static int akm_probe(struct platform_device *pdev)
 
 	if(i2c_add_driver(&akm8963_i2c_driver))
 	{
-		printk(KERN_ERR "add driver error\n");
+		pr_err("add driver error\n");
 		return -1;
 	} 
 	return 0;
@@ -1954,11 +1980,11 @@ static int akm_remove(struct platform_device *pdev)
 static int __init akm8963_init(void)
 {
     	struct mag_hw *hw = get_cust_mag_hw();
-	printk("akm8963: i2c_number=%d\n",hw->i2c_num); 
+	pr_debug("akm8963: i2c_number=%d\n",hw->i2c_num); 
 	i2c_register_board_info(hw->i2c_num, &i2c_akm8963, 1);
 	if(platform_driver_register(&akm_sensor_driver))
 	{
-		printk(KERN_ERR "failed to register driver");
+		pr_err("failed to register driver");
 		return -ENODEV;
 	}
 	return 0;    

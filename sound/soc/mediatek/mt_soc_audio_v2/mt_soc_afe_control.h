@@ -52,6 +52,8 @@
 #ifndef _AUDIO_AFE_CONTROL_H
 #define _AUDIO_AFE_CONTROL_H
 
+#include "AudDrv_Type_Def.h"
+#include "AudDrv_Common.h"
 #include "mt_soc_digital_type.h"
 #include "AudDrv_Def.h"
 #include <sound/memalloc.h>
@@ -106,6 +108,8 @@ bool CleanPreDistortion(void);
 bool EnableSideToneFilter(bool stf_on);
 bool SetModemPcmEnable(int modem_index, bool modem_pcm_on);
 bool SetModemPcmConfig(int modem_index, AudioDigitalPCM p_modem_pcm_attribute);
+
+void Enable4pinI2S(bool enable, bool low_jitter_on, uint32 samplerate);
 
 bool Set2ndI2SIn(AudioDigtalI2S *mDigitalI2S);
 bool Set2ndI2SInConfig(unsigned int sampleRate, bool bIsSlaveMode);
@@ -198,6 +202,8 @@ void SetExternalModemStatus(const bool bEnable);
 
 // set VOW status for AFE GPIO control
 void SetVOWStatus(bool bEnable);
+bool ConditionEnterSuspend(void);
+void SetFMEnableFlag(bool bEnable);
 
 unsigned int Align64ByteSize(unsigned int insize);
 

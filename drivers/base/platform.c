@@ -22,7 +22,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/idr.h>
 #include <linux/acpi.h>
-#include <linux/time_log.h>
 
 #include "base.h"
 #include "power/power.h"
@@ -390,19 +389,32 @@ void platform_device_del(struct platform_device *pdev)
 }
 EXPORT_SYMBOL_GPL(platform_device_del);
 
+#ifdef CONFIG_MTPROF
+#include "bootprof.h"
+#else
+#define TIME_LOG_START()
+#define TIME_LOG_END()
+#define bootprof_pdev_register(ts, pdev)
+#endif
+
 /**
  * platform_device_register - add a platform-level device
  * @pdev: platform device we're adding
  */
 int platform_device_register(struct platform_device *pdev)
 {
-	    int ret;
-	    TIME_LOG_START();
+	int ret;
+#ifdef CONFIG_MTPROF
+	unsigned long long ts = 0;
+#endif
+
+	TIME_LOG_START();
 	device_initialize(&pdev->dev);
 	arch_setup_pdev_archdata(pdev);
 	ret = platform_device_add(pdev);
-    TIME_LOG_END("[pdev] %s\n", pdev->name);
-    return ret;
+	TIME_LOG_END();
+	bootprof_pdev_register(ts, pdev);
+	return ret;
 }
 EXPORT_SYMBOL_GPL(platform_device_register);
 

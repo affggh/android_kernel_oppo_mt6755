@@ -61,7 +61,7 @@
 #define DEBUG 1
 #define IST8303_DEV_NAME          "ist8303"
 #define DRIVER_VERSION            "1.0.0.0"
-#define ODR_DELAY_TIME_MS         20  // ODR delayms for each loop
+#define ODR_DELAY_TIME_MS         20  /*ODR delayms for each loop*/ 
 /*----------------------------------------------------------------------------*/
 #define IST8303_AXIS_X            0
 #define IST8303_AXIS_Y            1
@@ -134,7 +134,7 @@ struct _ist302_data {
 /*----------------------------------------------------------------------------*/
 struct _ist8303mid_data {
     struct rw_semaphore datalock;
-    struct rw_semaphore ctrllock;    
+    struct rw_semaphore ctrllock;
     int controldata[10];
     unsigned int debug;
     int nmx;
@@ -199,9 +199,9 @@ static struct i2c_driver ist8303_i2c_driver = {
 #ifdef IST8303_M_NEW_ARCH
 static int ist8303_init_flag =-1; // 0<==>OK -1 <==> fail
 static struct mag_init_info ist8303_init_info = {
-        .name = "ist8303",
-        .init = ist8303_local_init,
-        .uninit = ist8303_remove,   
+		.name = "ist8303",
+		.init = ist8303_local_init,
+		.uninit = ist8303_remove,
 };
 #endif
 /*----------------------------------------------------------------------------*/
@@ -321,7 +321,7 @@ static int IST8303_CheckDataReady(struct i2c_client *client)  //  this is used f
 
     buffer[0] = IST8303_REG_STAT1;
 
-    ret = ist830x_i2c_rxdata(client, buffer, 1); // ret can be : -5 or 0
+    ret = ist830x_i2c_rxdata(client, buffer, 1); /*ret can be : -5 or 0*/ 
 
     if (ret < 0) {
         printk(KERN_ERR "IST8303 IST8303_CheckDataReady : I2C failed \n");
@@ -361,8 +361,7 @@ typedef struct _ODR_ITEM {
 10: Continuous measurement mode with ODR 1Hz
 11: Continuous measurement mode with ODR 200Hz
 */
-static ODR_ITEM ODR_TABLE[] = 
-{
+static ODR_ITEM ODR_TABLE[] ={
     {  8,  125,  2},
     { 10,  100,  3},
     { 20,   50,  5},
@@ -374,14 +373,14 @@ static ODR_ITEM ODR_TABLE[] =
 static int _GetODR(int nDelayMs)
 {
     int i = 0;
-    for (i=0; i<sizeof(ODR_TABLE)/sizeof(ODR_ITEM); i++)
+    for(i = 0; i < sizeof(ODR_TABLE)/sizeof(ODR_ITEM); i++)
     {
         if (ODR_TABLE[i].delayms == nDelayMs)
-            return ODR_TABLE[i].regval;
+			return ODR_TABLE[i].regval;
     }
 
-    // ODR 20HZ or default
-    return 5;
+    /*ODR 20HZ or default*/ 
+	return 5;
 }
 
 static int IST8303_Chipset_Init(int mode)
@@ -392,23 +391,23 @@ static int IST8303_Chipset_Init(int mode)
     wbuffer[0] = IST8303_REG_CNTRL1;
     wbuffer[1] = 0x00;  //  stand-by mode  
     ret = ist830x_i2c_txdata(ist8303_i2c_client, wbuffer, 2);
-    if (ret<0) {
+	if(ret < 0) {
         printk(KERN_ERR "set register IST8303_REG_CNTRL1 failed.\n");
         return ret;
     }
     
-    wbuffer[0] = IST8303_REG_CNTRL2;
+	wbuffer[0] = IST8303_REG_CNTRL2;
     ret = ist830x_i2c_rxdata(ist8303_i2c_client, wbuffer, 1);
     if (ret<0) {
-        printk(KERN_ERR "get register IST8303_REG_CNTRL2 failed.\n");
-        return ret;
-    }
-    wbuffer[1] = wbuffer[0] & 0xF3; // clear bit2 & bit3 to disable DRDY external pin
-    wbuffer[0] = IST8303_REG_CNTRL2;
+		printk(KERN_ERR "get register IST8303_REG_CNTRL2 failed.\n");
+		return ret;
+	}
+    wbuffer[1] = wbuffer[0] & 0xF3; /* clear bit2 & bit3 to disable DRDY external pin*/
+	wbuffer[0] = IST8303_REG_CNTRL2;
     ret = ist830x_i2c_txdata(ist8303_i2c_client, wbuffer, 2);
     if (ret<0) {
-        printk(KERN_ERR "set register IST8303_REG_CNTRL2 failed.\n");
-        return ret;
+		printk(KERN_ERR "set register IST8303_REG_CNTRL2 failed.\n");
+		return ret;
     }
 
     wbuffer[0] = IST8303_REG_SSR;
@@ -422,20 +421,20 @@ static int IST8303_Chipset_Init(int mode)
     wbuffer[0] = IST8303_REG_CTR;
     wbuffer[1] = 0x00;  //  use temperature compensation mechanism
     ret = ist830x_i2c_txdata(ist8303_i2c_client, wbuffer, 2);
-    if (ret<0) {
-        printk(KERN_ERR "set register IST8303_REG_CTR failed.\n");
-        return ret;
+    if(ret < 0) {
+		printk(KERN_ERR "set register IST8303_REG_CTR failed.\n");
+		return ret;
     }
     
     wbuffer[0] = 0x62;
     wbuffer[1] = 0x00;  //  only for 8303b pulse width
     ret = ist830x_i2c_txdata(ist8303_i2c_client, wbuffer, 2);
-    if (ret<0) {
-        printk(KERN_ERR "set register IST8303_REG_BTR failed.\n");
-        return ret;
+    if(ret < 0) {
+		printk(KERN_ERR "set register IST8303_REG_BTR failed.\n");
+		return ret;
     }
-    
-    return 0;
+
+	return 0;
 }
 
 static int IST8303_Chipset_Enable(int mode, int enable)
@@ -443,40 +442,39 @@ static int IST8303_Chipset_Enable(int mode, int enable)
     char wbuffer[2];
     int ret;
 
-    if (enable == 0)
-    {
-        wbuffer[0] = IST8303_REG_CNTRL1;
-        wbuffer[1] = 0x01;  //  Single measurement mode
+    if(enable == 0){
+		wbuffer[0] = IST8303_REG_CNTRL1;
+		wbuffer[1] = 0x01;  //  Single measurement mode
         ret = ist830x_i2c_txdata(ist8303_i2c_client, wbuffer, 2);
-        if (ret<0) {
-            printk(KERN_ERR "set register IST8303_REG_CNTRL1 failed.\n");
-            return ret;
+        if(ret < 0) {
+			printk(KERN_ERR "set register IST8303_REG_CNTRL1 failed.\n");
+			return ret;
         }
     }
     else
-    {
-        if (mode == IST8303_FORCE_MODE)
-        {
-            wbuffer[0] = IST8303_REG_CNTRL1;
-            wbuffer[1] = 0x01;  //  Single measurement mode
-            ret = ist830x_i2c_txdata(ist8303_i2c_client, wbuffer, 2);
-            if (ret<0) {
-                printk(KERN_ERR "set register IST8303_REG_CNTRL1 failed.\n");
-                return ret;
+	{
+		if(mode == IST8303_FORCE_MODE)
+		{
+			wbuffer[0] = IST8303_REG_CNTRL1;
+			wbuffer[1] = 0x01;  //  Single measurement mode
+			ret = ist830x_i2c_txdata(ist8303_i2c_client, wbuffer, 2);
+			if(ret < 0) {
+				printk(KERN_ERR "set register IST8303_REG_CNTRL1 failed.\n");
+				return ret;
             }
         }
-        else // normal mode
-        {
-            wbuffer[0] = IST8303_REG_CNTRL1;
-            wbuffer[1] = _GetODR(ODR_DELAY_TIME_MS);
+        else /*normal mode*/ 
+		{
+			wbuffer[0] = IST8303_REG_CNTRL1;
+			wbuffer[1] = _GetODR(ODR_DELAY_TIME_MS);
             printk(KERN_INFO "DelayMs=%d, ODR=%d\n", ODR_DELAY_TIME_MS, (int)wbuffer[1]); 
             ret = ist830x_i2c_txdata(ist8303_i2c_client, wbuffer, 2);
-            if (ret<0) {
-                printk(KERN_ERR "set register IST8303_REG_CNTRL1 failed.\n");
-                return ret;
-            }
-        }
-    }
+            if(ret < 0) {
+				printk(KERN_ERR "set register IST8303_REG_CNTRL1 failed.\n");
+				return ret;
+			}
+		}
+	}
 
     return 0;
 }
@@ -484,140 +482,140 @@ static int IST8303_Chipset_Enable(int mode, int enable)
 /*----------------------------------------------------------------------------*/
 static void ist830x_prepare_raw_data(struct work_struct *work)
 {
-    char sData[7];  //  sensor raw data
-    int err;    
-    int status;    
-    unsigned long start;
+	char sData[7];  /*sensor raw data*/  
+	int err;    
+	int status;    
+	unsigned long start;
     
-    schedule_delayed_work(&ist_get_raw_data_work, msecs_to_jiffies(ODR_DELAY_TIME_MS));
+	schedule_delayed_work(&ist_get_raw_data_work, msecs_to_jiffies(ODR_DELAY_TIME_MS));
 
     /* Check DRDY bit */
-    start = jiffies;
-    do {
-        status = IST8303_CheckDataReady(ist8303_i2c_client); // status can be : -5 or 0 or 1
-        if (status == 1) // DRDY is 1, ok
-            break;
-    } while (jiffies_to_msecs(jiffies - start) <= ODR_DELAY_TIME_MS);
+	start = jiffies;
+	do{
+		status = IST8303_CheckDataReady(ist8303_i2c_client); // status can be : -5 or 0 or 1
+		if(status == 1) /*DRDY is 1, ok*/ 
+			break;
+	}while(jiffies_to_msecs(jiffies - start) <= ODR_DELAY_TIME_MS);
             
-    if (status < 0) // -5 case
-    {
-        printk("ist830x_i2c_rxdata() fail \n");
+	if(status < 0) /*-5 case*/ 
+	{
+		printk("ist830x_i2c_rxdata() fail \n");
+		return;
+	}
+
+	if(status == 0) /*DRDY = 0 case*/ 
+	{
+		printk("DRDY is 0 \n");
+		err = IST8303_Chipset_Enable(IST8303_NORMAL_MODE, 1); /*-5 : fail 0: succeed*/ 
+		if(err)
+			printk("IST8303_Chipset_Enable fail \n");
+
         return;
-    }
+	}
 
-    if (status == 0) // DRDY = 0 case
-    {
-        printk("DRDY is 0 \n");
-        err = IST8303_Chipset_Enable(IST8303_NORMAL_MODE, 1); // -5 : fail 0: succeed
-        if(err)
-            printk("IST8303_Chipset_Enable fail \n");
+    err = IST8303_GetData(ist8303_i2c_client, sData); /*err can be : -5 or 0  */  
+	if(err < 0) {
+		dev_err(&ist8303_i2c_client->dev, "%s failed.", __func__);
+		return;
+	}
 
-        return;
-    }
+	down_write(&ist830x_rawdata_lock);
+	memcpy(ist830x_msensor_raw_data, sData, 7);
+	up_write(&ist830x_rawdata_lock);
 
-    err = IST8303_GetData(ist8303_i2c_client, sData); // err can be : -5 or 0   
-    if (err < 0) {
-        dev_err(&ist8303_i2c_client->dev, "%s failed.", __func__);
-        return;
-    }
-
-    down_write(&ist830x_rawdata_lock);
-    memcpy(ist830x_msensor_raw_data, sData, 7);
-    up_write(&ist830x_rawdata_lock);
-
-    atomic_set(&ist830x_data_ready, 1);
-    wake_up(&data_ready_wq);
+	atomic_set(&ist830x_data_ready, 1);
+	wake_up(&data_ready_wq);
 }
 /*----------------------------------------------------------------------------*/
 static void IST8303_SetMode(int newmode)
 {
-    down_write(&ist830x_data.lock);
+	down_write(&ist830x_data.lock);
 
-    if(ist830x_data.mode != newmode)
-    {
-        ist830x_data.mode = newmode;
-        IST8303_Chipset_Init(newmode);
+	if(ist830x_data.mode != newmode)
+	{
+		ist830x_data.mode = newmode;
+		IST8303_Chipset_Init(newmode);
     }
 
-    up_write(&ist830x_data.lock);
+	up_write(&ist830x_data.lock);
 }
 /*----------------------------------------------------------------------------*/
 static int IST8303_ReadChipInfo(char *buf, int bufsize)
 {
-    if((!buf)||(bufsize<=30))
-    {
-        return -1;
-    }
-    if(!ist8303_i2c_client)
-    {
-        *buf = 0;
-        return -2;
-    }
+	if((!buf)||(bufsize<=30))
+	{
+		return -1;
+	}
+	if(!ist8303_i2c_client)
+	{
+		*buf = 0;
+		return -2;
+	}
 
-    sprintf(buf, "IST8303 Chip");
-    return 0;
+	sprintf(buf, "IST8303 Chip");
+	return 0;
 }
 /*----------------------------------------------------------------------------*/
 static int IST8303_ReadSensorData(char *buf, int bufsize)
 {
-    struct ist8303_i2c_data *data = i2c_get_clientdata(ist8303_i2c_client);
+	struct ist8303_i2c_data *data = i2c_get_clientdata(ist8303_i2c_client);
   //  char cmd;
-    int mode = 0, err = 0;    
-    unsigned char databuf[7];  //  for sensor raw data
-    short output[IST8303_AXES_NUM];
-    short temp = 0;
-    int mag[IST8303_AXES_NUM];
+	int mode = 0, err = 0;    
+	unsigned char databuf[7];  //  for sensor raw data
+	short output[IST8303_AXES_NUM];
+	short temp = 0;
+	int mag[IST8303_AXES_NUM];
 
-    if ((!buf)||(bufsize<=80))
-    {
-        return -1;
-    }   
-    if (NULL == ist8303_i2c_client)
-    {
-        *buf = 0;
-        return -2;
-    }
+	if((!buf)||(bufsize<=80))
+	{
+		return -1;
+	}   
+	if(NULL == ist8303_i2c_client)
+	{
+		*buf = 0;
+		return -2;
+	}
 
-    down_read(&ist830x_data.lock);    
-    mode = ist830x_data.mode;
-    up_read(&ist830x_data.lock);        
+	down_read(&ist830x_data.lock);    
+	mode = ist830x_data.mode;
+	up_read(&ist830x_data.lock);        
 
-    if(mode == IST8303_FORCE_MODE)
-    {
+	if(mode == IST8303_FORCE_MODE)
+	{
      //   unsigned long start;
 //        int status;
 
-        if (ODR_DELAY_TIME_MS <= 10)
-        {
+		if(ODR_DELAY_TIME_MS <= 10)
+		{
             // read first the set single measurement for next reading
-            err = IST8303_GetData(ist8303_i2c_client, databuf); // err can be : -5 or 0   
-            if (err < 0) {
-                dev_err(&ist8303_i2c_client->dev, "%s failed.", __func__);
-                return -5;
-            }
+			err = IST8303_GetData(ist8303_i2c_client, databuf); // err can be : -5 or 0   
+			if(err < 0) {
+				dev_err(&ist8303_i2c_client->dev, "%s failed.", __func__);
+				return -5;
+			}
 
-            IST8303_Chipset_Enable(mode, 1);
-        }
-        else
+			IST8303_Chipset_Enable(mode, 1);
+		}
+		else
         {
-            IST8303_Chipset_Enable(mode, 1);
+			IST8303_Chipset_Enable(mode, 1);
 
             /* wait DRDY ready */
-            usleep_range(4500, 5000);
+			usleep_range(4500, 5000);
 
-            err = IST8303_GetData(ist8303_i2c_client, databuf); // err can be : -5 or 0   
-            if (err < 0) {
-                dev_err(&ist8303_i2c_client->dev, "%s failed.", __func__);
-                return -5;
-            }
-        }
+			err = IST8303_GetData(ist8303_i2c_client, databuf); // err can be : -5 or 0   
+			if(err < 0) {
+				dev_err(&ist8303_i2c_client->dev, "%s failed.", __func__);
+				return -5;
+			}
+		}
 
-    }
-    else  //  IST8303_NORMAL_MODE for ist830x
-    {
-        err = wait_event_interruptible_timeout(data_ready_wq, atomic_read(&ist830x_data_ready), msecs_to_jiffies(ODR_DELAY_TIME_MS*2));
+	}
+	else  //  IST8303_NORMAL_MODE for ist830x
+	{
+		err = wait_event_interruptible_timeout(data_ready_wq, atomic_read(&ist830x_data_ready), msecs_to_jiffies(ODR_DELAY_TIME_MS*2));
         
-        if (err == 0) {
+		if(err == 0) {
             printk("wait 100ms timeout \n");
             return err;
         }

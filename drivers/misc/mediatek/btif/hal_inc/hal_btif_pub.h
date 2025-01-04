@@ -35,6 +35,30 @@ P_MTK_BTIF_INFO_STR hal_btif_info_get(void);
 P_MTK_BTIF_IRQ_STR hal_btif_get_irq(void);
 #endif
 
+#if !defined(CONFIG_MTK_CLKMGR)
+/*****************************************************************************
+* FUNCTION
+*  hal_btif_clk_get_and_prepare
+* DESCRIPTION
+*  get clock from device tree and prepare for enable/disable control
+* PARAMETERS
+* pdev  device pointer
+* RETURNS
+*  0 means success, negative means fail
+*****************************************************************************/
+int hal_btif_clk_get_and_prepare(struct platform_device *pdev);
+/*****************************************************************************
+* FUNCTION
+*  hal_btif_clk_unprepare
+* DESCRIPTION
+*  unprepare btif clock and apdma clock
+* PARAMETERS
+* none
+* RETURNS
+*  0 means success, negative means fail
+*****************************************************************************/
+int hal_btif_clk_unprepare(void);
+#endif
 /*****************************************************************************
 * FUNCTION
 *  hal_btif_clk_ctrl

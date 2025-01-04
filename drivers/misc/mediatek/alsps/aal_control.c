@@ -8,6 +8,8 @@
 #include "alsps.h"
 #include "aal_control.h"
 #include <linux/hwmsen_dev.h>
+#include <linux/compat.h>
+
 
 int aal_use = 0;
 
@@ -62,7 +64,7 @@ static long AAL_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned lon
 					dat = hwmsen_aal_get_data();
 	            }
 				
-				AAL_LOG("Get als dat :%d\n", dat);
+				/* AAL_LOG("Get als dat :%d\n", dat); */
 				
 				if(copy_to_user(ptr, &dat, sizeof(dat)))
 				{
@@ -79,13 +81,25 @@ static long AAL_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned lon
 	
 		err_out:
 		return err;    
-	}
+}
+
+#ifdef CONFIG_COMPAT
+static long AAL_compact_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	void __user *data32;
+	data32 = compat_ptr(arg);
+	AAL_unlocked_ioctl(file, cmd, (unsigned long)data32);
+}
+#endif
 
 static struct file_operations AAL_fops = {
 	.owner = THIS_MODULE,
 	.open = AAL_open,
 	.release = AAL_release,
 	.unlocked_ioctl = AAL_unlocked_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = AAL_compact_ioctl,
+#endif
 };
 
 static struct miscdevice AAL_device = {

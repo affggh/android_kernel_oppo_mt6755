@@ -39,6 +39,8 @@ extern "C" {
 	DAL_STATUS DAL_OnDispPowerOn(void);
 	DAL_STATUS DAL_LowMemoryOn(void);
 	DAL_STATUS DAL_LowMemoryOff(void);
+	int is_DAL_Enabled(void);
+
 #ifdef __cplusplus
 }
 #endif

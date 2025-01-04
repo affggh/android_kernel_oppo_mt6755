@@ -46,7 +46,12 @@ static DEFINE_MUTEX(registration_lock);
 struct fb_info *registered_fb[FB_MAX] __read_mostly;
 int num_registered_fb __read_mostly;
 
+#ifdef VENDOR_EDIT
+//xiaocheng.li@Swdp.shanghai, 2016-1-18, export kernel symbol
+struct fb_info *get_fb_info(unsigned int idx)
+#else
 static struct fb_info *get_fb_info(unsigned int idx)
+#endif
 {
 	struct fb_info *fb_info;
 
@@ -61,6 +66,10 @@ static struct fb_info *get_fb_info(unsigned int idx)
 
 	return fb_info;
 }
+#ifdef VENDOR_EDIT
+//xiaocheng.li@Swdp.shanghai, 2016-1-18, export kernel symbol
+EXPORT_SYMBOL(get_fb_info);
+#endif
 
 static void put_fb_info(struct fb_info *fb_info)
 {

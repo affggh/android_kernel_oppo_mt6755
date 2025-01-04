@@ -89,6 +89,10 @@ int mt_get_gpio_pull_select_base(unsigned long pin);
 int mt_set_gpio_inversion_base(unsigned long pin, unsigned long enable);
 int mt_get_gpio_inversion_base(unsigned long pin);
 int mt_set_gpio_out_base(unsigned long pin, unsigned long output);
+#ifdef VENDOR_EDIT
+//Fuchun.Liao@Mobile.BSP.CHG 2015-08-21 add for adapter fw update by uart
+int vooc_uart_mt_set_gpio_out_base(unsigned long pin, unsigned long output);
+#endif
 int mt_get_gpio_out_base(unsigned long pin);
 int mt_get_gpio_in_base(unsigned long pin);
 int mt_set_gpio_mode_base(unsigned long pin, unsigned long mode);

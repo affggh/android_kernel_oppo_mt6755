@@ -41,6 +41,11 @@
 #include <linux/swapops.h>
 #include <linux/page_cgroup.h>
 
+#define DYNAMIC_SWAP_SELECTION
+#if defined(DYNAMIC_SWAP_SELECTION) && defined(CONFIG_COMPACTION)
+/*#include <linux/compaction.h>*/
+#endif
+
 static bool swap_count_continued(struct swap_info_struct *, pgoff_t,
 				 unsigned char);
 static void free_swap_count_continuations(struct swap_info_struct *);
@@ -507,23 +512,94 @@ swp_entry_t get_swap_page_of_type(int type)
 EXPORT_SYMBOL_GPL(get_swap_page_of_type);
 
 #ifdef CONFIG_MEMCG_ZNDSWAP
+#ifdef DYNAMIC_SWAP_SELECTION
+
+int dt_swapcache;
+int dt_writeback;
+int dt_filecache;
+
+/*
+ * The principle of this function is to mitigate memory pressure(might be caused by in-RAM swap).
+ * Return -
+ * 	TRUE, high first
+ * 	FALSE, low first
+ */
+static bool no_dynamic_swap_selection(struct page *page, bool is_root)
+{
+	int file_cache_threshold, swap_cache_size, wb, free_threshold;
+#ifdef CONFIG_COMPACTION
+	/*int fragindex;*/
+#endif
+
+	/* Get the size of swapcache for judgement */
+	swap_cache_size = total_swapcache_pages();
+
+	/* Successive flow only decide whether it should be low first(FALSE), so we could check is_root only for quick determination */
+	if (!is_root) {
+		/* Is swapcache/wb too high? It implies some congestion may happen in storage */
+		wb = global_page_state(NR_WRITEBACK);
+		if (swap_cache_size > dt_swapcache && wb > dt_writeback)
+			return true;
+		else
+			return false;
+	}
+
+	/* Is the size of cache memory < 1/8 kernel manageable memory - minimum working set */
+	file_cache_threshold = (global_page_state(NR_FILE_PAGES) - global_page_state(NR_SHMEM) - swap_cache_size) << 3;
+	if (file_cache_threshold < dt_filecache)
+		return false;
+
+	free_threshold = global_page_state(NR_FREE_PAGES);
+	/* Is there too few free memory */
+	if (free_threshold <= low_wmark_pages(page_zone(page)))
+		return false;
+
+#ifdef CONFIG_COMPACTION
+	/* P: Is there fragmentation for order-2 page allocation - successful process fork
+	fragindex = fragmentation_index(page_zone(page), 2);
+	if (fragindex > 500)
+		return false;
+	*/
+#endif
+
+	/* Is it a RT task
+	if (rt_task(current))
+		return false;
+	*/
+
+	/* Default: No dynamic swap selection */
+	return true;
+}
+#endif
+
 swp_entry_t get_swap_page_by_memcg(struct page *page)
 {
 	struct swap_info_struct *si;
 	int type, next, wrapped;
 	pgoff_t offset;
+	bool is_memcg_root;
 
 	/* Go to original get_swap_page if we have only 1 or no swap area. */
 	if (nr_swapfiles <= 1)
 		return get_swap_page();
+
+	/* Is root memcg */
+	is_memcg_root = memcg_is_root(page);
+
+#ifdef DYNAMIC_SWAP_SELECTION
+	/* Determine the selection policy dynamically */
+	is_memcg_root = no_dynamic_swap_selection(page, is_memcg_root);
+#endif
 
 	spin_lock(&swap_lock);
 	if (atomic_long_read(&nr_swap_pages) <= 0)
 		goto noswap;
 	atomic_long_dec(&nr_swap_pages);
 
+	/* Suppose no change on memcg until now */
+
 	/* In which memcg */
-	if (memcg_is_root(page)) {
+	if (is_memcg_root) {
 		/* High to low priority */
 		wrapped = 1;
 		type = swap_list.head;
@@ -533,7 +609,7 @@ swp_entry_t get_swap_page_by_memcg(struct page *page)
 		si = swap_info[swap_list.head];
 		type = si->next;
 	}
-	
+
 	/* Scan for an empty swap entry */
 	for (; (type >= 0) || (wrapped == 0); type = next) {
 		if (type < 0) {
@@ -541,7 +617,7 @@ swp_entry_t get_swap_page_by_memcg(struct page *page)
 			next = swap_list.head;
 			continue;
 		}
-		
+
 		si = swap_info[type];
 		next = si->next;
 		spin_lock(&si->lock);
@@ -1693,10 +1769,11 @@ SYSCALL_DEFINE1(swapoff, const char __user *, specialfile)
 		return -EPERM;
 
 #ifdef CONFIG_TOI
-    // FIXME: Turn it off due to current->mm may be NULL in kernel space
-    //        by calling sys_swapoff(swapfilename) in disable_swapfile() @ tuxonice_swap.c
-    pr_warn("[HIB/SWAP] [%s] file(%s) current(%p/%d/%s) current->mm(%p)\n", __func__, specialfile, current, current->pid, current->comm, current->mm);
-    WARN_ON(!current->mm);
+	/* FIXME: Turn it off due to current->mm may be NULL in kernel space
+	   by calling sys_swapoff(swapfilename) in disable_swapfile() @ tuxonice_swap.c
+	*/
+	pr_debug("[HIB/SWAP] [%s] current(%p/%d/%s) current->mm(%p)\n", __func__, current, current->pid, current->comm, current->mm);
+	WARN_ON(!current->mm);
 #else
 	BUG_ON(!current->mm);
 #endif

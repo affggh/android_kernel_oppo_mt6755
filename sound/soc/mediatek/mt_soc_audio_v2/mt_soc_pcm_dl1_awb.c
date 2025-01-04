@@ -162,12 +162,12 @@ static snd_pcm_uframes_t mtk_dl1_awb_pcm_pointer(struct snd_pcm_substream *subst
         HW_Cur_ReadIdx = Align64ByteSize(Afe_Get_Reg(AFE_AWB_CUR));
         if (HW_Cur_ReadIdx == 0)
         {
-            printk("[Auddrv] mtk_awb_pcm_pointer  HW_Cur_ReadIdx ==0 \n");
+            printk("[Auddrv] mtk_dl1_awb_pcm_pointer  HW_Cur_ReadIdx ==0 \n");
             HW_Cur_ReadIdx = Awb_Block->pucPhysBufAddr;
         }
         HW_memory_index = (HW_Cur_ReadIdx - Awb_Block->pucPhysBufAddr);
         Previous_Hw_cur = HW_memory_index;
-        PRINTK_AUD_AWB("[Auddrv] mtk_awb_pcm_pointer =0x%x HW_memory_index = 0x%x\n", HW_Cur_ReadIdx, HW_memory_index);
+        PRINTK_AUD_AWB("[Auddrv] mtk_dl1_awb_pcm_pointer =0x%x HW_memory_index = 0x%x\n", HW_Cur_ReadIdx, HW_memory_index);
         return audio_bytes_to_frame(substream, Previous_Hw_cur);
     }
     return 0;
@@ -302,6 +302,7 @@ static int mtk_dl1_awb_pcm_open(struct snd_pcm_substream *substream)
 static int mtk_dl1_awb_pcm_close(struct snd_pcm_substream *substream)
 {
     AudDrv_Emi_Clk_Off();
+    AudDrv_Clk_Off();
     return 0;
 }
 
@@ -378,7 +379,7 @@ static int mtk_dl1_awb_pcm_copy(struct snd_pcm_substream *substream,
     spin_lock_irqsave(&auddrv_Dl1AWBInCtl_lock, flags);
     if (Awb_Block->u4DataRemained >  Awb_Block->u4BufferSize)
     {
-        printk("AudDrv_MEMIF_Read u4DataRemained=%x > u4BufferSize=%x" , Awb_Block->u4DataRemained, Awb_Block->u4BufferSize);
+        printk("mtk_dl1_awb_pcm_copy u4DataRemained=%x > u4BufferSize=%x" , Awb_Block->u4DataRemained, Awb_Block->u4BufferSize);
         Awb_Block->u4DataRemained = 0;
         Awb_Block->u4DMAReadIdx   = Awb_Block->u4WriteIdx;
     }
@@ -392,30 +393,30 @@ static int mtk_dl1_awb_pcm_copy(struct snd_pcm_substream *substream,
     }
 
     DMA_Read_Ptr = Awb_Block->u4DMAReadIdx + Get_Mem_CopySizeByStream(Soc_Aud_Digital_Block_MEM_AWB,substream);
-    PRINTK_AUD_AWB("Awb_Block->u4DMAReadIdx= 0x%x Get_Mem_CopySizeByStream = 0x%x \r\n",
+    PRINTK_AUD_AWB("mtk_dl1_awb_pcm_copy, Awb_Block->u4DMAReadIdx= 0x%x Get_Mem_CopySizeByStream = 0x%x \r\n",
                     Awb_Block->u4DMAReadIdx ,Get_Mem_CopySizeByStream(Soc_Aud_Digital_Block_MEM_AWB,substream));
     if(DMA_Read_Ptr >=  Awb_Block->u4BufferSize )
     {
-         printk("AudDrv_MEMIF_Read 1, DMA_Read_Ptr out of bound. \n");
+         printk("mtk_dl1_awb_pcm_copy 1, DMA_Read_Ptr out of bound. \n");
          DMA_Read_Ptr %=Awb_Block->u4BufferSize;
     }
 
     spin_unlock_irqrestore(&auddrv_Dl1AWBInCtl_lock, flags);
-    PRINTK_AUD_AWB("Awb_Block = %p AudDrv_MEMIF_Read finish0, count:0x%lx, read_size:0x%lx, u4DataRemained:0x%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x \r\n",
+    PRINTK_AUD_AWB("mtk_dl1_awb_pcm_copy, Awb_Block = %p AudDrv_MEMIF_Read finish0, count:0x%lx, read_size:0x%lx, u4DataRemained:0x%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x \r\n",
                    Awb_Block,count, read_size, Awb_Block->u4DataRemained, Awb_Block->u4DMAReadIdx, Awb_Block->u4WriteIdx);
 
     if (DMA_Read_Ptr + read_size <= Awb_Block->u4BufferSize)
     {
         if (DMA_Read_Ptr != Awb_Block->u4DMAReadIdx)
         {
-            printk("AudDrv_MEMIF_Read 1, read_size:%zu, DataRemained:0x%x, DMA_Read_Ptr:%zu, DMAReadIdx:0x%x \r\n",
+            printk("mtk_dl1_awb_pcm_copy 1, read_size:%zu, DataRemained:0x%x, DMA_Read_Ptr:%zu, DMAReadIdx:0x%x \r\n",
                    read_size, Awb_Block->u4DataRemained, DMA_Read_Ptr, Awb_Block->u4DMAReadIdx);
         }
 
         if (copy_to_user((void __user *)Read_Data_Ptr, (Awb_Block->pucVirtBufAddr + DMA_Read_Ptr), read_size))
         {
 
-            printk("AudDrv_MEMIF_Read Fail 1 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x, DMA_Read_Ptr:%zu,read_size:%zu", Read_Data_Ptr, Awb_Block->pucVirtBufAddr, Awb_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
+            printk("mtk_dl1_awb_pcm_copy Fail 1 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x, DMA_Read_Ptr:%zu,read_size:%zu", Read_Data_Ptr, Awb_Block->pucVirtBufAddr, Awb_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
             return 0;
         }
 
@@ -426,7 +427,7 @@ static int mtk_dl1_awb_pcm_copy(struct snd_pcm_substream *substream,
         Read_Data_Ptr += read_size;
         count -= read_size;
 
-        PRINTK_AUD_AWB("AudDrv_MEMIF_Read finish1, copy size:0x%lx, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, u4DataRemained:0x%x u4MaxCopySize:0x%x \n",
+        PRINTK_AUD_AWB("mtk_dl1_awb_pcm_copy finish1, copy size:0x%lx, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, u4DataRemained:0x%x u4MaxCopySize:0x%x \n",
                        read_size, Awb_Block->u4DMAReadIdx, Awb_Block->u4WriteIdx, Awb_Block->u4DataRemained,Get_Mem_CopySizeByStream(Soc_Aud_Digital_Block_MEM_AWB,substream));
     }
     else
@@ -437,13 +438,13 @@ static int mtk_dl1_awb_pcm_copy(struct snd_pcm_substream *substream,
 
         if (DMA_Read_Ptr != Awb_Block->u4DMAReadIdx)
         {
-            printk("AudDrv_MEMIF_Read 2, read_size1:0x%x, DataRemained:0x%x, DMA_Read_Ptr:%zu, DMAReadIdx:0x%x \r\n",
+            printk("mtk_dl1_awb_pcm_copy 2, read_size1:0x%x, DataRemained:0x%x, DMA_Read_Ptr:%zu, DMAReadIdx:0x%x \r\n",
                    size_1, Awb_Block->u4DataRemained, DMA_Read_Ptr, Awb_Block->u4DMAReadIdx);
         }
         if (copy_to_user((void __user *)Read_Data_Ptr, (Awb_Block->pucVirtBufAddr + DMA_Read_Ptr), size_1))
         {
 
-            printk("AudDrv_MEMIF_Read Fail 2 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x, DMA_Read_Ptr:%zu,read_size:%zu",
+            printk("mtk_dl1_awb_pcm_copy Fail 2 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x, DMA_Read_Ptr:%zu,read_size:%zu",
                    Read_Data_Ptr, Awb_Block->pucVirtBufAddr, Awb_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
             return 0;
         }
@@ -454,23 +455,23 @@ static int mtk_dl1_awb_pcm_copy(struct snd_pcm_substream *substream,
         Set_Mem_CopySizeByStream(Soc_Aud_Digital_Block_MEM_AWB,substream,size_1);
         if(DMA_Read_Ptr >= Awb_Block->u4BufferSize )
         {
-            printk("AudDrv_MEMIF_Read 2, DMA_Read_Ptr out of bound. \n");
+            printk("mtk_dl1_awb_pcm_copy 2, DMA_Read_Ptr out of bound. \n");
             DMA_Read_Ptr %= Awb_Block->u4BufferSize;
         }
         spin_unlock(&auddrv_Dl1AWBInCtl_lock);
 
-        PRINTK_AUD_AWB("AudDrv_MEMIF_Read finish2, copy size_1:0x%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, u4DataRemained:0x%x \r\n",
+        PRINTK_AUD_AWB("mtk_dl1_awb_pcm_copy finish2, copy size_1:0x%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, u4DataRemained:0x%x \r\n",
                        size_1, Awb_Block->u4DMAReadIdx, Awb_Block->u4WriteIdx, Awb_Block->u4DataRemained);
 
         if (DMA_Read_Ptr != Awb_Block->u4DMAReadIdx)
         {
 
-            PRINTK_AUD_AWB("AudDrv_AWB_Read 3, read_size2:%x, DataRemained:%x, DMA_Read_Ptr:0x%lx, DMAReadIdx:%x \r\n",
+            PRINTK_AUD_AWB("mtk_dl1_awb_pcm_copy 3, read_size2:%x, DataRemained:%x, DMA_Read_Ptr:0x%lx, DMAReadIdx:%x \r\n",
                    size_2, Awb_Block->u4DataRemained, DMA_Read_Ptr, Awb_Block->u4DMAReadIdx);
         }
         if (copy_to_user((void __user *)(Read_Data_Ptr + size_1), (Awb_Block->pucVirtBufAddr + DMA_Read_Ptr), size_2))
         {
-            printk("AudDrv_MEMIF_Read Fail 3 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x , DMA_Read_Ptr:%zu, read_size:%zu", Read_Data_Ptr, Awb_Block->pucVirtBufAddr, Awb_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
+            printk("mtk_dl1_awb_pcm_copy Fail 3 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x , DMA_Read_Ptr:%zu, read_size:%zu", Read_Data_Ptr, Awb_Block->pucVirtBufAddr, Awb_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
             return read_count << 2;
         }
 
@@ -483,7 +484,7 @@ static int mtk_dl1_awb_pcm_copy(struct snd_pcm_substream *substream,
         count -= read_size;
         Read_Data_Ptr += read_size;
 
-        PRINTK_AUD_AWB("AudDrv_MEMIF_Read finish3, copy size_2:0x%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x u4DataRemained:0x%x \r\n",
+        PRINTK_AUD_AWB("mtk_dl1_awb_pcm_copy finish3, copy size_2:0x%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x u4DataRemained:0x%x \r\n",
                        size_2, Awb_Block->u4DMAReadIdx, Awb_Block->u4WriteIdx, Awb_Block->u4DataRemained);
     }
 

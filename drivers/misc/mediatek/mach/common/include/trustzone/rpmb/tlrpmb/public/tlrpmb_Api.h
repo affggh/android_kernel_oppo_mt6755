@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2013 TRUSTONIC LIMITED
  * All rights reserved
- * 
+ *
  * The present software is the confidential and proprietary information of
  * TRUSTONIC LIMITED. You shall not disclose the present software and shall
  * use it only in accordance with the terms of the license agreement you
@@ -34,48 +34,39 @@
  * @param data Data to processed (cleartext or ciphertext).
  */
 typedef struct {
-    tciCommandHeader_t  header;     /**< Command header */
-    uint32_t            len;        /**< Length of data to process or buffer */
-    uint32_t            respLen;    /**< Length of response buffer */
+	tciCommandHeader_t  header;     /**< Command header */
+	uint32_t            len;        /**< Length of data to process or buffer */
+	uint32_t            respLen;    /**< Length of response buffer */
 } cmd_t;
 
 /*
  * Response structure Trustlet -> Trustlet Connector.
  */
 typedef struct {
-    tciResponseHeader_t header;     /**< Response header */
-    uint32_t            len;
+	tciResponseHeader_t header;     /**< Response header */
+	uint32_t            len;
 } rsp_t;
 
 /*
  * TCI message data.
  */
+//#ifdef VENDOR_EDIT //Haitao.Zhou@Prd.BaseDrv for RPMB patch  
+#define RPMB_TCI_BUF_SIZE 4096 
 typedef struct {
-    union {
-      cmd_t     cmdrpmb;
-      rsp_t     rsprpmb;
-    };
-    uint32_t    Num1;
-    uint32_t    Num2;
-    uint32_t    Buf[512];
-    uint32_t    BufSize; //byte unit.
-    uint32_t    ResultData;
-
-    //uint8_t mac_key[32];
-    //uint8_t tmpBuf[284];
-    //uint8_t hmac[32];
-    
-    //uint8_t *key;
-    //uint8_t *data;
-    //size_t data_len;
-    //uint8_t *hmac;
-    //size_t hmac_len;
-    
+	union {
+	  cmd_t     cmdrpmb;
+	  rsp_t     rsprpmb;
+	};
+	uint32_t    uid;
+	uint32_t    rpmbOffset;
+	uint8_t     buf[RPMB_TCI_BUF_SIZE];
+	uint32_t    size; //byte unit.
+	uint32_t    resultData;
 } tciMessage_t;
-
+//#endif
 /*
  * Trustlet UUID.
  */
 #define TL_RPMB_UUID { { 6, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } }
 
-#endif // TLRPMB_H_
+#endif

@@ -206,10 +206,10 @@ static int get_set_conduit_method(struct device_node *np)
 {
 	const char *method;
 
-	pr_info("probing for conduit method from DT.\n");
+	pr_debug("probing for conduit method from DT.\n");
 
 	if (of_property_read_string(np, "method", &method)) {
-		pr_warn("missing \"method\" property\n");
+		pr_debug("missing \"method\" property\n");
 		return -ENXIO;
 	}
 
@@ -218,7 +218,7 @@ static int get_set_conduit_method(struct device_node *np)
 	} else if (!strcmp("smc", method)) {
 		invoke_psci_fn = __invoke_psci_fn_smc;
 	} else {
-		pr_warn("invalid \"method\" property: %s\n", method);
+		pr_debug("invalid \"method\" property: %s\n", method);
 		return -EINVAL;
 	}
 	return 0;
@@ -251,23 +251,23 @@ static int psci_0_2_init(struct device_node *np)
 
 	if (ver == PSCI_RET_NOT_SUPPORTED) {
 		/* PSCI v0.2 mandates implementation of PSCI_ID_VERSION. */
-		pr_err("PSCI firmware does not comply with the v0.2 spec.\n");
+		pr_debug("PSCI firmware does not comply with the v0.2 spec.\n");
 		err = -EOPNOTSUPP;
 		goto out_put_node;
 	} else {
-		pr_info("PSCIv%d.%d detected in firmware.\n",
+		pr_debug("PSCIv%d.%d detected in firmware.\n",
 				PSCI_VERSION_MAJOR(ver),
 				PSCI_VERSION_MINOR(ver));
 
 		if (PSCI_VERSION_MAJOR(ver) == 0 &&
 				PSCI_VERSION_MINOR(ver) < 2) {
 			err = -EINVAL;
-			pr_err("Conflicting PSCI version detected.\n");
+			pr_debug("Conflicting PSCI version detected.\n");
 			goto out_put_node;
 		}
 	}
 
-	pr_info("Using standard PSCI v0.2 function IDs\n");
+	pr_debug("Using standard PSCI v0.2 function IDs\n");
 	psci_function_id[PSCI_FN_CPU_SUSPEND] = PSCI_0_2_FN64_CPU_SUSPEND;
 	psci_ops.cpu_suspend = psci_cpu_suspend;
 
@@ -287,7 +287,7 @@ static int psci_0_2_init(struct device_node *np)
 		PSCI_0_2_FN_MIGRATE_INFO_TYPE;
 	psci_ops.migrate_info_type = psci_migrate_info_type;
 
-	arm_pm_restart = psci_sys_reset;
+	arm_pm_restart = (void (*)(char , const char *))psci_sys_reset;
 
 	pm_power_off = psci_sys_poweroff;
 
@@ -309,7 +309,7 @@ static int psci_0_1_init(struct device_node *np)
 	if (err)
 		goto out_put_node;
 
-	pr_info("Using PSCI v0.1 Function IDs from DT\n");
+	pr_debug("Using PSCI v0.1 Function IDs from DT\n");
 
 	if (!of_property_read_u32(np, "cpu_suspend", &id)) {
 		psci_function_id[PSCI_FN_CPU_SUSPEND] = id;
@@ -367,7 +367,7 @@ static int __init cpu_psci_cpu_init(struct device_node *dn, unsigned int cpu)
 static int __init cpu_psci_cpu_prepare(unsigned int cpu)
 {
 	if (!psci_ops.cpu_on) {
-		pr_err("no cpu_on method, not booting CPU%d\n", cpu);
+		pr_debug("no cpu_on method, not booting CPU%d\n", cpu);
 		return -ENODEV;
 	}
 
@@ -378,7 +378,7 @@ static int cpu_psci_cpu_boot(unsigned int cpu)
 {
 	int err = psci_ops.cpu_on(cpu_logical_map(cpu), __pa(secondary_entry));
 	if (err)
-		pr_err("failed to boot CPU%d (%d)\n", cpu, err);
+		pr_debug("failed to boot CPU%d (%d)\n", cpu, err);
 
 	return err;
 }
@@ -405,7 +405,7 @@ static void cpu_psci_cpu_die(unsigned int cpu)
 
 	ret = psci_ops.cpu_off(state);
 
-	pr_crit("unable to power off CPU%u (%d)\n", cpu, ret);
+	pr_debug("unable to power off CPU%u (%d)\n", cpu, ret);
 }
 
 static int cpu_psci_cpu_kill(unsigned int cpu)
@@ -423,15 +423,15 @@ static int cpu_psci_cpu_kill(unsigned int cpu)
 	for (i = 0; i < 10; i++) {
 		err = psci_ops.affinity_info(cpu_logical_map(cpu), 0);
 		if (err == PSCI_0_2_AFFINITY_LEVEL_OFF) {
-			pr_info("CPU%d killed.\n", cpu);
+			pr_debug("CPU%d killed.\n", cpu);
 			return 1;
 		}
 
 		msleep(10);
-		pr_info("Retrying again to check for CPU kill\n");
+		pr_debug("Retrying again to check for CPU kill\n");
 	}
 
-	pr_warn("CPU%d may not have shut down cleanly (AFFINITY_INFO reports %d)\n",
+	pr_debug("CPU%d may not have shut down cleanly (AFFINITY_INFO reports %d)\n",
 			cpu, err);
 	/* Make op_cpu_kill() fail. */
 	return 0;

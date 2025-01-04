@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2013 TRUSTONIC LIMITED
  * All rights reserved
- * 
+ *
  * The present software is the confidential and proprietary information of
  * TRUSTONIC LIMITED. You shall not disclose the present software and shall
  * use it only in accordance with the terms of the license agreement you
@@ -38,51 +38,46 @@
  * @param data Data to be processed
  */
 typedef struct {
-    dciCommandHeader_t  header;     /**< Command header */
-    uint32_t            len;        /**< Length of data to process */
+	dciCommandHeader_t  header;     /**< Command header */
+	uint32_t            len;        /**< Length of data to process */
 } cmd_t;
 
 /**
  * Response structure
  */
 typedef struct {
-    dciResponseHeader_t header;     /**< Response header */
-    uint32_t            len;
+	dciResponseHeader_t header;     /**< Response header */
+	uint32_t            len;
 } rsp_t;
 
 
 /*
  * Alternative access flow to improve performance. (this is customization)
  */ 
-#define RPMB_MULTI_BLOCK_ACCESS 1
-
-#if RPMB_MULTI_BLOCK_ACCESS
+//#ifdef VENDOR_EDIT //Haitao.Zhou@Prd.BaseDrv for RPMB patch  
 #define MAX_RPMB_TRANSFER_BLK 16
-#define MAX_RPMB_REQUEST_SIZE 512*MAX_RPMB_TRANSFER_BLK //8KB(16blks) per requests.
-#else
-#define MAX_RPMB_TRANSFER_BLK 1
-#define MAX_RPMB_REQUEST_SIZE 512*MAX_RPMB_TRANSFER_BLK //512B(1blks) per requests.
-#endif
+#define MAX_RPMB_REQUEST_SIZE 512*MAX_RPMB_TRANSFER_BLK //8KB(16blks) per requests, can transfer 4KB user data.
+//#endif
 
 typedef struct {
-    uint8_t frame[MAX_RPMB_REQUEST_SIZE];
-    uint32_t frameLen;
-    uint16_t type;
-    uint16_t addr;
-    uint16_t blks;
-    uint16_t result;
+	uint8_t frame[MAX_RPMB_REQUEST_SIZE];
+	uint32_t frameLen;
+	uint16_t type;
+	uint16_t addr;
+	uint16_t blks;
+	uint16_t result;
 } rpmb_req_t;
 
 /*
  * DCI message data.
  */
 typedef struct {
-    union {
-        cmd_t     command;
-        rsp_t     response;
-    };
+	union {
+		cmd_t     command;
+		rsp_t     response;
+	};
 
-    rpmb_req_t    request;
+	rpmb_req_t    request;
 
 } dciMessage_t;
 
@@ -91,4 +86,4 @@ typedef struct {
  */
 #define DRV_DBG_UUID { { 7, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } }
 
-#endif // __DRRPMBAPI_H__
+#endif

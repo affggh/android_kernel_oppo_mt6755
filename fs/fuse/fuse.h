@@ -5,20 +5,14 @@ extern void fuse_request_send_background_ex(struct fuse_conn *fc,
 extern void fuse_request_send_ex(struct fuse_conn *fc, struct fuse_req *req,
     __u32 size);
 
-#ifndef USER_BUILD_KERNEL  /* IO log is only enabled in eng load */
+//#ifndef VENDOR_EDIT
+//Modified by Tong.han@Bsp.Group.Boot Added for debug mmcqd take cpu resources,2016-4-22
+//#if defined(CONFIG_MT_ENG_BUILD)  /* IO log is only enabled in eng load */
+//#define FUSEIO_TRACE
+//#endif
+//#else
 #define FUSEIO_TRACE
-#endif
-
-#ifdef MET_FUSEIO_TRACE
-#define MET_FUSE_IOLOG_INIT()   struct timespec met_fuse_start_time, met_fuse_end_time
-#define MET_FUSE_IOLOG_START()  get_monotonic_boottime(&met_fuse_start_time)
-#define MET_FUSE_IOLOG_END()    get_monotonic_boottime(&met_fuse_end_time)
-#else
-#define MET_FUSE_IOLOG_INIT(...)
-#define MET_FUSE_IOLOG_START(...)
-#define MET_FUSE_IOLOG_END(...)
-#endif
-
+//#endif /*VENDOR_EDIT*/
 
 #ifdef FUSEIO_TRACE
 #include <linux/sched.h>

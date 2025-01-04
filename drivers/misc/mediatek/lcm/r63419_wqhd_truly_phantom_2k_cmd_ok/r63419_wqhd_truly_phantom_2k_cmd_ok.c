@@ -124,7 +124,6 @@ static struct i2c_driver tps65132_iic_driver = {
     .id_table	= tps65132_id,
     .probe		= tps65132_probe,
     .remove		= tps65132_remove,
-    //.detect		= mt6605_detect,
     .driver		= {
     .owner	= THIS_MODULE,
     .name	= "tps65132",
@@ -409,7 +408,7 @@ static void lcm_get_params(LCM_PARAMS *params)
     // Highly depends on LCD driver capability.
     params->dsi.packet_size=256;
 	params->dsi.ssc_disable=0;
-	params->dsi.ssc_range = 1;
+	params->dsi.ssc_range = 3;
     //video mode timing
 
     params->dsi.PS=LCM_PACKED_PS_24BIT_RGB888;
@@ -418,18 +417,15 @@ static void lcm_get_params(LCM_PARAMS *params)
     params->dsi.vertical_backporch					= 4;
     params->dsi.vertical_frontporch					= 8;
     params->dsi.vertical_active_line				= FRAME_HEIGHT;
-	
-	//params->dsi.vertical_frontporch_for_low_power	= 300;
-	
-	params->dsi.horizontal_sync_active				= 10;//;
-	params->dsi.horizontal_backporch				= 30;//hsa+hbp 60~80;
-	params->dsi.horizontal_frontporch				= 60;//>150
 
+    params->dsi.horizontal_sync_active				= 8;//;
+    params->dsi.horizontal_backporch				= 60;//hsa+hbp 60~80;
+    params->dsi.horizontal_frontporch				= 150;//>150
     params->dsi.horizontal_active_pixel				= FRAME_WIDTH;
 #if (LCM_DSI_CMD_MODE)	
-    params->dsi.PLL_CLOCK = 423; //this value must be in MTK suggested table
+    params->dsi.PLL_CLOCK = 450; //this value must be in MTK suggested table
 #else
-    params->dsi.PLL_CLOCK = 423; 
+    params->dsi.PLL_CLOCK = 480; 
 #endif        
     params->dsi.ufoe_enable  = 1;
     params->dsi.ufoe_params.lr_mode_en = 1;
@@ -542,7 +538,7 @@ static void lcm_init(void)
 	mt_set_gpio_mode(GPIO_65132_EN, GPIO_MODE_00);
 	mt_set_gpio_dir(GPIO_65132_EN, GPIO_DIR_OUT);
 	mt_set_gpio_out(GPIO_65132_EN, GPIO_OUT_ONE);
-
+	MDELAY(5);
 #ifdef BUILD_LK
 	ret=TPS65132_write_byte(cmd,data);
 	if(ret) 	

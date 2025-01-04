@@ -131,9 +131,6 @@
 ********************************************************************************
 */
 #include "gl_typedef.h"
-#if CFG_SUPPORT_XLOG
-#include "linux/xlog.h"
-#endif
 
 extern UINT_8 aucDebugModule[];
 extern UINT_32 u4DebugModule;
@@ -394,15 +391,7 @@ extern PINT_8 g_buf_p;
 #define DBGLOG(_Module, _Class, _Fmt)
 #endif
 
-#if CFG_SUPPORT_XLOG
-#define DBGLOG_MEM8(_Module, _Class, _StartAddr, _Length) \
-    { \
-	_Module##_##_Class##_LOGFUNC(__func__);\
-	_Module##_##_Class##_LOGDUMP8(_StartAddr, _Length); \
-    }
-#else
 #define DBGLOG_MEM8(_Module, _Class, _StartAddr, _Length)
-#endif
 #define DBGLOG_MEM32(_Module, _Class, _StartAddr, _Length)
 
 #undef ASSERT
@@ -469,21 +458,6 @@ extern PINT_8 g_buf_p;
 		}
 #endif				/* WINDOWS_CE */
 #endif				/* LINUX */
-#elif CFG_SUPPORT_XLOG
-#define ASSERT(_exp) \
-	{ \
-	    if (!(_exp) && !fgIsBusAccessFailed) { \
-		XLOG_FUNC(ANDROID_LOG_DEBUG, "Warning at %s:%d (%s)\n", __func__, __LINE__, #_exp); \
-	    } \
-	}
-
-#define ASSERT_REPORT(_exp, _fmt) \
-	{ \
-	    if (!(_exp) && !fgIsBusAccessFailed) { \
-		XLOG_FUNC(ANDROID_LOG_DEBUG, "Warning at %s:%d (%s)\n", __func__, __LINE__, #_exp); \
-		XLOG_FUNC(ANDROID_LOG_DEBUG, _fmt); \
-	    } \
-	}
 #else
 #define ASSERT(_exp) \
 	{ \
@@ -526,13 +500,17 @@ extern PINT_8 g_buf_p;
 *                  F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************
 */
-#if DBG
-VOID dumpMemory8(IN PUINT_8 pucStartAddr, IN UINT_32 u4Length);
+VOID
+dumpMemory8 (
+    IN PUINT_8 pucStartAddr,
+    IN UINT_32 u4Length
+    );
 
-VOID dumpMemory32(IN PUINT_32 pu4StartAddr, IN UINT_32 u4Length);
-#elif CFG_SUPPORT_XLOG
-VOID dumpMemory8(IN UINT_32 log_level, IN PUINT_8 pucStartAddr, IN UINT_32 u4Length);
-#endif				/* DBG */
+VOID
+dumpMemory32 (
+    IN PUINT_32 pu4StartAddr,
+    IN UINT_32  u4Length
+    );
 
 /*******************************************************************************
 *                              F U N C T I O N S

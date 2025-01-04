@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2007 The Android Open Source Project
- * Copyright (C) 2018 XiaoMi, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1218,7 +1217,7 @@ static void TurnOnDacPower(void)
     ClsqEnable(true);
     Topck_Enable(true);
     udelay(250);
-    NvregEnable(true); //K2 moved to 0x0CEE
+    NvregEnable(true); //6752 moved to 0x0CEE
     if (GetAdcStatus() == false)
     {
         Ana_Set_Reg(AFE_AUDIO_TOP_CON0, 0x003a, 0xffff);   //power on clock
@@ -1237,7 +1236,7 @@ static void TurnOnDacPower(void)
     Ana_Set_Reg(AFE_UL_DL_CON0 , 0x0001, 0xffff); //[0] afe enable
 
     Ana_Set_Reg(AFE_PMIC_NEWIF_CFG0 , GetDLNewIFFrequency(mBlockSampleRate[AUDIO_ANALOG_DEVICE_OUT_DAC]) << 12 | 0x330 , 0xffff);
-    Ana_Set_Reg(AFE_DL_SRC2_CON0_H , GetDLNewIFFrequency(mBlockSampleRate[AUDIO_ANALOG_DEVICE_OUT_DAC]) << 12 | 0x300 , 0xffff); //K2
+    Ana_Set_Reg(AFE_DL_SRC2_CON0_H , GetDLNewIFFrequency(mBlockSampleRate[AUDIO_ANALOG_DEVICE_OUT_DAC]) << 12 | 0x300 , 0xffff); //6752
 
     Ana_Set_Reg(AFE_DL_SRC2_CON0_L , 0x0001 , 0xffff); //turn on dl
     Ana_Set_Reg(PMIC_AFE_TOP_CON0 , 0x0000 , 0xffff); //set DL in normal path, not from sine gen table
@@ -1376,7 +1375,7 @@ static void Audio_Amp_Change(int channels , bool enable)
             udelay(100);
             Ana_Set_Reg(AUDDEC_ANA_CON0, 0xF49F, 0xffff); //Switch HP MUX to audio DAC
             // here may cause pop
-            //msleep(1); //K2 removed
+            //msleep(1); //6752 removed
             Ana_Set_Reg(AUDDEC_ANA_CON0, 0xF4FF, 0xffff); //Enable HPR/HPL
             udelay(50);
             Ana_Set_Reg(AUDDEC_ANA_CON1, 0x1480, 0xffff); //Disable pre-charge buffer
@@ -1616,7 +1615,6 @@ static void Speaker_Amp_Change(bool enable)
         }
 #endif
         Apply_Speaker_Gain();
- 	msleep(100); //dengbing add 增加这一句延时 
     }
     else
     {
@@ -1907,7 +1905,7 @@ static void Headset_Speaker_Amp_Change(bool enable)
         udelay(100);
         Ana_Set_Reg(AUDDEC_ANA_CON0, 0xF29F, 0xffff); //R hp input mux select "Audio playback", L hp input mux select "LoudSPK playback"
         // here may cause pop?
-        //msleep(1); //K2 removed
+        //msleep(1); //6752 removed
         Ana_Set_Reg(AUDDEC_ANA_CON0, 0xF2FF, 0xffff); //Enable HPR/HPL
         udelay(50);
         Ana_Set_Reg(AUDDEC_ANA_CON1, 0x1480, 0xffff); //Disable pre-charge buffer
@@ -2122,7 +2120,7 @@ static const struct snd_kcontrol_new mt6331_snd_Speaker_controls[] =
 
 int Audio_AuxAdcData_Get_ext(void)
 {
-    int dRetValue = PMIC_IMM_GetOneChannelValue(ADC_ICLASSAB_AP, 1, 0);
+    int dRetValue = PMIC_IMM_GetOneChannelValue(AUX_ICLASSAB_AP, 1, 0);
     printk("%s dRetValue 0x%x \n", __func__, dRetValue);
     return dRetValue;
 }
@@ -3893,26 +3891,26 @@ static int Audio_ADC2_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 static int Audio_ADC3_Get(struct snd_kcontrol *kcontrol,
                           struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_ADC3_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_ADC4_Get(struct snd_kcontrol *kcontrol,
                           struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_ADC4_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
@@ -3995,26 +3993,26 @@ static int Audio_ADC2_Sel_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem
 static int Audio_ADC3_Sel_Get(struct snd_kcontrol *kcontrol,
                               struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_ADC3_Sel_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_ADC4_Sel_Get(struct snd_kcontrol *kcontrol,
                               struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_ADC4_Sel_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
@@ -4170,26 +4168,26 @@ static int Audio_PGA2_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_val
 static int Audio_PGA3_Get(struct snd_kcontrol *kcontrol,
                           struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_PGA3_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_PGA4_Get(struct snd_kcontrol *kcontrol,
                           struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_PGA4_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
@@ -4203,7 +4201,7 @@ static int Audio_MicSource1_Get(struct snd_kcontrol *kcontrol,
 
 static int Audio_MicSource1_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 used for ADC1 Mic source selection, "ADC1" is main_mic, "ADC2" is headset_mic
+    //6752 used for ADC1 Mic source selection, "ADC1" is main_mic, "ADC2" is headset_mic
     int index = 0;
     printk("%s()\n", __func__);
     if (ucontrol->value.enumerated.item[0] > ARRAY_SIZE(Pmic_Digital_Mux))
@@ -4221,26 +4219,26 @@ static int Audio_MicSource1_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 static int Audio_MicSource2_Get(struct snd_kcontrol *kcontrol,
                                 struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_MicSource2_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_MicSource3_Get(struct snd_kcontrol *kcontrol,
                                 struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_MicSource3_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
@@ -4248,13 +4246,13 @@ static int Audio_MicSource3_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 static int Audio_MicSource4_Get(struct snd_kcontrol *kcontrol,
                                 struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
 static int Audio_MicSource4_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 removed
+    //6752 removed
     return 0;
 }
 
@@ -4620,14 +4618,14 @@ static int SineTable_DAC_HP_Get(struct snd_kcontrol *kcontrol,
 
 static int SineTable_DAC_HP_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 TODO?
+    //6752 TODO?
     printk("%s()\n", __func__);
     return 0;
 }
 
 static void ADC_LOOP_DAC_Func(int command)
 {
-    //K2 TODO?
+    //6752 TODO?
 }
 
 static bool DAC_LOOP_DAC_HS_flag = false;
@@ -4692,7 +4690,7 @@ static int Voice_Call_DAC_DAC_HS_Get(struct snd_kcontrol *kcontrol,
 
 static int Voice_Call_DAC_DAC_HS_Set(struct snd_kcontrol *kcontrol, struct snd_ctl_elem_value *ucontrol)
 {
-    //K2 TODO
+    //6752 TODO
     printk("%s()\n", __func__);
     return 0;
 }

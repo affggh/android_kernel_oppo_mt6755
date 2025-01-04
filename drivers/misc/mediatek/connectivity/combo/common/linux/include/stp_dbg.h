@@ -123,7 +123,7 @@ typedef struct mtkstp_dbg_t {
 } MTKSTP_DBG_T;
 
 
-#define STP_CORE_DUMP_TIMEOUT 1*60*1000	/* default 5minutes */
+#define STP_CORE_DUMP_TIMEOUT 5*60*1000	/* default 5minutes */
 #define STP_OJB_NAME_SZ 20
 #define STP_CORE_DUMP_INFO_SZ 500
 typedef enum wcn_compress_algorithm_t {
@@ -264,7 +264,7 @@ extern int stp_dbg_deinit(MTKSTP_DBG_T *stp_dbg);
 extern int stp_dbg_dmp_out_ex(PINT8 buf, PINT32 len);
 extern int stp_dbg_dmp_out(MTKSTP_DBG_T *stp_dbg, PINT8 buf, PINT32 len);
 extern int stp_dbg_dmp_print(MTKSTP_DBG_T *stp_dbg);
-extern INT32 stp_dbg_nl_send(PINT8 aucMsg, UINT8 cmd, INT32 len);
+extern char stp_dbg_nl_send(PINT8 aucMsg, UINT8 cmd);
 
 extern INT32 stp_dbg_aee_send(PUINT8 aucMsg, INT32 len, INT32 cmd);
 

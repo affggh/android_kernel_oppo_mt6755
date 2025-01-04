@@ -9,15 +9,13 @@
 
 int __xlog_output(int level, const char *tag, const char *fmt, va_list args)
 {
-	int r;
+	int r = 0;
 	const char *level_str;
-	char printk_string[1024];
-	int plen;
 
 	if (!tag)
 		return -1;
 
-#ifdef CONFIG_HAVE_XLOG_FEATURE
+#ifdef CONFIG_HAVE_XLOG_PRINTK
 	if (!xLog_isOn(tag, level))
 		return -1;
 #endif
@@ -51,13 +49,9 @@ int __xlog_output(int level, const char *tag, const char *fmt, va_list args)
 		break;
 	}
 
-	/* printk("%s[%s] ", level_str, tag); */
+	 printk("%s[%s] ", level_str, tag);
 
-	/* r = vprintk(fmt, args); */
-	plen = snprintf(printk_string, sizeof(printk_string) - 1, "%s[%s] ", level_str, tag);
-	vsnprintf(printk_string + plen, sizeof(printk_string) - plen - 1, fmt, args);
-
-	r = printk("%s", printk_string);
+	r = vprintk(fmt, args);
 
 	if (level == ANDROID_LOG_FATAL) {
 		BUG();

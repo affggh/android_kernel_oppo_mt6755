@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2014-2015 Yamaha Corporation
- * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This software is provided 'as-is', without any express or implied
  * warranty.  In no event will the authors be held liable for any damages
@@ -20,6 +19,12 @@
  */
 
 #include "yas.h"
+#include <linux/kernel.h>
+
+#define MAGN_TAG		"[Msensor] "
+#define MAGN_ERR(fmt, args...)	\
+	printk(KERN_ERR  MAGN_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define MAGN_LOG(fmt, args...)	printk(KERN_INFO MAGN_TAG fmt, ##args)
 
 #if YAS_MAG_DRIVER == YAS_MAG_DRIVER_YAS537
 
@@ -103,8 +108,7 @@ struct yas_cdriver {
 };
 
 static const struct yas_matrix no_conversion
-	//= { {10000, 0, 0, 0, 10000, 0, 0, 0, 10000} };
-	= { {10553, 262, 312, 48, 9604, -507, -177, 167, 9852} };
+	= { {10000, 0, 0, 0, 10000, 0, 0, 0, 10000} };
 static const int measure_time_worst[] = {800, 1100, 1500, 3000, 6000, 12000};
 
 static const int8_t YAS537_TRANSFORMATION[][9] = {
@@ -258,8 +262,16 @@ static int reset_yas537(int rcoil)
 	uint8_t data[17];
 	if (yas_single_write(YAS537_REG_SRSTR, 0x02) < 0)
 		return YAS_ERROR_DEVICE_COMMUNICATION;
+#if 0
 	if (yas_read(YAS537_REG_CALR, data, 17) < 0)
 		return YAS_ERROR_DEVICE_COMMUNICATION;
+#else
+	int j ;
+	for (j = 0; j < 17; j++) {
+	if (yas_read(YAS537_REG_CALR+ j,  &data[j], 1) < 0)
+    	return YAS_ERROR_DEVICE_COMMUNICATION;
+    }
+#endif
 	c->ver = data[16] >> 6;
 	for (i = 0; i < 17; i++) {
 		if (i < 16 && data[i] != 0)
@@ -715,8 +727,10 @@ static int yas_init(void)
 {
 	int i;
 	uint8_t data;
-	if (driver.initialized)
+	if (driver.initialized){
+		MAGN_ERR("driver has initialized\n");
 		return YAS_ERROR_INITIALIZE;
+	}
 	if (yas_open() < 0)
 		return YAS_ERROR_DEVICE_COMMUNICATION;
 	if (yas_read(YAS537_REG_DIDR, &data, 1) < 0) {
@@ -724,6 +738,8 @@ static int yas_init(void)
 		return YAS_ERROR_DEVICE_COMMUNICATION;
 	}
 	driver.dev_id = data;
+    MAGN_ERR("driver.dev_id: 0x%x\n",driver.dev_id);
+        
 	if (driver.dev_id != YAS537_DEVICE_ID) {
 		driver.cbk.device_close(YAS_TYPE_MAG);
 		return YAS_ERROR_CHIP_ID;
@@ -786,7 +802,15 @@ int yas_mag_driver_init(struct yas_mag_driver *f)
 	f->set_position = yas_set_position;
 	f->measure = yas_measure_wrap;
 	f->ext = yas_ext;
-	driver.cbk = f->callback;
+	//driver.cbk = f->callback;
+
+	driver.cbk.device_open = f->callback.device_open;
+	driver.cbk.device_close = f->callback.device_close;
+	driver.cbk.device_write = f->callback.device_write;
+	driver.cbk.device_read = f->callback.device_read;
+	driver.cbk.usleep = f->callback.usleep;
+	driver.cbk.current_time = f->callback.current_time;
+
 	yas_term();
 	return YAS_NO_ERROR;
 }

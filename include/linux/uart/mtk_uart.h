@@ -84,6 +84,11 @@ struct mtk_uart_setting {
 
 	unsigned long irq_flags;
 #endif
+
+#if !defined(CONFIG_MTK_CLKMGR)
+    struct clk *clk_uart_main;
+#endif /* !defined(CONFIG_MTK_CLKMGR) */
+
 	u8 irq_num;
 	u8 irq_sen;
 	u8 set_bit;		/*APMCU_CG_SET0 */
@@ -226,6 +231,11 @@ struct fiq_dbg_event {
 extern spinlock_t mtk_console_lock;
 extern struct mtk_uart *console_port;
 unsigned int mtk_uart_pdn_enable(char *port, int enable);
+extern void update_history_byte(char is_tx, int nport, unsigned char byte);
+extern void update_history_time(char is_tx, int nport);
+extern void update_history_bulk(char is_tx, int nport, unsigned char *chars, int count);
 
+#ifdef CONFIG_FIQ_DEBUGGER
 extern struct resource fiq_resource[];
+#endif /* CONFIG_FIQ_DEBUGGER */
 #endif				/* MTK_UART_H */

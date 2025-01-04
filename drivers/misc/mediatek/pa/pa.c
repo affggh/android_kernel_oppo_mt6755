@@ -79,7 +79,7 @@ static ssize_t pa_store(struct kobject *kobj, struct kobj_attribute *attr, const
 	
 	sscanf(buf, "%u", &temp);
 
-	printk(KERN_EMERG "Set PA_ENABLE = %u\n", temp);
+	pr_debug("Set PA_ENABLE = %u\n", temp);
 		
 	PA_ENABLE = temp;
 	
@@ -97,7 +97,7 @@ static ssize_t lb_store(struct kobject *kobj, struct kobj_attribute *attr, const
 	
 	sscanf(buf, "%u", &temp);
 
-	printk(KERN_EMERG "Set LB_ENABLE = %u\n", temp);
+	pr_debug("Set LB_ENABLE = %u\n", temp);
 		
 	LB_ENABLE = temp;
 	
@@ -217,10 +217,10 @@ static ssize_t pa_mon_store(struct kobject *kobj, struct kobj_attribute *attr, c
 			for(i=0;i<NR_CPUS; i++)
 				TASK_PACK_CPU_COUNT[i] = 0;
 		}
-		printk(KERN_EMERG "Set PA_MON_ENABLE = %u, PA_MON = \"%s\"\n", PA_MON_ENABLE, PA_MON);
+		pr_warn("Set PA_MON_ENABLE = %u, PA_MON = \"%s\"\n", PA_MON_ENABLE, PA_MON);
 
 	} else {
-		printk(KERN_EMERG "Task name over %d\n", TASK_COMM_LEN);
+		pr_warn("Task name over %d\n", TASK_COMM_LEN);
 	}
 			
 	return count;
@@ -246,7 +246,7 @@ static int __init pa_init(void)
 {
 	int retval;
 	
-	printk(KERN_EMERG "PA Init\n");
+	pr_debug("PA Init\n");
 
 	pa_kobj = kobject_create_and_add("pa", kernel_kobj);
 
@@ -270,7 +270,7 @@ static int __init pa_init(void)
 
 static void __exit pa_exit(void)
 {
-	printk(KERN_EMERG "PA Exit\n");
+	pr_debug("PA Exit\n");
 }
 
 module_init(pa_init);

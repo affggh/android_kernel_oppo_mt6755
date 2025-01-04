@@ -42,4 +42,4 @@ struct lastpc {
 */
 int lastpc_register(struct lastpc_plt *plt);
 
-#endif //end of __LASTPC_H__
+#endif /* end of __LASTPC_H__ */

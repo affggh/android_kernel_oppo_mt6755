@@ -10,18 +10,18 @@ int mtk_xhci_scheduler_init(void)
 {
 	int i;
 
-	for (i = 0; i < MAX_EP_NUM; i++) {
+	for (i = 0; i < MAX_EP_NUM; i++)
 		ss_out_eps[i] = NULL;
-	}
-	for (i = 0; i < MAX_EP_NUM; i++) {
+
+	for (i = 0; i < MAX_EP_NUM; i++)
 		ss_in_eps[i] = NULL;
-	}
-	for (i = 0; i < MAX_EP_NUM; i++) {
+
+	for (i = 0; i < MAX_EP_NUM; i++)
 		hs_eps[i] = NULL;
-	}
-	for (i = 0; i < MAX_EP_NUM; i++) {
+
+	for (i = 0; i < MAX_EP_NUM; i++)
 		tt_intr_eps[i] = NULL;
-	}
+
 	return 0;
 }
 
@@ -33,15 +33,15 @@ int add_sch_ep(int dev_speed, int is_in, int isTT, int ep_type, int maxp, int in
 	struct sch_ep **ep_array;
 	int i;
 
-	if (is_in && dev_speed == USB_SPEED_SUPER) {
+	if (is_in && dev_speed == USB_SPEED_SUPER)
 		ep_array = (struct sch_ep **)ss_in_eps;
-	} else if (dev_speed == USB_SPEED_SUPER) {
+	else if (dev_speed == USB_SPEED_SUPER)
 		ep_array = (struct sch_ep **)ss_out_eps;
-	} else if (dev_speed == USB_SPEED_HIGH || (isTT && ep_type == USB_EP_ISOC)) {
+	else if (dev_speed == USB_SPEED_HIGH || (isTT && ep_type == USB_EP_ISOC))
 		ep_array = (struct sch_ep **)hs_eps;
-	} else {
+	else
 		ep_array = (struct sch_ep **)tt_intr_eps;
-	}
+
 	for (i = 0; i < MAX_EP_NUM; i++) {
 		if (ep_array[i] == NULL) {
 			tmp_ep->dev_speed = dev_speed;
@@ -85,11 +85,11 @@ int count_ss_bw(int is_in, int ep_type, int maxp, int interval, int burst, int m
 	int ep_repeat;
 	int ep_mult;
 
-	if (is_in) {
+	if (is_in)
 		ep_array = (struct sch_ep **)ss_in_eps;
-	} else {
+	else
 		ep_array = (struct sch_ep **)ss_out_eps;
-	}
+
 
 	bw_required[0] = 0;
 	bw_required[1] = 0;
@@ -99,9 +99,9 @@ int count_ss_bw(int is_in, int ep_type, int maxp, int interval, int burst, int m
 		final_bw_required = 0;
 		for (i = 0; i < MAX_EP_NUM; i++) {
 			cur_sch_ep = ep_array[i];
-			if (cur_sch_ep == NULL) {
+			if (cur_sch_ep == NULL)
 				continue;
-			}
+
 			ep_interval = cur_sch_ep->interval;
 			ep_offset = cur_sch_ep->offset;
 			if (cur_sch_ep->repeat == 0) {
@@ -112,9 +112,9 @@ int count_ss_bw(int is_in, int ep_type, int maxp, int interval, int burst, int m
 					tmp_offset = offset + interval - ep_offset;
 					tmp_interval = ep_interval;
 				}
-				if (tmp_offset % tmp_interval == 0) {
+				if (tmp_offset % tmp_interval == 0)
 					final_bw_required += cur_sch_ep->bw_cost;
-				}
+
 			} else {
 				ep_repeat = cur_sch_ep->repeat;
 				ep_mult = cur_sch_ep->mult;
@@ -142,9 +142,9 @@ int count_ss_bw(int is_in, int ep_type, int maxp, int interval, int burst, int m
 			cur_offset = offset + (j * repeat);
 			for (i = 0; i < MAX_EP_NUM; i++) {
 				cur_sch_ep = ep_array[i];
-				if (cur_sch_ep == NULL) {
+				if (cur_sch_ep == NULL)
 					continue;
-				}
+
 				ep_interval = cur_sch_ep->interval;
 				ep_offset = cur_sch_ep->offset;
 				if (cur_sch_ep->repeat == 0) {
@@ -155,28 +155,25 @@ int count_ss_bw(int is_in, int ep_type, int maxp, int interval, int burst, int m
 						tmp_offset = cur_offset + interval - ep_offset;
 						tmp_interval = ep_interval;
 					}
-					if (tmp_offset % tmp_interval == 0) {
+					if (tmp_offset % tmp_interval == 0)
 						tmp_bw_required += cur_sch_ep->bw_cost;
-					}
+
 				} else {
 					ep_repeat = cur_sch_ep->repeat;
 					ep_mult = cur_sch_ep->mult;
 					for (k = 0; k <= ep_mult; k++) {
 						cur_ep_offset = ep_offset + (k * ep_repeat);
-						if (ep_interval >= interval) {
-							tmp_offset =
-							    cur_ep_offset + ep_interval -
-							    cur_offset;
-							tmp_interval = interval;
-						} else {
-							tmp_offset =
-							    cur_offset + interval - cur_ep_offset;
-							tmp_interval = ep_interval;
-						}
-						if (tmp_offset % tmp_interval == 0) {
-							tmp_bw_required += cur_sch_ep->bw_cost;
-							break;
-						}
+					if (ep_interval >= interval) {
+						tmp_offset = cur_ep_offset + ep_interval - cur_offset;
+						tmp_interval = interval;
+					} else {
+						tmp_offset = cur_offset + interval - cur_ep_offset;
+						tmp_interval = ep_interval;
+					}
+					if (tmp_offset % tmp_interval == 0) {
+						tmp_bw_required += cur_sch_ep->bw_cost;
+						break;
+					}
 					}
 				}
 			}
@@ -184,9 +181,9 @@ int count_ss_bw(int is_in, int ep_type, int maxp, int interval, int burst, int m
 		}
 		final_bw_required = SS_BW_BOUND;
 		for (j = 0; j <= mult; j++) {
-			if (bw_required[j] < final_bw_required) {
+			if (bw_required[j] < final_bw_required)
 				final_bw_required = bw_required[j];
-			}
+
 		}
 		final_bw_required += bw_required_per_repeat;
 	}
@@ -208,9 +205,9 @@ int count_hs_bw(int ep_type, int maxp, int interval, int offset, int td_size)
 	for (i = 0; i < MAX_EP_NUM; i++) {
 
 		cur_sch_ep = (struct sch_ep *)hs_eps[i];
-		if (cur_sch_ep == NULL) {
+		if (cur_sch_ep == NULL)
 			continue;
-		}
+
 		ep_offset = cur_sch_ep->offset;
 		ep_interval = cur_sch_ep->interval;
 
@@ -229,9 +226,9 @@ int count_hs_bw(int ep_type, int maxp, int interval, int offset, int td_size)
 					bw_required += 188;
 				}
 			} else {
-				if (tmp_offset % tmp_interval <= cur_sch_ep->cs_count) {
+				if (tmp_offset % tmp_interval <= cur_sch_ep->cs_count)
 					bw_required += 188;
-				}
+
 			}
 		} else {
 			if (ep_interval >= interval) {
@@ -241,9 +238,9 @@ int count_hs_bw(int ep_type, int maxp, int interval, int offset, int td_size)
 				tmp_offset = offset + interval - ep_offset;
 				tmp_interval = ep_interval;
 			}
-			if (tmp_offset % tmp_interval == 0) {
+			if (tmp_offset % tmp_interval == 0)
 				bw_required += cur_sch_ep->bw_cost;
-			}
+
 		}
 	}
 	bw_required += td_size;
@@ -269,9 +266,9 @@ int count_tt_isoc_bw(int is_in, int maxp, int interval, int offset, int td_size)
 	is_cs = 0;
 
 	tt_isoc_interval = interval << 3;	/* frame to mframe */
-	if (is_in) {
+	if (is_in)
 		is_cs = 1;
-	}
+
 	s_frame = offset / 8;
 	s_mframe = offset % 8;
 	ss_cs_count = (maxp + (188 - 1)) / 188;
@@ -285,16 +282,16 @@ int count_tt_isoc_bw(int is_in, int maxp, int interval, int offset, int td_size)
 			return -1;
 	}
 	max_bw = 0;
-	if (is_in) {
+	if (is_in)
 		i = 2;
-	}
+
 	for (cur_mframe = offset + i; i < ss_cs_count; cur_mframe++, i++) {
 		bw_required = 0;
 		for (j = 0; j < MAX_EP_NUM; j++) {
 			cur_sch_ep = (struct sch_ep *)hs_eps[j];
-			if (cur_sch_ep == NULL) {
+			if (cur_sch_ep == NULL)
 				continue;
-			}
+
 			ep_offset = cur_sch_ep->offset;
 			ep_interval = cur_sch_ep->interval;
 			if (cur_sch_ep->isTT && cur_sch_ep->ep_type == USB_EP_ISOC) {
@@ -312,14 +309,13 @@ int count_tt_isoc_bw(int is_in, int maxp, int interval, int offset, int td_size)
 				}
 				if (cur_sch_ep->is_in) {
 					if ((tmp_offset % tmp_interval >= 2)
-					    && (tmp_offset % tmp_interval <=
-						cur_sch_ep->cs_count)) {
+					    && (tmp_offset % tmp_interval <= cur_sch_ep->cs_count)) {
 						bw_required += 188;
 					}
 				} else {
-					if (tmp_offset % tmp_interval <= cur_sch_ep->cs_count) {
+					if (tmp_offset % tmp_interval <= cur_sch_ep->cs_count)
 						bw_required += 188;
-					}
+
 				}
 
 			} else if (cur_sch_ep->ep_type == USB_EP_INT
@@ -332,15 +328,15 @@ int count_tt_isoc_bw(int is_in, int maxp, int interval, int offset, int td_size)
 					tmp_offset = (cur_mframe + tt_isoc_interval) - ep_offset;
 					tmp_interval = ep_interval;
 				}
-				if (tmp_offset % tmp_interval == 0) {
+				if (tmp_offset % tmp_interval == 0)
 					bw_required += cur_sch_ep->bw_cost;
-				}
+
 			}
 		}
 		bw_required += 188;
-		if (bw_required > max_bw) {
+		if (bw_required > max_bw)
 			max_bw = bw_required;
-		}
+
 	}
 	return max_bw;
 }
@@ -360,9 +356,9 @@ int count_tt_intr_bw(int interval, int frame_offset)
 
 	for (i = 0; i < MAX_EP_NUM; i++) {
 		cur_sch_ep = (struct sch_ep *)tt_intr_eps[i];
-		if (cur_sch_ep == NULL) {
+		if (cur_sch_ep == NULL)
 			continue;
-		}
+
 		ep_offset = cur_sch_ep->offset;
 		ep_interval = cur_sch_ep->interval;
 		if (ep_interval >= interval) {
@@ -373,9 +369,9 @@ int count_tt_intr_bw(int interval, int frame_offset)
 			tmp_interval = ep_interval;
 		}
 
-		if (tmp_offset % tmp_interval == 0) {
+		if (tmp_offset % tmp_interval == 0)
 			return SCH_FAIL;
-		}
+
 	}
 	return SCH_SUCCESS;
 }
@@ -387,15 +383,15 @@ struct sch_ep *mtk_xhci_scheduler_remove_ep(int dev_speed, int is_in, int isTT, 
 	struct sch_ep **ep_array;
 	struct sch_ep *cur_ep;
 
-	if (is_in && dev_speed == USB_SPEED_SUPER) {
+	if (is_in && dev_speed == USB_SPEED_SUPER)
 		ep_array = (struct sch_ep **)ss_in_eps;
-	} else if (dev_speed == USB_SPEED_SUPER) {
+	else if (dev_speed == USB_SPEED_SUPER)
 		ep_array = (struct sch_ep **)ss_out_eps;
-	} else if (dev_speed == USB_SPEED_HIGH || (isTT && ep_type == USB_EP_ISOC)) {
+	else if (dev_speed == USB_SPEED_HIGH || (isTT && ep_type == USB_EP_ISOC))
 		ep_array = (struct sch_ep **)hs_eps;
-	} else {
+	else
 		ep_array = (struct sch_ep **)tt_intr_eps;
-	}
+
 	for (i = 0; i < MAX_EP_NUM; i++) {
 		cur_ep = (struct sch_ep *)ep_array[i];
 		if (cur_ep != NULL && cur_ep->ep == ep) {
@@ -426,18 +422,29 @@ int mtk_xhci_scheduler_add_ep(int dev_speed, int is_in, int isTT, int ep_type, i
 	int frame_interval;
 
 	best_bw_repeat = 0;
-	printk(KERN_ERR
-	       "add_ep parameters, dev_speed %d, is_in %d, isTT %d, ep_type %d, maxp %d, interval %d, burst %d, mult %d, ep 0x%p, ep_ctx 0x%p, sch_ep 0x%p\n",
-	       dev_speed, is_in, isTT, ep_type, maxp, interval, burst, mult, ep,
-	       ep_ctx, sch_ep);
+	pr_debug("add_ep parameters, dev_speed : %d\n"
+		"is_in   : %d\n"
+		"isTT    : %d\n"
+		"ep_type : %d\n"
+		"maxp    : %d\n"
+		"interval: %d\n"
+		"burst   : %d\n"
+		"mult    : %d\n"
+		"ep      : 0x%p\n"
+		"ep_ctx      : 0x%p\n"
+		"sch_ep      : 0x%p\n",
+		dev_speed, is_in, isTT, ep_type,
+		maxp, interval, burst, mult,
+		ep, ep_ctx, sch_ep);
+
 	if (isTT && ep_type == USB_EP_INT
 	    && ((dev_speed == USB_SPEED_LOW) || (dev_speed == USB_SPEED_FULL))) {
 		frame_interval = interval >> 3;
 		for (frame_idx = 0; frame_idx < frame_interval; frame_idx++) {
-			printk(KERN_ERR "check tt_intr_bw interval %d, frame_idx %d\n",
-			       frame_interval, frame_idx);
+			pr_debug("check tt_intr_bw interval %d, frame_idx %d\n",
+				 frame_interval, frame_idx);
 			if (count_tt_intr_bw(frame_interval, frame_idx) == SCH_SUCCESS) {
-				printk(KERN_ERR "check OK............\n");
+				pr_debug("check OK............\n");
 				bOffset = frame_idx << 3;
 				bPkts = 1;
 				bCsCount = 3;
@@ -515,9 +522,9 @@ int mtk_xhci_scheduler_add_ep(int dev_speed, int is_in, int isTT, int ep_type, i
 			if (cur_bw > 0 && cur_bw < best_bw) {
 				best_bw_idx = cur_offset;
 				best_bw = cur_bw;
-				if (cur_bw == td_size || cur_bw < (HS_BW_BOUND >> 1)) {
+				if (cur_bw == td_size || cur_bw < (HS_BW_BOUND >> 1))
 					break;
-				}
+
 			}
 		}
 		if (best_bw_idx == -1) {
@@ -541,20 +548,20 @@ int mtk_xhci_scheduler_add_ep(int dev_speed, int is_in, int isTT, int ep_type, i
 		best_bw_idx = -1;
 		cur_bw = 0;
 		td_size = maxp * (mult + 1) * (burst + 1);
-		if (mult == 0) {
+		if (mult == 0)
 			max_repeat = 0;
-		} else {
+		else
 			max_repeat = (interval - 1) / (mult + 1);
-		}
+
 		break_out = 0;
 		for (frame_idx = 0; (frame_idx < interval) && !break_out; frame_idx++) {
 			for (repeat = max_repeat; repeat >= 0; repeat--) {
 				cur_bw =
 				    count_ss_bw(is_in, ep_type, maxp, interval, burst, mult,
 						frame_idx, repeat, td_size);
-				printk(KERN_ERR
-				       "count_ss_bw, frame_idx %d, repeat %d, td_size %d, result bw %d\n",
-				       frame_idx, repeat, td_size, cur_bw);
+				pr_debug
+				    ("count_ss_bw, frame_idx %d, repeat %d, td_size %d, result bw %d\n",
+				     frame_idx, repeat, td_size, cur_bw);
 				if (cur_bw > 0 && cur_bw < best_bw) {
 					best_bw_idx = frame_idx;
 					best_bw_repeat = repeat;
@@ -566,7 +573,7 @@ int mtk_xhci_scheduler_add_ep(int dev_speed, int is_in, int isTT, int ep_type, i
 				}
 			}
 		}
-		printk(KERN_ERR "final best idx %d, best repeat %d\n", best_bw_idx, best_bw_repeat);
+		pr_debug("final best idx %d, best repeat %d\n", best_bw_idx, best_bw_repeat);
 		if (best_bw_idx == -1) {
 			return SCH_FAIL;
 		} else {
@@ -595,10 +602,10 @@ int mtk_xhci_scheduler_add_ep(int dev_speed, int is_in, int isTT, int ep_type, i
 		temp_ep_ctx = (struct mtk_xhci_ep_ctx *)ep_ctx;
 		temp_ep_ctx->reserved[0] |= (BPKTS(bPkts) | BCSCOUNT(bCsCount) | BBM(bBm));
 		temp_ep_ctx->reserved[1] |= (BOFFSET(bOffset) | BREPEAT(bRepeat));
-		printk(KERN_ERR "[DBG] BPKTS: %x, BCSCOUNT: %x, BBM: %x\n", (unsigned int)bPkts,
-		       (unsigned int)bCsCount, (unsigned int)bBm);
-		printk(KERN_ERR "[DBG] BOFFSET: %x, BREPEAT: %x\n", (unsigned int)bOffset,
-		       (unsigned int)bRepeat);
+		pr_debug("[DBG] BPKTS: %x, BCSCOUNT: %x, BBM: %x\n", (unsigned int)bPkts,
+			 (unsigned int)bCsCount, (unsigned int)bBm);
+		pr_debug("[DBG] BOFFSET: %x, BREPEAT: %x\n", (unsigned int)bOffset,
+			 (unsigned int)bRepeat);
 		return SCH_SUCCESS;
 	} else {
 		return SCH_FAIL;

@@ -65,8 +65,11 @@ Defines a read-only address of the fuse ROM of the AK8963.*/
 // conversion of orientation data to degree units
 //#define CONVERT_O                   (1.0f/64.0f)
 
-#define CONVERT_M			6
-#define CONVERT_M_DIV		100			// 6/100 = CONVERT_M
+#ifdef VENDOR_EDIT
+//zhihong.lu@BSP.sensor,modify the para
+#define CONVERT_M			1
+#define CONVERT_M_DIV		16			// 6/100 = CONVERT_M
+#endif /*VENDOR_EDIT*/
 #define CONVERT_O			1
 #define CONVERT_O_DIV		64			// 1/64 = CONVERT_O
 
@@ -119,7 +122,7 @@ Defines a read-only address of the fuse ROM of the AK8963.*/
 #ifndef DBGPRINT
 #define DBGPRINT(level, format, ...) \
     ((((level) != 0) && ((level) <= DBGFLAG))  \
-     ? (printk(KERN_INFO, (format), ##__VA_ARGS__)) \
+     ? (pr_debug((format), ##__VA_ARGS__)) \
      : (void)0)
 
 #endif

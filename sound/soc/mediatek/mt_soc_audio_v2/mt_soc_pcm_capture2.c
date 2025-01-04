@@ -191,7 +191,7 @@ static snd_pcm_uframes_t mtk_capture2_pcm_pointer(struct snd_pcm_substream *subs
     kal_int32 HW_Cur_ReadIdx = 0;
     kal_uint32 Frameidx =0;
     AFE_BLOCK_T *vul2_Block = &(VUL2_Control_context->rBlock);
-    printk("mtk_capture2_pcm_pointer vul2_Block->u4WriteIdx;= 0x%x \n", vul2_Block->u4WriteIdx);
+    PRINTK_AUD_UL2("mtk_capture2_pcm_pointer vul2_Block->u4WriteIdx;= 0x%x \n", vul2_Block->u4WriteIdx);
     if (VUL2_Control_context->interruptTrigger == 1)
     {
         // get total bytes to copysinewavetohdmi
@@ -201,12 +201,12 @@ static snd_pcm_uframes_t mtk_capture2_pcm_pointer(struct snd_pcm_substream *subs
         HW_Cur_ReadIdx = Align64ByteSize(Afe_Get_Reg(AFE_VUL_D2_CUR));
         if (HW_Cur_ReadIdx == 0)
         {
-            printk("[Auddrv] mtk_capture2_pcm_pointer  HW_Cur_ReadIdx ==0 \n");
+            PRINTK_AUD_UL2("[Auddrv] mtk_capture2_pcm_pointer  HW_Cur_ReadIdx ==0 \n");
             HW_Cur_ReadIdx = vul2_Block->pucPhysBufAddr;
         }
         HW_memory_index = (HW_Cur_ReadIdx - vul2_Block->pucPhysBufAddr);
         Previous_Hw_cur = HW_memory_index;
-        printk("[Auddrv] mtk_capture2_pcm_pointer =0x%x HW_memory_index = 0x%x\n", HW_Cur_ReadIdx, HW_memory_index);
+        PRINTK_AUD_UL2("[Auddrv] mtk_capture2_pcm_pointer =0x%x HW_memory_index = 0x%x\n", HW_Cur_ReadIdx, HW_memory_index);
         VUL2_Control_context->interruptTrigger = 0;
         return (HW_memory_index >> 2);
     }

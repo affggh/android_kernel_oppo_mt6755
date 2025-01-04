@@ -365,9 +365,8 @@ static void stp_tx_timeout_handler(unsigned long data)
 {
 	STP_WARN_FUNC("call retry btm retry wq ...\n");
 	/*shorten the softirq lattency */
-#if WMT_PLAT_ALPS
-	stop_log();
-#endif
+	if (mtk_wcn_stp_is_uart_mand_mode() || mtk_wcn_stp_is_uart_fullset_mode())
+		stop_log();
 	stp_btm_notify_stp_retry_wq(STP_BTM_CORE(stp_core_ctx));
 	STP_WARN_FUNC("call retry btm retry wq ...#\n");
 }
@@ -1137,9 +1136,8 @@ static VOID stp_process_packet(VOID)
 	if (stp_process_packet_fail_count > MTKSTP_RETRY_LIMIT) {
 		stp_process_packet_fail_count = 0;
 		STP_ERR_FUNC("The process packet fail count > 10 lastly\n\r, whole chip reset\n\r");
-#if WMT_PLAT_ALPS
-		stop_log();	/* dump_uart_history(); */
-#endif
+		if (mtk_wcn_stp_is_uart_mand_mode() || mtk_wcn_stp_is_uart_fullset_mode())
+			stop_log();	/* dump_uart_history(); */
 		mtk_wcn_stp_dbg_dump_package();
 		stp_notify_btm_dump(STP_BTM_CORE(stp_core_ctx));
 
@@ -1870,9 +1868,8 @@ INT32 mtk_wcn_stp_parser_data(PUINT8 buffer, UINT32 length)
 					continue;
 				}
 				if (STP_IS_READY(stp_core_ctx)) {
-#if WMT_PLAT_ALPS
-					stop_log();
-#endif
+					if (mtk_wcn_stp_is_uart_mand_mode() || mtk_wcn_stp_is_uart_fullset_mode())
+						stop_log();
 					mtk_wcn_stp_dbg_dump_package();
 					stp_notify_btm_dump(STP_BTM_CORE(stp_core_ctx));
 				}
@@ -1928,6 +1925,7 @@ INT32 mtk_wcn_stp_parser_data(PUINT8 buffer, UINT32 length)
 						static UINT32 counter;
 						if (0 != stp_core_ctx.rx_counter) {
 							STP_SET_READY(stp_core_ctx, 0);
+							mtk_wcn_stp_coredump_start_ctrl(1);
 							stp_psm_set_sleep_disable(stp_core_ctx.psm);
 							stp_dbg_log_pkt(g_mtkstp_dbg,
 									STP_DBG_FW_DMP
@@ -2437,9 +2435,8 @@ INT32 mtk_wcn_stp_parser_data(PUINT8 buffer, UINT32 length)
 					continue;
 				}
 				if (STP_IS_READY(stp_core_ctx)) {
-#if WMT_PLAT_ALPS
-					stop_log();
-#endif
+					if (mtk_wcn_stp_is_uart_mand_mode() || mtk_wcn_stp_is_uart_fullset_mode())
+						stop_log();
 					mtk_wcn_stp_dbg_dump_package();
 					stp_notify_btm_dump(STP_BTM_CORE(stp_core_ctx));
 				}

@@ -22,12 +22,14 @@ MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
 
 MTK_ARCH_LIST := $(CONFIG_ARCH_MT6752)  \
+                 $(CONFIG_ARCH_MT6755)  \
                  $(CONFIG_ARCH_MT6732)  \
                  $(CONFIG_ARCH_MT6595)  \
                  $(CONFIG_ARCH_MT6795)  \
                  $(CONFIG_ARCH_MT6735)  \
                  $(CONFIG_ARCH_MT6735M) \
-                 $(CONFIG_ARCH_MT6753)
+                 $(CONFIG_ARCH_MT6753)  \
+                 $(CONFIG_ARCH_MT8163)
 
 ifneq ($(filter y, $(MTK_ARCH_LIST)),)
 # For K2/6795 arm32

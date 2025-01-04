@@ -27,37 +27,41 @@
 #include <linux/of_device.h>
 #endif
 
+#ifndef CONFIG_MTK_CLKMGR
+struct clk *musb_clk;
+#endif
+
 #ifdef CONFIG_USBIF_COMPLIANCE
 static struct musb_fifo_cfg mtu3d_cfg[] = {
 #else
-static struct musb_fifo_cfg __initdata mtu3d_cfg[] = {
+static struct musb_fifo_cfg mtu3d_cfg[] __initdata = {
 #endif
-{ .hw_ep_num =  1, .style = FIFO_TX, .maxpacket = 1024, },
-{ .hw_ep_num =  1, .style = FIFO_RX, .maxpacket = 1024, },
-{ .hw_ep_num =  2, .style = FIFO_TX, .maxpacket = 1024, },
-{ .hw_ep_num =  2, .style = FIFO_RX, .maxpacket = 1024, },
-{ .hw_ep_num =  3, .style = FIFO_TX, .maxpacket = 1024, },
-{ .hw_ep_num =  3, .style = FIFO_RX, .maxpacket = 1024, },
-{ .hw_ep_num =  4, .style = FIFO_TX, .maxpacket = 1024, },
-{ .hw_ep_num =  4, .style = FIFO_RX, .maxpacket = 1024, },
-{ .hw_ep_num =  5, .style = FIFO_TX, .maxpacket = 1024, },
-{ .hw_ep_num =  5, .style = FIFO_RX, .maxpacket = 1024, },
-{ .hw_ep_num =  6, .style = FIFO_TX, .maxpacket = 1024, },
-{ .hw_ep_num =  6, .style = FIFO_RX, .maxpacket = 1024, },
-{ .hw_ep_num =  7, .style = FIFO_TX, .maxpacket = 1024, },
-{ .hw_ep_num =  7, .style = FIFO_RX, .maxpacket = 1024, },
-{ .hw_ep_num =  8, .style = FIFO_TX, .maxpacket = 1024, },
-{ .hw_ep_num =  8, .style = FIFO_RX, .maxpacket = 1024, },
+	{.hw_ep_num = 1, .style = FIFO_TX, .maxpacket = 1024,},
+	{.hw_ep_num = 1, .style = FIFO_RX, .maxpacket = 1024,},
+	{.hw_ep_num = 2, .style = FIFO_TX, .maxpacket = 1024,},
+	{.hw_ep_num = 2, .style = FIFO_RX, .maxpacket = 1024,},
+	{.hw_ep_num = 3, .style = FIFO_TX, .maxpacket = 1024,},
+	{.hw_ep_num = 3, .style = FIFO_RX, .maxpacket = 1024,},
+	{.hw_ep_num = 4, .style = FIFO_TX, .maxpacket = 1024,},
+	{.hw_ep_num = 4, .style = FIFO_RX, .maxpacket = 1024,},
+	{.hw_ep_num = 5, .style = FIFO_TX, .maxpacket = 1024,},
+	{.hw_ep_num = 5, .style = FIFO_RX, .maxpacket = 1024,},
+	{.hw_ep_num = 6, .style = FIFO_TX, .maxpacket = 1024,},
+	{.hw_ep_num = 6, .style = FIFO_RX, .maxpacket = 1024,},
+	{.hw_ep_num = 7, .style = FIFO_TX, .maxpacket = 1024,},
+	{.hw_ep_num = 7, .style = FIFO_RX, .maxpacket = 1024,},
+	{.hw_ep_num = 8, .style = FIFO_TX, .maxpacket = 1024,},
+	{.hw_ep_num = 8, .style = FIFO_RX, .maxpacket = 1024,},
 };
 
 static struct musb_hdrc_config mtu3d_config = {
-	.multipoint     = false,
-	/* FIXME:Seems no need*/
-	/* .soft_con       = true,*/
-	.dma            = true,
-	.num_eps        = 9, /*EP0 ~ EP8*/
-	.dma_channels   = 8,
-	.ram_bits       = 12,
+	.multipoint = false,
+	/* FIXME:Seems no need */
+	/* .soft_con       = true, */
+	.dma = true,
+	.num_eps = 9,		/*EP0 ~ EP8 */
+	.dma_channels = 8,
+	.ram_bits = 12,
 	.fifo_cfg = mtu3d_cfg,
 	.fifo_cfg_size = ARRAY_SIZE(mtu3d_cfg),
 };
@@ -68,44 +72,45 @@ void mtu3d_musb_enable(struct musb *musb);
 void mtu3d_musb_disable(struct musb *musb);
 
 static const struct musb_platform_ops mtu3d_ops = {
-	.init		= mtu3d_musb_init,
-	.exit		= mtu3d_musb_exit,
+	.init = mtu3d_musb_init,
+	.exit = mtu3d_musb_exit,
 
-	.enable   = mtu3d_musb_enable,
-	.disable  = mtu3d_musb_disable
+	.enable = mtu3d_musb_enable,
+	.disable = mtu3d_musb_disable
 };
 
 static struct musb_hdrc_platform_data mtu3d_data = {
-	.mode	= MUSB_PERIPHERAL,
-	.config	= &mtu3d_config,
-	.platform_ops	= &mtu3d_ops,
+	.mode = MUSB_PERIPHERAL,
+	.config = &mtu3d_config,
+	.platform_ops = &mtu3d_ops,
 };
 
 static const struct of_device_id mtu3d_of_match[] = {
 	{
-		.compatible = "mediatek,USB3",
-		.data = &mtu3d_data,
-	},
-	{ },
+	 .compatible = "mediatek,USB3",
+	 .data = &mtu3d_data,
+	 },
+	{},
 };
 
 struct mtu3d_glue {
-	struct device		*dev;
-	struct platform_device	*musb;
+	struct device *dev;
+	struct platform_device *musb;
 };
 #define glue_to_musb(g)		platform_get_drvdata(g->musb)
 
 static void mtu3d_musb_reg_init(struct musb *musb);
 static int mtu3d_set_power(struct usb_phy *x, unsigned mA);
 
-static u32 sts_ltssm = 0;
+static u32 sts_ltssm;
 
 #ifndef CONFIG_USBIF_COMPLIANCE
 extern struct timespec get_connect_timestamp(void);
 #endif
 
 #ifdef CONFIG_USBIF_COMPLIANCE
-void init_check_ltssm_work(void){
+void init_check_ltssm_work(void)
+{
 	sts_ltssm = 0;
 }
 #endif
@@ -121,11 +126,11 @@ void init_check_ltssm_work(void){
  */
 void check_ltssm_work(struct work_struct *data)
 {
-	//struct musb *musb = container_of(to_delayed_work(data), struct musb, check_ltssm_work);
+	/* struct musb *musb = container_of(to_delayed_work(data), struct musb, check_ltssm_work); */
 #ifndef CONFIG_USBIF_COMPLIANCE
 	os_printk(K_INFO, "%s %x\n", __func__, sts_ltssm);
 
-	if(sts_ltssm == RXDET_SUCCESS_INTR) {
+	if (sts_ltssm == RXDET_SUCCESS_INTR) {
 		sts_ltssm = 0;
 		mu3d_hal_u3dev_dis();
 		mdelay(10);
@@ -145,21 +150,28 @@ void reconnect_work(struct work_struct *data)
 {
 	os_printk(K_INFO, "%s\n", __func__);
 
-	/* Disable U2 detect*/
-	mu3d_hal_u3dev_dis();
-	mu3d_hal_u2dev_disconn();
-	mdelay(1000);
-	mu3d_hal_u3dev_en();
+#ifdef SUPPORT_U3
+	if (musb_speed) {
+#endif
+		/* Disable U2 detect */
+		mu3d_hal_u3dev_dis();
+		mu3d_hal_u2dev_disconn();
+		mdelay(1000);
+		mu3d_hal_u3dev_en();
+#ifdef SUPPORT_U3
+	}
+#endif
 }
 #endif
 
 static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmValue)
 {
-	static u32 soft_conn_num = 0;
+	static u32 soft_conn_num;
 
 	if (dwLtssmValue & SS_DISABLE_INTR) {
-		os_printk(K_INFO, "LTSSM: SS_DISABLE_INTR [%d] & Set SOFT_CONN=1\n", soft_conn_num++);
-		//enable U2 link. after host reset, HS/FS EP0 configuration is applied in musb_g_reset
+		os_printk(K_INFO, "LTSSM: SS_DISABLE_INTR [%d] & Set SOFT_CONN=1\n",
+			  soft_conn_num++);
+		/* enable U2 link. after host reset, HS/FS EP0 configuration is applied in musb_g_reset */
 		os_clrmsk(U3D_SSUSB_U2_CTRL_0P, SSUSB_U2_PORT_PDN);
 		os_setmsk(U3D_POWER_MANAGEMENT, SOFT_CONN);
 		sts_ltssm = SS_DISABLE_INTR;
@@ -167,8 +179,8 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 
 	if (dwLtssmValue & ENTER_U0_INTR) {
 		soft_conn_num = 0;
-		//do not apply U3 EP0 setting again, if the speed is already U3
-		//LTSSM may go to recovery and back to U0
+		/* do not apply U3 EP0 setting again, if the speed is already U3 */
+		/* LTSSM may go to recovery and back to U0 */
 		if (musb->g.speed != USB_SPEED_SUPER) {
 			os_printk(K_INFO, "LTSSM: ENTER_U0_INTR %d\n", musb->g.speed);
 			musb_conifg_ep0(musb);
@@ -193,7 +205,6 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 		mu3d_hal_pdn_ip_port(0, 0, 1, 0);
 		sts_ltssm = ENTER_U3_INTR;
 	}
-
 #ifndef POWER_SAVING_MODE
 	if (dwLtssmValue & U3_RESUME_INTR) {
 		os_printk(K_INFO, "LTSSM: RESUME_INTR\n");
@@ -209,31 +220,31 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 	}
 
 	/*7.5.12.2 Hot Reset Requirements
-	* 1. A downstream port shall reset its Link Error Count as defined in Section 7.4.2.
-	* 2. A downstream port shall reset its PM timers and the associated U1 and U2 timeout values to zero.
-	* 3. The port Configuration information shall remain unchanged (refer to Section 8.4.6 for details).
-	* 4. The port shall maintain its transmitter specifications defined in Table 6-10.
-	* 5. The port shall maintain its low-impedance receiver termination (RRX-DC) defined in Table 6-13.
-	*/
+	 * 1. A downstream port shall reset its Link Error Count as defined in Section 7.4.2.
+	 * 2. A downstream port shall reset its PM timers and the associated U1 and U2 timeout values to zero.
+	 * 3. The port Configuration information shall remain unchanged (refer to Section 8.4.6 for details).
+	 * 4. The port shall maintain its transmitter specifications defined in Table 6-10.
+	 * 5. The port shall maintain its low-impedance receiver termination (RRX-DC) defined in Table 6-13.
+	 */
 	if (dwLtssmValue & HOT_RST_INTR) {
 		DEV_INT32 link_err_cnt;
 		DEV_INT32 timeout_val;
 		os_printk(K_INFO, "LTSSM: HOT_RST_INTR\n");
 		/* Clear link error count */
-		link_err_cnt=os_readl(U3D_LINK_ERR_COUNT);
+		link_err_cnt = os_readl(U3D_LINK_ERR_COUNT);
 		os_printk(K_INFO, "LTSSM: link_err_cnt=%x\n", link_err_cnt);
 		os_writel(U3D_LINK_ERR_COUNT, CLR_LINK_ERR_CNT);
 
-		/* Clear U1 & U2 Enable*/
-		os_clrmsk(U3D_LINK_POWER_CONTROL, (SW_U1_ACCEPT_ENABLE|SW_U2_ACCEPT_ENABLE));
+		/* Clear U1 & U2 Enable */
+		os_clrmsk(U3D_LINK_POWER_CONTROL, (SW_U1_ACCEPT_ENABLE | SW_U2_ACCEPT_ENABLE));
 
 		musb->g.pwr_params.bU1Enabled = 0;
 		musb->g.pwr_params.bU2Enabled = 0;
 
-		/* Reset U1 & U2 timeout value*/
+		/* Reset U1 & U2 timeout value */
 		timeout_val = os_readl(U3D_LINK_UX_INACT_TIMER);
 		os_printk(K_INFO, "LTSSM: timer_val =%x\n", timeout_val);
-		timeout_val &= ~ (U1_INACT_TIMEOUT_VALUE | DEV_U2_INACT_TIMEOUT_VALUE);
+		timeout_val &= ~(U1_INACT_TIMEOUT_VALUE | DEV_U2_INACT_TIMEOUT_VALUE);
 		os_writel(U3D_LINK_UX_INACT_TIMER, timeout_val);
 	}
 
@@ -248,17 +259,17 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 	}
 
 	/* A completion of a Warm Reset shall result in the following.
-	* 1. A downstream port shall reset its Link Error Count.
-	* 2. Port configuration information of an upstream port shall be reset to default values. Refer to
-	*	 Sections 8.4.5 and 8.4.6 for details.
-	* 3. The PHY level variables (such as Rx equalization settings) shall be reinitialized or retrained.
-	* 4. The LTSSM of a port shall transition to U0 through RxDetect and Polling.
-	*/
+	 * 1. A downstream port shall reset its Link Error Count.
+	 * 2. Port configuration information of an upstream port shall be reset to default values. Refer to
+	 *       Sections 8.4.5 and 8.4.6 for details.
+	 * 3. The PHY level variables (such as Rx equalization settings) shall be reinitialized or retrained.
+	 * 4. The LTSSM of a port shall transition to U0 through RxDetect and Polling.
+	 */
 	if (dwLtssmValue & WARM_RST_INTR) {
 		DEV_INT32 link_err_cnt;
 		os_printk(K_INFO, "LTSSM: WARM_RST_INTR\n");
 		/* Clear link error count */
-		link_err_cnt=os_readl(U3D_LINK_ERR_COUNT);
+		link_err_cnt = os_readl(U3D_LINK_ERR_COUNT);
 		os_printk(K_INFO, "LTSSM: link_err_cnt=%x\n", link_err_cnt);
 		os_writel(U3D_LINK_ERR_COUNT, CLR_LINK_ERR_CNT);
 
@@ -266,14 +277,16 @@ static inline void mtu3d_u3_ltssm_intr_handler(struct musb *musb, u32 dwLtssmVal
 		sts_ltssm = WARM_RST_INTR;
 	}
 
-	if (dwLtssmValue & ENTER_U2_INTR) os_printk(K_DEBUG, "LTSSM: ENTER_U2_INTR\n");
-	if (dwLtssmValue & ENTER_U1_INTR) os_printk(K_DEBUG, "LTSSM: ENTER_U1_INTR\n");
+	if (dwLtssmValue & ENTER_U2_INTR)
+		os_printk(K_DEBUG, "LTSSM: ENTER_U2_INTR\n");
+	if (dwLtssmValue & ENTER_U1_INTR)
+		os_printk(K_DEBUG, "LTSSM: ENTER_U1_INTR\n");
 	if (dwLtssmValue & RXDET_SUCCESS_INTR) {
 		/*create a delay work. This work will work after 0.5sec.
-		If LTSSM state is still at RxDet. Clear USB3_EN and set again.*/
+		   If LTSSM state is still at RxDet. Clear USB3_EN and set again. */
 		os_printk(K_INFO, "LTSSM: RXDET_SUCCESS_INTR\n");
 		sts_ltssm = RXDET_SUCCESS_INTR;
-		schedule_delayed_work_on(0, &musb->check_ltssm_work, msecs_to_jiffies(1000));
+		schedule_delayed_work_on(/*0*/ WORK_CPU_UNBOUND, &musb->check_ltssm_work, msecs_to_jiffies(1000));
 	}
 }
 
@@ -285,27 +298,27 @@ static inline void mtu3d_u2_common_intr_handler(u32 dwIntrUsbValue)
 		os_printk(K_NOTICE, "[U2 DISCONN_INTR] Set SOFT_CONN=0\n");
 		os_clrmsk(U3D_POWER_MANAGEMENT, SOFT_CONN);
 
-		/*TODO-J: ADD musb_g_disconnect(musb);??*/
+		/*TODO-J: ADD musb_g_disconnect(musb);?? */
 	}
 
-	if (dwIntrUsbValue & LPM_INTR) 	{
-		u32 rmwake ;
+	if (dwIntrUsbValue & LPM_INTR) {
+		u32 rmwake;
 		rmwake = os_readl(U3D_POWER_MANAGEMENT);
 
 		os_printk(K_NOTICE, "[U2 LPM interrupt] last rmwake is 0x%x\n", rmwake & LPM_RWP);
 
-		if (!((os_readl(U3D_POWER_MANAGEMENT) & LPM_HRWE))) {
+		if (!((os_readl(U3D_POWER_MANAGEMENT) & LPM_HRWE)))
 			mu3d_hal_pdn_ip_port(0, 0, 0, 1);
-		}
 
 #ifdef CONFIG_USBIF_COMPLIANCE
-		// SW word around for USBIF test with Fresco FL1100 with LPM L1C enabling
-		#if 0
-		if (rmwake & LPM_RWP){
-			os_writel(U3D_USB20_MISC_CONTROL, os_readl(U3D_USB20_MISC_CONTROL) | LPM_U3_ACK_EN);
+		/* SW word around for USBIF test with Fresco FL1100 with LPM L1C enabling */
+#if 0
+		if (rmwake & LPM_RWP) {
+			os_writel(U3D_USB20_MISC_CONTROL,
+				  os_readl(U3D_USB20_MISC_CONTROL) | LPM_U3_ACK_EN);
 			os_writel(U3D_POWER_MANAGEMENT, os_readl(U3D_POWER_MANAGEMENT) | RESUME);
 		}
-		#endif
+#endif
 #endif
 	}
 
@@ -313,120 +326,119 @@ static inline void mtu3d_u2_common_intr_handler(u32 dwIntrUsbValue)
 		if (!(os_readl(U3D_POWER_MANAGEMENT) & LPM_HRWE)) {
 			mu3d_hal_pdn_ip_port(1, 0, 0, 1);
 
-			os_writel(U3D_USB20_MISC_CONTROL, os_readl(U3D_USB20_MISC_CONTROL) | LPM_U3_ACK_EN);
+			os_writel(U3D_USB20_MISC_CONTROL,
+				  os_readl(U3D_USB20_MISC_CONTROL) | LPM_U3_ACK_EN);
 		}
 	}
 
-	if(dwIntrUsbValue & SUSPEND_INTR) {
+	if (dwIntrUsbValue & SUSPEND_INTR) {
 		os_printk(K_NOTICE, "[U2 SUSPEND_INTR]\n");
 		mu3d_hal_pdn_ip_port(0, 0, 0, 1);
 	}
 
 	if (dwIntrUsbValue & RESUME_INTR) {
-		os_printk(K_NOTICE,"[U2 RESUME_INTR]\n");
+		os_printk(K_NOTICE, "[U2 RESUME_INTR]\n");
 		mu3d_hal_pdn_ip_port(1, 0, 0, 1);
 	}
 
-	if (dwIntrUsbValue & RESET_INTR) {
-		os_printk(K_NOTICE,"[U2 RESET_INTR]\n");
-	}
+	if (dwIntrUsbValue & RESET_INTR)
+		os_printk(K_NOTICE, "[U2 RESET_INTR]\n");
 
 }
 
 static inline void mtu3d_link_intr_handler(struct musb *musb, u32 dwLinkIntValue)
 {
 	u32 dwTemp;
-	#ifndef CONFIG_USBIF_COMPLIANCE
+#ifndef CONFIG_USBIF_COMPLIANCE
 	static u32 speed_last = SSUSB_SPEED_INACTIVE;
 	static u32 speed = SSUSB_SPEED_INACTIVE;
 	static struct timespec ss_timestamp = { 0, 0 };
-	#endif
+#endif
 
 	dwTemp = os_readl(U3D_DEVICE_CONF) & SSUSB_DEV_SPEED;
 	mu3d_hal_pdn_cg_en();
 
-	switch (dwTemp)
-	{
-		case SSUSB_SPEED_FULL:
-			os_printk(K_ALET,"USB Speed = Full Speed\n");
-			#ifndef CONFIG_USBIF_COMPLIANCE
-			speed_last = speed;
-			speed = SSUSB_SPEED_FULL;
-			#endif
+	switch (dwTemp) {
+	case SSUSB_SPEED_FULL:
+		os_printk(K_ALET, "USB Speed = Full Speed\n");
+#ifndef CONFIG_USBIF_COMPLIANCE
+		speed_last = speed;
+		speed = SSUSB_SPEED_FULL;
+#endif
 
-			#ifdef CONFIG_PROJECT_PHY
-			/* Comment from CC Chou.
-			 * When detecting HS or FS and setting RG_USB20_SW_PLLMODE=1, It is OK to enter LPM L1 with BESL=0.
-			 * When disconnecting, set RG_USB20_SW_PLLMODE=0 back.
-			 */
-			os_setmsk(U3D_U2PHYDCR1, (0x1<<E60802_RG_USB20_SW_PLLMODE_OFST));
+#ifdef CONFIG_PROJECT_PHY
+		/* Comment from CC Chou.
+		 * When detecting HS or FS and setting RG_USB20_SW_PLLMODE=1, It is OK to enter LPM L1 with BESL=0.
+		 * When disconnecting, set RG_USB20_SW_PLLMODE=0 back.
+		 */
+		os_setmsk(U3D_U2PHYDCR1, (0x1 << E60802_RG_USB20_SW_PLLMODE_OFST));
 
-			/*BESLCK = 0 < BESLCK_U3 = 1 < BESLDCK = 15*/
-			os_writel(U3D_USB20_LPM_PARAMETER, 0x10f0);
+		/*BESLCK = 0 < BESLCK_U3 = 1 < BESLDCK = 15 */
+		os_writel(U3D_USB20_LPM_PARAMETER, 0x10f0);
 
-			/*
-			 * The default value of LPM_BESL_STALL and LPM_BESLD_STALL are 1.
-			 * So Does _NOT_ need to set.
-			 */
-			/*os_setmsk(U3D_POWER_MANAGEMENT, (LPM_BESL_STALL|LPM_BESLD_STALL));*/
-			#else
-			/*BESLCK = 4 < BESLCK_U3 = 10 < BESLDCK = 15*/
-			os_writel(U3D_USB20_LPM_PARAMETER, 0xa4f0);
-			os_setmsk(U3D_POWER_MANAGEMENT, (LPM_BESL_STALL|LPM_BESLD_STALL));
-			#endif
+		/*
+		 * The default value of LPM_BESL_STALL and LPM_BESLD_STALL are 1.
+		 * So Does _NOT_ need to set.
+		 */
+		/*os_setmsk(U3D_POWER_MANAGEMENT, (LPM_BESL_STALL|LPM_BESLD_STALL)); */
+#else
+		/*BESLCK = 4 < BESLCK_U3 = 10 < BESLDCK = 15 */
+		os_writel(U3D_USB20_LPM_PARAMETER, 0xa4f0);
+		os_setmsk(U3D_POWER_MANAGEMENT, (LPM_BESL_STALL | LPM_BESLD_STALL));
+#endif
 		break;
 
-		case SSUSB_SPEED_HIGH:
-			os_printk(K_ALET,"USB Speed = High Speed\n");
-			#ifndef CONFIG_USBIF_COMPLIANCE
-			if ((speed == SSUSB_SPEED_INACTIVE) && (speed_last == SSUSB_SPEED_SUPER)) {
-				struct timespec tmp = get_connect_timestamp();
-				if (timespec_compare(&ss_timestamp, &tmp)>0) {
-					os_printk(K_INFO,"queue reconnect work\n");
+	case SSUSB_SPEED_HIGH:
+		os_printk(K_ALET, "USB Speed = High Speed\n");
+#ifndef CONFIG_USBIF_COMPLIANCE
+		if ((speed == SSUSB_SPEED_INACTIVE) && (speed_last == SSUSB_SPEED_SUPER)) {
+			struct timespec tmp = get_connect_timestamp();
+			if (timespec_compare(&ss_timestamp, &tmp) > 0) {
+				os_printk(K_INFO, "queue reconnect work\n");
 
-					schedule_delayed_work_on(0, &musb->reconnect_work, 0);
-				}
+				schedule_delayed_work_on(/*0*/ WORK_CPU_UNBOUND, &musb->reconnect_work, 0);
 			}
-			speed_last = speed;
-			speed = SSUSB_SPEED_HIGH;
-			#endif
+		}
+		speed_last = speed;
+		speed = SSUSB_SPEED_HIGH;
+#endif
 
-			#ifdef CONFIG_PROJECT_PHY
-			/* Comment from CC Chou.
-			 * When detecting HS or FS and setting RG_USB20_SW_PLLMODE=1, It is OK to enter LPM L1 with BESL=0.
-			 * When disconnecting, set RG_USB20_SW_PLLMODE=0 back.
-			 */
-			os_setmsk(U3D_U2PHYDCR1, (0x1<<E60802_RG_USB20_SW_PLLMODE_OFST));
+#ifdef CONFIG_PROJECT_PHY
+		/* Comment from CC Chou.
+		 * When detecting HS or FS and setting RG_USB20_SW_PLLMODE=1, It is OK to enter LPM L1 with BESL=0.
+		 * When disconnecting, set RG_USB20_SW_PLLMODE=0 back.
+		 */
+		os_setmsk(U3D_U2PHYDCR1, (0x1 << E60802_RG_USB20_SW_PLLMODE_OFST));
 
-			/*BESLCK = 0 < BESLCK_U3 = 1 < BESLDCK = 15*/
-			os_writel(U3D_USB20_LPM_PARAMETER, 0x10f0);
-			/*
-			 * The default value of LPM_BESL_STALL and LPM_BESLD_STALL are 1.
-			 * So Does _NOT_ need to set.
-			 */
-			 /*os_setmsk(U3D_POWER_MANAGEMENT, (LPM_BESL_STALL|LPM_BESLD_STALL));*/
-			#else
-			/*BESLCK = 4 < BESLCK_U3 = 10 < BESLDCK = 15*/
-			os_writel(U3D_USB20_LPM_PARAMETER, 0xa4f0);
-			os_setmsk(U3D_POWER_MANAGEMENT, (LPM_BESL_STALL|LPM_BESLD_STALL));
-			#endif
+		/*BESLCK = 0 < BESLCK_U3 = 1 < BESLDCK = 15 */
+		os_writel(U3D_USB20_LPM_PARAMETER, 0x10f0);
+		/*
+		 * The default value of LPM_BESL_STALL and LPM_BESLD_STALL are 1.
+		 * So Does _NOT_ need to set.
+		 */
+		/*os_setmsk(U3D_POWER_MANAGEMENT, (LPM_BESL_STALL|LPM_BESLD_STALL)); */
+#else
+		/*BESLCK = 4 < BESLCK_U3 = 10 < BESLDCK = 15 */
+		os_writel(U3D_USB20_LPM_PARAMETER, 0xa4f0);
+		os_setmsk(U3D_POWER_MANAGEMENT, (LPM_BESL_STALL | LPM_BESLD_STALL));
+#endif
 		break;
 
-		case SSUSB_SPEED_SUPER:
-			os_printk(K_ALET,"USB Speed = Super Speed\n");
-			#ifndef CONFIG_USBIF_COMPLIANCE
-			speed_last = speed;
-			speed = SSUSB_SPEED_SUPER;
-			ss_timestamp = CURRENT_TIME;
-			#endif
+	case SSUSB_SPEED_SUPER:
+		os_printk(K_ALET, "USB Speed = Super Speed\n");
+#ifndef CONFIG_USBIF_COMPLIANCE
+		speed_last = speed;
+		speed = SSUSB_SPEED_SUPER;
+		ss_timestamp = CURRENT_TIME;
+#endif
 		break;
 
-		default:
-			os_printk(K_ALET,"USB Speed = Invalid (%x)\n", dwTemp);
-			#ifndef CONFIG_USBIF_COMPLIANCE
-			speed_last = speed;
-			speed = SSUSB_SPEED_INACTIVE;
-			#endif
+	default:
+		os_printk(K_ALET, "USB Speed = Invalid (%x)\n", dwTemp);
+#ifndef CONFIG_USBIF_COMPLIANCE
+		speed_last = speed;
+		speed = SSUSB_SPEED_INACTIVE;
+#endif
 		break;
 	}
 }
@@ -438,29 +450,26 @@ static inline void mtu3d_otg_intr_handler(u32 dwOtgIntValue)
 		os_printk(K_NOTICE, "OTG: VBUS_CHG_INTR\n");
 		os_setmsk(U3D_SSUSB_OTG_STS_CLR, SSUSB_VBUS_INTR_CLR);
 	}
-
-	//this interrupt is issued when B device becomes device
+	/* this interrupt is issued when B device becomes device */
 	if (dwOtgIntValue & SSUSB_CHG_B_ROLE_B) {
 		os_printk(K_NOTICE, "OTG: CHG_B_ROLE_B\n");
 		os_setmsk(U3D_SSUSB_OTG_STS_CLR, SSUSB_CHG_B_ROLE_B_CLR);
 
-		//switch DMA module to device
+		/* switch DMA module to device */
 		os_printk(K_NOTICE, "Switch DMA to device\n");
 		os_clrmsk(U3D_SSUSB_U2_CTRL_0P, SSUSB_U2_PORT_HOST_SEL);
 	}
-
-	//this interrupt is issued when B device becomes host
+	/* this interrupt is issued when B device becomes host */
 	if (dwOtgIntValue & SSUSB_CHG_A_ROLE_B) {
 		os_printk(K_NOTICE, "OTG: CHG_A_ROLE_B\n");
 		os_setmsk(U3D_SSUSB_OTG_STS_CLR, SSUSB_CHG_A_ROLE_B_CLR);
 	}
-
-	//this interrupt is issued when IDDIG reads B
+	/* this interrupt is issued when IDDIG reads B */
 	if (dwOtgIntValue & SSUSB_ATTACH_B_ROLE) {
 		os_printk(K_NOTICE, "OTG: CHG_ATTACH_B_ROLE\n");
 		os_setmsk(U3D_SSUSB_OTG_STS_CLR, SSUSB_ATTACH_B_ROLE_CLR);
 
-		//switch DMA module to device
+		/* switch DMA module to device */
 		os_printk(K_NOTICE, "Switch DMA to device\n");
 		os_clrmsk(U3D_SSUSB_U2_CTRL_0P, SSUSB_U2_PORT_HOST_SEL);
 	}
@@ -471,8 +480,8 @@ static inline void mtu3d_otg_intr_handler(u32 dwOtgIntValue)
 static irqreturn_t generic_interrupt(int irq, void *__hci)
 {
 	unsigned long flags;
-	irqreturn_t	retval = IRQ_HANDLED;
-	struct musb	*musb = __hci;
+	irqreturn_t retval = IRQ_HANDLED;
+	struct musb *musb = __hci;
 
 	u32 dwL1Value = 0;
 	u32 dwIntrUsbValue = 0;
@@ -498,62 +507,64 @@ static irqreturn_t generic_interrupt(int irq, void *__hci)
 	if (dwL1Value & EP_CTRL_INTR) {
 		u32 dwRxEpDataerrVal = os_readl(U3D_USB2_RX_EP_DATAERR_INTR);
 		if (dwRxEpDataerrVal != 0) {
-			/* Write 1 clear*/
+			/* Write 1 clear */
 			os_writel(U3D_USB2_RX_EP_DATAERR_INTR, dwRxEpDataerrVal);
 			os_printk(K_INFO, "===L1[%x] RxDataErr[%x]\n", dwL1Value,
-				(dwRxEpDataerrVal>>USB2_RX_EP_DATAERR_INTR_EN_OFST && dwRxEpDataerrVal));
+				  (dwRxEpDataerrVal >> USB2_RX_EP_DATAERR_INTR_EN_OFST
+				   && dwRxEpDataerrVal));
 		}
 		dwLinkIntValue = os_readl(U3D_DEV_LINK_INTR) & os_readl(U3D_DEV_LINK_INTR_ENABLE);
 		if (dwLinkIntValue != 0) {
-			/* Write 1 clear*/
+			/* Write 1 clear */
 			os_writel(U3D_DEV_LINK_INTR, dwLinkIntValue);
 			os_printk(K_INFO, "===L1[%x] LinkInt[%x]\n", dwL1Value, dwLinkIntValue);
 		}
 	}
 
 	if (dwL1Value & MAC2_INTR) {
-		dwIntrUsbValue = os_readl(U3D_COMMON_USB_INTR) & os_readl(U3D_COMMON_USB_INTR_ENABLE);
-		/* Write 1 clear*/
+		dwIntrUsbValue =
+		    os_readl(U3D_COMMON_USB_INTR) & os_readl(U3D_COMMON_USB_INTR_ENABLE);
+		/* Write 1 clear */
 		os_writel(U3D_COMMON_USB_INTR, dwIntrUsbValue);
 		os_printk(K_INFO, "===L1[%x] U2[%x]\n", dwL1Value, dwIntrUsbValue);
 	}
 
 	if (dwL1Value & DMA_INTR) {
 		dwDmaIntrValue = os_readl(U3D_DMAISR) & os_readl(U3D_DMAIER);
-		/* Write 1 clear*/
+		/* Write 1 clear */
 		os_writel(U3D_DMAISR, dwDmaIntrValue);
 		os_printk(K_INFO, "===L1[%x] DMA[%x]\n", dwL1Value, dwDmaIntrValue);
 	}
 
 	if (dwL1Value & MAC3_INTR) {
 		dwLtssmValue = os_readl(U3D_LTSSM_INTR) & os_readl(U3D_LTSSM_INTR_ENABLE);
-		/* Write 1 clear*/
+		/* Write 1 clear */
 		os_writel(U3D_LTSSM_INTR, dwLtssmValue);
 		os_printk(K_DEBUG, "===L1[%x] LTSSM[%x]\n", dwL1Value, dwLtssmValue);
 	}
-
 #ifdef USE_SSUSB_QMU
 	if (dwL1Value & QMU_INTR) {
 		wIntrQMUValue = os_readl(U3D_QISAR1) & os_readl(U3D_QIER1);
 		wIntrQMUDoneValue = os_readl(U3D_QISAR0) & os_readl(U3D_QIER0);
 		/* Write 1 clear */
 		os_writel(U3D_QISAR0, wIntrQMUDoneValue);
-		qmu_printk(K_DEBUG, "===L1[%x] QMUDone[Tx=%x,Rx=%x] QMU[%x]===\n",\
-			dwL1Value, ((wIntrQMUDoneValue & 0xFFFF) >> 1), wIntrQMUDoneValue>>17, wIntrQMUValue);
+		qmu_printk(K_DEBUG, "===L1[%x] QMUDone[Tx=%x,Rx=%x] QMU[%x]===\n",
+			   dwL1Value, ((wIntrQMUDoneValue & 0xFFFF) >> 1), wIntrQMUDoneValue >> 17,
+			   wIntrQMUValue);
 	}
 #endif
 
 	if (dwL1Value & BMU_INTR) {
 		dwIntrEPValue = os_readl(U3D_EPISR) & os_readl(U3D_EPIER);
 		wIntrTxValue = dwIntrEPValue & 0xFFFF;
-		wIntrRxValue = (dwIntrEPValue>>16);
+		wIntrRxValue = (dwIntrEPValue >> 16);
 		os_writel(U3D_EPISR, dwIntrEPValue);
-		os_printk(K_DEBUG, "===L1[%x] Tx[%x] Rx[%x]===\n",\
-			dwL1Value, wIntrTxValue, wIntrRxValue);
+		os_printk(K_DEBUG, "===L1[%x] Tx[%x] Rx[%x]===\n",
+			  dwL1Value, wIntrTxValue, wIntrRxValue);
 
 	}
 
-	/*TODO: need to handle SetupEnd Interrupt!!!*/
+	/*TODO: need to handle SetupEnd Interrupt!!! */
 
 	/*--Handle each interrupt--*/
 	if ((dwL1Value & (BMU_INTR | MAC2_INTR)) || dwIntrUsbValue) {
@@ -564,46 +575,40 @@ static irqreturn_t generic_interrupt(int irq, void *__hci)
 		if (musb->int_usb || musb->int_tx || musb->int_rx)
 			retval = musb_interrupt(musb);
 		else
-			os_printk(K_INFO, "===L1[%x] Nothing can do?? Tx[%x] Rx[%x] U2[%x]===\n",\
-						dwL1Value, wIntrTxValue, wIntrRxValue, dwIntrUsbValue );
+			os_printk(K_INFO, "===L1[%x] Nothing can do?? Tx[%x] Rx[%x] U2[%x]===\n",
+				  dwL1Value, wIntrTxValue, wIntrRxValue, dwIntrUsbValue);
 	}
-
 #ifdef SUPPORT_OTG
-	dwOtgIntValue = os_readl(U3D_SSUSB_OTG_STS) & os_readl(U3D_SSUSB_OTG_INT_EN);;
+	dwOtgIntValue = os_readl(U3D_SSUSB_OTG_STS) & os_readl(U3D_SSUSB_OTG_INT_EN);
 #endif
 
-#if defined (USE_SSUSB_QMU)
+#if defined(USE_SSUSB_QMU)
 	if (wIntrQMUDoneValue) {
 		if (musb->qmu_done_intr != 0) {
-		 	musb->qmu_done_intr = wIntrQMUDoneValue | musb->qmu_done_intr;
+			musb->qmu_done_intr = wIntrQMUDoneValue | musb->qmu_done_intr;
 			qmu_printk(K_DEBUG, "Has not handle yet %x\n", musb->qmu_done_intr);
 		} else {
-		 	musb->qmu_done_intr = wIntrQMUDoneValue;
+			musb->qmu_done_intr = wIntrQMUDoneValue;
 		}
-	 	tasklet_schedule(&musb->qmu_done);
+		tasklet_schedule(&musb->qmu_done);
 	}
 
- 	if (wIntrQMUValue) {
+	if (wIntrQMUValue)
 		qmu_exception_interrupt(musb, wIntrQMUValue);
- 	}
 #endif
 
-	if (dwLtssmValue) {
+	if (dwLtssmValue)
 		mtu3d_u3_ltssm_intr_handler(musb, dwLtssmValue);
-	}
 
-	if (dwIntrUsbValue) {
+	if (dwIntrUsbValue)
 		mtu3d_u2_common_intr_handler(dwIntrUsbValue);
-	}
 
-	if (dwLinkIntValue & SSUSB_DEV_SPEED_CHG_INTR) {
+	if (dwLinkIntValue & SSUSB_DEV_SPEED_CHG_INTR)
 		mtu3d_link_intr_handler(musb, dwLinkIntValue);
-	}
 
 #ifdef SUPPORT_OTG
-	if (dwOtgIntValue) {
+	if (dwOtgIntValue)
 		mtu3d_otg_intr_handler(dwOtgIntValue);
-	}
 #endif
 
 	spin_unlock_irqrestore(&musb->lock, flags);
@@ -664,7 +669,7 @@ static int mtu3d_musb_exit(struct musb *musb)
 #ifdef NEVER
 	struct device *dev = musb->controller;
 	struct musb_hdrc_platform_data *plat = dev->platform_data;
-#endif /* NEVER */
+#endif				/* NEVER */
 
 	usb_put_phy(musb->xceiv);
 	usb_nop_xceiv_unregister();
@@ -713,7 +718,9 @@ static void mtu3d_musb_reg_init(struct musb *musb)
 		_ex_mu3d_hal_ssusb_en();
 
 		/* USB PLL Force settings */
+#ifdef CONFIG_PROJECT_PHY
 		usb20_pll_settings(false, false);
+#endif
 
 		/* reset U3D all dev module. */
 		mu3d_hal_rst_dev();
@@ -728,10 +735,10 @@ static u64 usb_dmamask = DMA_BIT_MASK(32);
 
 static int mtu3d_probe(struct platform_device *pdev)
 {
-	const struct musb_hdrc_platform_data	*pdata = dev_get_platdata(&pdev->dev);
+	const struct musb_hdrc_platform_data *pdata = dev_get_platdata(&pdev->dev);
 	const struct of_device_id *match;
-	struct platform_device		*musb;
-	struct mtu3d_glue		*glue;
+	struct platform_device *musb;
+	struct mtu3d_glue *glue;
 
 	int ret = -ENOMEM;
 
@@ -749,22 +756,34 @@ static int mtu3d_probe(struct platform_device *pdev)
 		goto err1;
 	}
 
-	musb->dev.parent		= &pdev->dev;
-	musb->dev.dma_mask		= &usb_dmamask;
-	musb->dev.coherent_dma_mask	= usb_dmamask;
+	musb->dev.parent = &pdev->dev;
+	musb->dev.dma_mask = &usb_dmamask;
+	musb->dev.coherent_dma_mask = usb_dmamask;
 
-	glue->dev			= &pdev->dev;
-	glue->musb			= musb;
+	glue->dev = &pdev->dev;
+	glue->musb = musb;
 
 	match = of_match_device(of_match_ptr(mtu3d_of_match), &pdev->dev);
-	if (match) {
+	if (match)
 		pdata = match->data;
+
+#ifndef CONFIG_MTK_CLKMGR
+	musb_clk = devm_clk_get(&pdev->dev, "SSUSB-CLOCK");
+	if (IS_ERR(musb_clk)) {
+		dev_err(&pdev->dev, "SSUSB cannot get musb clock\n");
+		goto err2;
+	} else {
+		dev_info(&pdev->dev, "SSUSB get musb clock ok, prepare it\n");
+		if (clk_prepare(musb_clk) == 0)
+			dev_info(&pdev->dev, "musb clock prepare done\n");
+		else
+			dev_err(&pdev->dev, "musb clock prepare fail\n");
 	}
+#endif
 
 	platform_set_drvdata(pdev, glue);
 
-	ret = platform_device_add_resources(musb, pdev->resource,
-			pdev->num_resources);
+	ret = platform_device_add_resources(musb, pdev->resource, pdev->num_resources);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to add resources\n");
 		goto err2;
@@ -781,7 +800,6 @@ static int mtu3d_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to register musb device\n");
 		goto err2;
 	}
-
 	return 0;
 
 err2:
@@ -796,12 +814,15 @@ err0:
 
 static int mtu3d_remove(struct platform_device *pdev)
 {
-	struct mtu3d_glue		*glue = platform_get_drvdata(pdev);
+	struct mtu3d_glue *glue = platform_get_drvdata(pdev);
 
 	platform_device_del(glue->musb);
 	platform_device_put(glue->musb);
 	kfree(glue);
 
+#ifndef CONFIG_MTK_CLKMGR
+	clk_unprepare(musb_clk);
+#endif
 	return 0;
 }
 
@@ -814,7 +835,7 @@ static int mtu3d_suspend_noirq(struct device *dev)
 	 * the system does _NOT_ enter suspend mode. At the normal case, the USB driver calls PHY savecurrent,
 	 * when USB cable is plugged out.
 	 */
-	/*usb_phy_savecurrent();*/
+	/*usb_phy_savecurrent(); */
 
 	/*
 	 * SSUSB IP Software Reset - When this bit is set, whole SSUSB IP is reset.
@@ -822,7 +843,7 @@ static int mtu3d_suspend_noirq(struct device *dev)
 	 * Setting this bit when suspend is to improve USB current leakage problem of AVDD18_USB_P0.
 	 * After clearing this bit, the whole MAC registers would reset to the default value.
 	 */
-	//os_setmsk(U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
+	/* os_setmsk(U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST); */
 
 	return 0;
 }
@@ -832,21 +853,21 @@ static int mtu3d_resume_noirq(struct device *dev)
 	os_printk(K_INFO, "%s\n", __func__);
 
 	/* disable ip power down, disable U2/U3 ip power down */
-	//_ex_mu3d_hal_ssusb_en();
+	/* _ex_mu3d_hal_ssusb_en(); */
 
 	/* reset U3D all dev module. */
-	//mu3d_hal_rst_dev();
+	/* mu3d_hal_rst_dev(); */
 
 	/*J:I think it does _NOT_ have to do PHY savecurrent. Because after USB cable is plugged in,
 	 * the USB driver calls PHY recovery. So does _NOT_ have to do PHY recovery at this moment.*/
-	//usb_phy_recover();
+	/* usb_phy_recover(); */
 
 	return 0;
 }
 
 static struct dev_pm_ops mtu3d_pm_ops = {
-	.suspend_noirq	= mtu3d_suspend_noirq,
-	.resume_noirq		= mtu3d_resume_noirq,
+	.suspend_noirq = mtu3d_suspend_noirq,
+	.resume_noirq = mtu3d_resume_noirq,
 };
 
 #define DEV_PM_OPS	&mtu3d_pm_ops
@@ -855,14 +876,14 @@ static struct dev_pm_ops mtu3d_pm_ops = {
 #endif
 
 static struct platform_driver mtu3d_driver = {
-	.probe		= mtu3d_probe,
-	.remove		= mtu3d_remove,
-	.driver		= {
-		.name	= "musb-mtu3d",
-		.owner 	= THIS_MODULE,
-		.pm	= DEV_PM_OPS,
-		.of_match_table = of_match_ptr(mtu3d_of_match),
-	},
+	.probe = mtu3d_probe,
+	.remove = mtu3d_remove,
+	.driver = {
+		   .name = "musb-mtu3d",
+		   .owner = THIS_MODULE,
+		   .pm = DEV_PM_OPS,
+		   .of_match_table = of_match_ptr(mtu3d_of_match),
+		   },
 };
 
 MODULE_DESCRIPTION("mtu3d MUSB Glue Layer");

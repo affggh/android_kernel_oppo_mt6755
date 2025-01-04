@@ -32,9 +32,6 @@
  *   Chipeng Chang (mtk02308)
  *
  *------------------------------------------------------------------------------
- * $Revision: #1 $
- * $Modtime:$
- * $Log:$
  *
  *
  *******************************************************************************/
@@ -427,18 +424,16 @@
 
 
 #if 1
-//register number
+/* register number */
 
 #else
 #include <mach/upmu_hw.h>
 #endif
 
 void Ana_Set_Reg(uint32 offset, uint32 value, uint32 mask);
-uint32  Ana_Get_Reg(uint32 offset);
+uint32 Ana_Get_Reg(uint32 offset);
 
-// for debug usage
+/* for debug usage */
 void Ana_Log_Print(void);
 
 #endif
-
-

@@ -26,6 +26,11 @@
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
 
+#ifdef VENDOR_EDIT	
+//rendong.shi@Basic.boot, 2015/04/27, Modify  for add interface reboot reason  	
+int is_kernel_panic = 0;	
+#endif
+
 /* Machine specific panic information string */
 char *mach_panic_string;
 
@@ -136,6 +141,11 @@ void panic(const char *fmt, ...)
 
 	if (!panic_blink)
 		panic_blink = no_blink;
+		
+	#ifdef VENDOR_EDIT	
+     //rendong.shi@Basic.boot, 2015/04/27, Modify  for add interface reboot reason  
+    is_kernel_panic = 1;	
+     #endif
 
 	if (panic_timeout > 0) {
 		/*
@@ -356,6 +366,10 @@ int oops_may_print(void)
  */
 void oops_enter(void)
 {
+	#ifdef VENDOR_EDIT	
+     //rendong.shi@Basic.boot, 2015/04/27, Modify  for add interface reboot reason  
+    is_kernel_panic = 1;	
+     #endif
 	tracing_off();
 	/* can't trust the integrity of the kernel anymore: */
 	debug_locks_off();

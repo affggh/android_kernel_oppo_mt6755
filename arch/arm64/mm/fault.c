@@ -72,7 +72,7 @@ void show_pte(struct mm_struct *mm, unsigned long addr)
 		pte = pte_offset_map(pmd, addr);
 		printk(", *pte=%016llx", pte_val(*pte));
 		pte_unmap(pte);
-	} while(0);
+	} while (0);
 
 	printk("\n");
 }
@@ -278,6 +278,7 @@ retry:
 			 * starvation.
 			 */
 			mm_flags &= ~FAULT_FLAG_ALLOW_RETRY;
+			mm_flags |= FAULT_FLAG_TRIED;
 			goto retry;
 		}
 	}

@@ -7,13 +7,18 @@ subdir-ccflags-y += -I$(src)/linux/include \
 						 -I$(srctree)/drivers/misc/mediatek/btif/inc \
 						 -I$(srctree)/drivers/misc/mediatek/connectivity/common_detect
 
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/				
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eemcs/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/conn_md/include
 #CONFIG_MTK_COMBO=y
 EXT_FLAG=_soc
 COMMON_SRC_PATH := $(src)
 COMMON_OBJ_PATH := $(src)
+
+ifeq ($(CONFIG_ARCH_MT6580), y)
+subdir-ccflags-y += -D CFG_WMT_READ_EFUSE_VCN33
+endif
 
 ifeq ($(CONFIG_MTK_COMBO), m)
 # WMT DRIVER

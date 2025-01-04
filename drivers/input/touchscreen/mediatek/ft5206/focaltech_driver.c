@@ -13,8 +13,6 @@
 
 #include "tpd.h"
 
-#include "tpd_custom_ft5206.h"
-#include "focaltech_ex_fun.h"
 #include <linux/netdevice.h>
 #ifdef FTS_CTL_IIC
 #include "focaltech_ctl.h"
@@ -46,6 +44,8 @@ extern int tpd_v_magnify_y;
 #include <linux/wait.h>
 #include <linux/time.h>
 #include <linux/delay.h>
+#include "tpd_custom_ft5206.h"
+#include "focaltech_ex_fun.h"
 
 u8 *I2CDMABuf_va = NULL;
 dma_addr_t I2CDMABuf_pa = 0;

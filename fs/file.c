@@ -557,7 +557,7 @@ void fd_show_open_files(pid_t pid, struct files_struct *files, struct fdtable *f
     for(i=0; i<fdt->max_fds; i++) {
         struct over_fd_entry *entry = (struct over_fd_entry*)kzalloc(sizeof(struct over_fd_entry), GFP_KERNEL);
     	if(!entry) {
-    		pr_debug("[FD_LEAK](PID:%d)Empty FD:%d", pid, i);
+    		pr_warning("[FDLEAK](PID:%d)Empty FD:%d", pid, i);
     	}
     	else {
     		memset(entry->name, 0, sizeof entry->name);
@@ -575,15 +575,15 @@ void fd_show_open_files(pid_t pid, struct files_struct *files, struct fdtable *f
     	lentry = list_entry((&fd_listhead)->next, struct over_fd_entry, fd_link);
     	num_of_entry = lentry->num_of_fd;
     	if(lentry != NULL && lentry->name!=NULL)
-    		pr_debug("[FD_LEAK]OverAllocFDError(PID:%d fileName:%s Num:%d)\n", pid, lentry->name, num_of_entry);
+    		pr_warning("[FDLEAK]OverAllocFDError(PID:%d fileName:%s Num:%d)\n", pid, lentry->name, num_of_entry);
     	else
-    		pr_debug("[FD_LEAK]OverAllocFDError(PID:%d fileName:%s Num:%d)\n", pid, "NULL", num_of_entry);
+    		pr_warning("[FDLEAK]OverAllocFDError(PID:%d fileName:%s Num:%d)\n", pid, "NULL", num_of_entry);
     	list_del((&fd_listhead)->next);
     	fd_delete(lentry->hash);
     	kfree(lentry);
     }
     if(sum_fds_of_pid) {
-        pr_debug("[FD_LEAK]OverAllocFDError(PID:%d totalFDs:%d)\n", pid, sum_fds_of_pid);    
+        pr_warning("[FDLEAK]OverAllocFDError(PID:%d totalFDs:%d)\n", pid, sum_fds_of_pid);    
     }
     mutex_unlock(&over_fd_mutex);
 }
@@ -653,7 +653,7 @@ out:
 	    if(!dump_current_open_files && 
 	        strcmp(current->comm, "Backbone")) { /*add Backbone into FD white list for skype*/
 	        dump_current_open_files = 0x1;
-	        pr_debug("[FD_LEAK](PID:%d)fd over RLIMIT_NOFILE:%ld", current->pid, rlimit(RLIMIT_NOFILE));
+	        pr_warning("[FDLEAK](PID:%d)fd over RLIMIT_NOFILE:%ld\n", current->pid, rlimit(RLIMIT_NOFILE));
 	        fd_show_open_files(current->pid, files, fdt);
         }
 	}

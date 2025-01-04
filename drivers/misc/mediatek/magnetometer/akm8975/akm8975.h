@@ -79,7 +79,7 @@ Defines a read-only address of the fuse ROM of the AK8975.*/
 #ifndef DBGPRINT
 #define DBGPRINT(level, format, ...) \
     ((((level) != 0) && ((level) <= DBGFLAG))  \
-     ? (printk(KERN_INFO, (format), ##__VA_ARGS__)) \
+     ? (pr_debug((format), ##__VA_ARGS__)) \
      : (void)0)
 
 #endif

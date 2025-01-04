@@ -33,10 +33,11 @@
 #include <linux/kernel.h>
 
 #include <mach/mt_typedefs.h>
-#include <mach/mt_gpio.h>
 #include <mach/mt_pm_ldo.h>
 #include <mach/mt_boot.h>
-
+#ifdef CONFIG_MTK_LEGACY
+#include <mach/mt_gpio.h>
+#endif
 #include <gyroscope.h>
 
 #define INV_GYRO_AUTO_CALI  1
@@ -59,10 +60,12 @@
 #define MPU6515_DEV_NAME        "MPU6515GY" /* name must different with gsensor mpu6515 */
 /*----------------------------------------------------------------------------*/
 static const struct i2c_device_id mpu6515_i2c_id[] = {{MPU6515_DEV_NAME,0},{}};
+#ifdef CONFIG_MTK_LEGACY
 static struct i2c_board_info __initdata i2c_mpu6515={ I2C_BOARD_INFO(MPU6515_DEV_NAME, (MPU6515_I2C_SLAVE_ADDR>>1))};
-
+#endif
 int packet_thresh = 75; // 600 ms / 8ms/sample
 
+struct platform_device *gyroPltFmDev;
 /*----------------------------------------------------------------------------*/
 static int mpu6515_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id); 
 static int mpu6515_i2c_remove(struct i2c_client *client);
@@ -72,7 +75,7 @@ static int mpu6515_suspend(struct i2c_client *client, pm_message_t msg) ;
 static int mpu6515_resume(struct i2c_client *client);
 #endif
 
-static int gyroscope_local_init(void);
+static int gyroscope_local_init(struct platform_device *pdev);
 static int gyroscope_remove(void);
 /*----------------------------------------------------------------------------*/
 typedef enum
@@ -142,9 +145,19 @@ struct mpu6515_i2c_data
 #endif
 };
 /*----------------------------------------------------------------------------*/
+#ifdef CONFIG_OF
+static const struct of_device_id gyro_of_match[] = {
+        {.compatible = "mediatek,GYRO"},
+        {},
+};
+#endif
+
 static struct i2c_driver mpu6515_i2c_driver = {
     .driver = {
         .name           = MPU6515_DEV_NAME,
+#ifdef CONFIG_OF
+        .of_match_table = gyro_of_match,
+#endif
     },
     .probe              = mpu6515_i2c_probe,
     .remove             = mpu6515_i2c_remove,
@@ -170,14 +183,6 @@ static struct gyro_init_info gyroscope_init_info = {
     .init = gyroscope_local_init,
     .uninit = gyroscope_remove,
 };
-
-/*----------------------------------------------------------------------------*/
-#if 0
-#define GYRO_TAG                  "[Gyroscope] "
-#define GYRO_FUN(f)               printk(KERN_INFO GYRO_TAG"%s\n", __FUNCTION__)
-#define GYRO_ERR(fmt, args...)    printk(KERN_ERR GYRO_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define GYRO_LOG(fmt, args...)    printk(KERN_INFO GYRO_TAG fmt, ##args)
-#endif
 /*----------------------------------------------------------------------------*/
 
 extern int MPU6515_gse_power(void);
@@ -208,7 +213,7 @@ EXPORT_SYMBOL(MPU6515_gyro_mode);
 /*--------------------gyroscopy power control function----------------------------------*/
 static void MPU6515_power(struct gyro_hw *hw, unsigned int on) 
 {
-#ifndef FPGA_EARLY_PORTING
+#ifndef CONFIG_FPGA_EARLY_PORTING
     if (hw->power_id != POWER_NONE_MACRO)        // have externel LDO
     {
         GYRO_LOG("power %s\n", on ? "on" : "off");
@@ -1265,14 +1270,41 @@ static int mpu6515_delete_attr(struct device_driver *driver)
 /*----------------------------------------------------------------------------*/
 static int mpu6515_gpio_config(void)
 {
-#ifndef FPGA_EARLY_PORTING
+#ifndef CONFIG_FPGA_EARLY_PORTING
     //because we donot use EINT ,to support low power
     // config to GPIO input mode + PD    
     //set   GPIO_MSE_EINT_PIN
+    int ret;
+    struct pinctrl *pinctrl;
+	struct pinctrl_state *pins_default;
+	struct pinctrl_state *pins_cfg;
+	
+#ifdef CONFIG_MTK_LEGACY
     mt_set_gpio_mode(GPIO_GYRO_EINT_PIN, GPIO_GYRO_EINT_PIN_M_GPIO);
     mt_set_gpio_dir(GPIO_GYRO_EINT_PIN, GPIO_DIR_IN);
     mt_set_gpio_pull_enable(GPIO_GYRO_EINT_PIN, GPIO_PULL_ENABLE);
     mt_set_gpio_pull_select(GPIO_GYRO_EINT_PIN, GPIO_PULL_DOWN);
+#else
+	pinctrl = devm_pinctrl_get(&gyroPltFmDev->dev);
+	if (IS_ERR(pinctrl)) {
+		ret = PTR_ERR(pinctrl);
+		GYRO_ERR("Cannot find gyro pinctrl!\n");
+	}
+	pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
+	if (IS_ERR(pins_default)) {
+		ret = PTR_ERR(pins_default);
+		GYRO_ERR("Cannot find gyro pinctrl default!\n");
+		
+	}
+
+	pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
+	if (IS_ERR(pins_cfg)) {
+		ret = PTR_ERR(pins_cfg);
+		GYRO_ERR("Cannot find gyro pinctrl pin_cfg!\n");
+		
+	}
+    pinctrl_select_state(pinctrl, pins_cfg);
+#endif
 #endif //#ifndef FPGA_EARLY_PORTING
     return 0;
 }
@@ -1302,7 +1334,7 @@ static int mpu6515_init_client(struct i2c_client *client, bool enable)
     }
 
     // Set 125HZ sample rate
-    res = MPU6515_SetSampleRate(client, 125);
+    res = MPU6515_SetSampleRate(client, 200);
     if (res != MPU6515_SUCCESS )
     {
         return res;
@@ -1560,11 +1592,20 @@ static long compat_mpu6515_unlocked_ioctl(struct file *filp, unsigned int cmd, u
     }
 
     switch (cmd) {
-        case GYROSCOPE_IOCTL_SET_CALI:
-        case GYROSCOPE_IOCTL_CLR_CALI:
-        case GYROSCOPE_IOCTL_GET_CALI:
+	case COMPAT_GYROSCOPE_IOCTL_INIT:
+	case COMPAT_GYROSCOPE_IOCTL_SMT_DATA:    
+	case COMPAT_GYROSCOPE_IOCTL_READ_SENSORDATA_RAW:      
+	case COMPAT_GYROSCOPE_IOCTL_READ_TEMPERATURE:
+	case COMPAT_GYROSCOPE_IOCTL_GET_POWER_STATUS:
+        case COMPAT_GYROSCOPE_IOCTL_READ_SENSORDATA:
+	/* NVRAM will use below ioctl */
+        case COMPAT_GYROSCOPE_IOCTL_SET_CALI:
+        case COMPAT_GYROSCOPE_IOCTL_CLR_CALI:
+        case COMPAT_GYROSCOPE_IOCTL_GET_CALI: {
+            GYRO_LOG("compat_ion_ioctl : GYROSCOPE_IOCTL_XXX command is 0x%x\n", cmd);
             return filp->f_op->unlocked_ioctl(filp, cmd,
                 (unsigned long)compat_ptr(arg));
+	}
         default: {
             GYRO_ERR("compat_ion_ioctl : No such command!! 0x%x\n", cmd);
             return -ENOIOCTLCMD;
@@ -1943,9 +1984,11 @@ static int mpu6515_i2c_remove(struct i2c_client *client)
     return 0;
 }
 /*----------------------------------------------------------------------------*/
-static int gyroscope_local_init() 
+static int gyroscope_local_init(struct platform_device *pdev) 
 {
     struct gyro_hw *hw = get_cust_gyro_hw();
+	gyroPltFmDev = pdev;
+
     GYRO_FUN();
     MPU6515_power(hw, 1);
     if (i2c_add_driver(&mpu6515_i2c_driver))
@@ -1975,7 +2018,9 @@ static int __init mpu6515_init(void)
 {
 	struct gyro_hw *hw = get_cust_gyro_hw();
 	GYRO_LOG("%s: i2c_number=%d\n", __func__,hw->i2c_num); 
+#ifdef CONFIG_MTK_LEGACY
 	i2c_register_board_info(hw->i2c_num, &i2c_mpu6515, 1);
+#endif
     gyro_driver_add(&gyroscope_init_info);
     return 0;    
 }

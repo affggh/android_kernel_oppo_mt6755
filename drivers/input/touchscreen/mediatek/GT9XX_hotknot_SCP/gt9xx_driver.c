@@ -1700,6 +1700,7 @@ reset_proc:
     GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
     msleep(10);
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #if 0
     // power on CTP
     mt_set_gpio_mode(GPIO_CTP_EN_PIN, GPIO_CTP_EN_PIN_M_GPIO);
@@ -1717,6 +1718,7 @@ reset_proc:
         hwPowerOn(TPD_POWER_SOURCE_1800, VOL_1800, "TP");
     #endif
 
+#endif
 #endif
 
     gtp_reset_guitar(client, 20);
@@ -2227,7 +2229,7 @@ static int tpd_registration(void *client)
 	
 		if ((err = misc_register(&tpd_misc_device)))
 		{
-			printk("mtk_tpd: tpd_misc_device register failed\n");
+			GTP_ERROR("mtk_tpd: tpd_misc_device register failed\n");
 		}
 	
 #endif
@@ -2446,6 +2448,7 @@ void force_reset_guitar(void)
     mt_set_gpio_out(GPIO_CTP_EN_PIN, GPIO_OUT_ONE);
     msleep(30);
 #else           // ( defined(MT6575) || defined(MT6577) || defined(MT6589) )
+#ifndef CONFIG_FPGA_EARLY_PORTING
     // Power off TP
     #ifdef TPD_POWER_SOURCE_CUSTOM
         hwPowerDown(TPD_POWER_SOURCE_CUSTOM, "TP");
@@ -2464,7 +2467,7 @@ void force_reset_guitar(void)
         hwPowerOn(MT65XX_POWER_LDO_VGP2, VOL_2800, "TP");
     #endif
         msleep(30);
-
+#endif
 #endif
 
 #ifdef CONFIG_OF_TOUCH
@@ -2676,7 +2679,7 @@ static void tpd_down(s32 x, s32 y, s32 size, s32 id)
 {
 #if GTP_CHARGER_SWITCH
 	if(is_charger_cfg_updating){
-		printk("tpd_down ignored when CFG changing\n");
+		GTP_ERROR("tpd_down ignored when CFG changing\n");
 		return;
 	}
 #endif
@@ -2717,7 +2720,7 @@ static void tpd_up(s32 x, s32 y, s32 id)
 {
 #if GTP_CHARGER_SWITCH
 	if(is_charger_cfg_updating){
-		printk("tpd_up change is_charger_cfg_updating status\n");
+		GTP_ERROR("tpd_up change is_charger_cfg_updating status\n");
 		is_charger_cfg_updating = false;
 		return;
 	}
@@ -2887,10 +2890,10 @@ static int touch_event_handler(void *unused)
     #endif
 #if 0//G_DEBUG
     ret = gtp_i2c_read(i2c_client_point, g_buffer, 3);
-    printk("mtk-tpd:0x3014:value %x\n", g_buffer[2]);
+    GTP_DEBUG("mtk-tpd:0x3014:value %x\n", g_buffer[2]);
     if(ret>0 &&(g_buffer[2] == 0x1d))//0x001d: 1640hz;0x004b:4292hz 
     {
-        printk("low report rate:0x3014:value %x\n", g_buffer[2]);
+        GTP_DEBUG("low report rate:0x3014:value %x\n", g_buffer[2]);
     }
 
 #endif
@@ -3359,18 +3362,27 @@ static s8 gtp_enter_doze(struct i2c_client *client)
 {
     s8 ret = -1;
     s8 retry = 0;
-    u8 i2c_control_buf[3] = {(u8)(GTP_REG_SLEEP >> 8), (u8)GTP_REG_SLEEP, 8};
+    u8 i2c_control_buf[3] = {(u8)(GTP_REG_SLEEP >> 8), (u8)GTP_REG_SLEEP, 0x8};
 
     GTP_DEBUG_FUNC();
-#if GTP_DBL_CLK_WAKEUP
-    i2c_control_buf[2] = 0x09;
-#endif
 
     GTP_DEBUG("entering doze mode...");
+
+    // Enter charger mode
+    i2c_control_buf[2] = 0x6;
+    ret = gtp_i2c_write(client, i2c_control_buf, 3);
+    if (ret < 0)
+    {
+        GTP_DEBUG("failed to set doze flag into 0x8046, %d", retry);
+        return ret;
+    }
+    msleep(30);
+    
     while(retry++ < 5)
     {
         i2c_control_buf[0] = 0x80;
         i2c_control_buf[1] = 0x46;
+        i2c_control_buf[2] = 0x8;
         ret = gtp_i2c_write(client, i2c_control_buf, 3);
         if (ret < 0)
         {
@@ -3441,7 +3453,7 @@ static s8 gtp_enter_sleep(struct i2c_client *client)
     mt_set_gpio_out(GPIO_CTP_EN_PIN, GPIO_OUT_ZERO);  
     msleep(30);
 #else               // ( defined(MT6575) || defined(MT6577) || defined(MT6589) )
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
     #ifdef TPD_POWER_SOURCE_1800
         hwPowerDown(TPD_POWER_SOURCE_1800, "TP");
     #endif
@@ -3451,6 +3463,7 @@ static s8 gtp_enter_sleep(struct i2c_client *client)
     #else
         hwPowerDown(MT65XX_POWER_LDO_VGP2, "TP");
     #endif
+#endif
 #endif
 
     GTP_INFO("GTP enter sleep by poweroff!");
@@ -3679,6 +3692,8 @@ void tpd_enter_doze(void)
 		ipi_pkt.cmd = IPI_COMMAND_AS_CUST_PARAMETER;
 	    ipi_pkt.param.tcs.i2c_num = TPD_I2C_NUMBER;
 	    ipi_pkt.param.tcs.int_num = CUST_EINT_TOUCH_PANEL_NUM;
+	    ipi_pkt.param.tcs.io_int = GTP_INT_PORT;
+        ipi_pkt.param.tcs.io_rst = GTP_RST_PORT;
 
 		GTP_INFO("[TOUCH]SEND CUST command :%d ", IPI_COMMAND_AS_CUST_PARAMETER);
 
@@ -3688,7 +3703,8 @@ void tpd_enter_doze(void)
 	        GTP_ERROR(" IPI cmd failed (%d)\n", ipi_pkt.cmd);        
 	    }
 		msleep(5); // delay added between continuous command
-		scp_init_flag = 1;
+		//Workaround if suffer MD32 reset
+        //scp_init_flag = 1;
 	}
 
 	if (tpd_scp_doze_en)
@@ -3701,14 +3717,31 @@ void tpd_enter_doze(void)
 	    }
 	    else
 	    {
+	        int retry = 5;
+            {
+                //check doze mode
+                u8 i2c_control_buf[3] = {(u8)(GTP_REG_SLEEP >> 8), (u8)GTP_REG_SLEEP, 0};
+                gtp_i2c_read(i2c_client_point, i2c_control_buf, sizeof(i2c_control_buf));
+                GTP_INFO("========================>0x%x", i2c_control_buf[2]);
+
+            }
+        
+            msleep(1);
 	        Touch_IPI_Packet ipi_pkt={.cmd = IPI_COMMAND_AS_ENABLE_GESTURE, .param.data = 1};
-	        md32_ipi_send(IPI_TOUCH, &ipi_pkt, sizeof(ipi_pkt), 0);
-	    }
-		ret = release_md32_semaphore(SEMAPHORE_TOUCH);
-    	if (ret < 0)
+            do {
+                if (md32_ipi_send(IPI_TOUCH, &ipi_pkt, sizeof(ipi_pkt), 1) == DONE) break;
+                msleep(1);
+                GTP_DEBUG("==>retry=%d", retry);
+            } while(retry--);
+
+            if (retry <= 0) GTP_ERROR("########################## md32_ipi_send failed retry=%d", retry);
+
+            while(release_md32_semaphore(SEMAPHORE_TOUCH) <= 0)
     	{
         	GTP_ERROR("GTP release md32 sem failed\n");
     	}
+
+	    }
 		#ifdef CONFIG_OF_TOUCH
 		disable_irq(touch_irq);
 		#else
@@ -3802,7 +3835,7 @@ static void tpd_resume(struct early_suspend *h)
 {
     s32 ret = -1;
 
-    printk("mtk-tpd: %s start\n", __FUNCTION__);
+    GTP_DEBUG("mtk-tpd: %s start\n", __FUNCTION__);
 #ifdef TPD_PROXIMITY
 
     if (tpd_proximity_flag == 1)
@@ -3899,7 +3932,7 @@ static void tpd_resume(struct early_suspend *h)
 #ifdef GTP_CHARGER_DETECT
     queue_delayed_work(gtp_charger_check_workqueue, &gtp_charger_check_work, clk_tick_cnt);
 #endif
-    printk("mtk-tpd: %s end\n", __FUNCTION__);
+    GTP_DEBUG("mtk-tpd: %s end\n", __FUNCTION__);
 }
 
 static struct tpd_driver_t tpd_device_driver =
@@ -3921,7 +3954,7 @@ static struct tpd_driver_t tpd_device_driver =
 
 static void tpd_off(void)
 {
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef TPD_POWER_SOURCE_CUSTOM
 	hwPowerDown(TPD_POWER_SOURCE_CUSTOM, "TP");
 #else
@@ -3929,6 +3962,7 @@ static void tpd_off(void)
 #endif
 #ifdef TPD_POWER_SOURCE_1800
 	hwPowerDown(TPD_POWER_SOURCE_1800, "TP");
+#endif
 #endif
     GTP_INFO("GTP enter sleep!");
    

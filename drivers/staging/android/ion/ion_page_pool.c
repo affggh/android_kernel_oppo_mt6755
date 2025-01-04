@@ -23,47 +23,41 @@
 #include <linux/slab.h>
 #include "ion_priv.h"
 
-struct ion_page_pool_item {
-	struct page *page;
-	struct list_head list;
-};
-
 static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 {
+	unsigned long long start, end;
+	start = sched_clock();
 	struct page *page = alloc_pages(pool->gfp_mask, pool->order);
+	end = sched_clock();
+
+	if (end - start > 10000000ULL)	{ /* unit is ns, 10ms */
+		trace_printk("warn: ion page pool alloc pages order: %d time: %lld ns\n",
+			     pool->order, end - start);
+		IONMSG("warn: ion page pool alloc pages order: %d time: %lld ns\n", pool->order,
+		       end - start);
+		show_free_areas_minimum();
+	}
 
 	if (!page) {
-                IONMSG("%s alloc_pages failed page is null.\n", __func__);
 		return NULL;
-        }
-	ion_pages_sync_for_device(NULL, page, PAGE_SIZE << pool->order,
-						DMA_BIDIRECTIONAL);
+	}
+	ion_pages_sync_for_device(NULL, page, PAGE_SIZE << pool->order, DMA_BIDIRECTIONAL);
 	return page;
 }
 
-static void ion_page_pool_free_pages(struct ion_page_pool *pool,
-				     struct page *page)
+static void ion_page_pool_free_pages(struct ion_page_pool *pool, struct page *page)
 {
 	__free_pages(page, pool->order);
 }
 
 static int ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
 {
-	struct ion_page_pool_item *item;
-
-	item = kmalloc(sizeof(struct ion_page_pool_item), GFP_KERNEL);
-	if (!item) {
-                IONMSG("%s kmalloc failed item is null.\n", __func__);
-		return -ENOMEM;
-        }
-
 	mutex_lock(&pool->mutex);
-	item->page = page;
 	if (PageHighMem(page)) {
-		list_add_tail(&item->list, &pool->high_items);
+		list_add_tail(&page->lru, &pool->high_items);
 		pool->high_count++;
 	} else {
-		list_add_tail(&item->list, &pool->low_items);
+		list_add_tail(&page->lru, &pool->low_items);
 		pool->low_count++;
 	}
 	mutex_unlock(&pool->mutex);
@@ -72,24 +66,19 @@ static int ion_page_pool_add(struct ion_page_pool *pool, struct page *page)
 
 static struct page *ion_page_pool_remove(struct ion_page_pool *pool, bool high)
 {
-	struct ion_page_pool_item *item;
 	struct page *page;
 
 	if (high) {
 		BUG_ON(!pool->high_count);
-		item = list_first_entry(&pool->high_items,
-					struct ion_page_pool_item, list);
+		page = list_first_entry(&pool->high_items, struct page, lru);
 		pool->high_count--;
 	} else {
 		BUG_ON(!pool->low_count);
-		item = list_first_entry(&pool->low_items,
-					struct ion_page_pool_item, list);
+		page = list_first_entry(&pool->low_items, struct page, lru);
 		pool->low_count--;
 	}
 
-	list_del(&item->list);
-	page = item->page;
-	kfree(item);
+	list_del(&page->lru);
 	return page;
 }
 
@@ -126,13 +115,11 @@ static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
 	int total = 0;
 
 	total += high ? (pool->high_count + pool->low_count) *
-		(1 << pool->order) :
-			pool->low_count * (1 << pool->order);
+	    (1 << pool->order) : pool->low_count * (1 << pool->order);
 	return total;
 }
 
-int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
-				int nr_to_scan)
+int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask, int nr_to_scan)
 {
 	int i;
 	bool high;
@@ -163,9 +150,9 @@ struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order)
 	struct ion_page_pool *pool = kmalloc(sizeof(struct ion_page_pool),
 					     GFP_KERNEL);
 	if (!pool) {
-                IONMSG("%s kmalloc failed pool is null.\n", __func__);
+		IONMSG("%s kmalloc failed pool is null.\n", __func__);
 		return NULL;
-        }
+	}
 	pool->high_count = 0;
 	pool->low_count = 0;
 	INIT_LIST_HEAD(&pool->low_items);

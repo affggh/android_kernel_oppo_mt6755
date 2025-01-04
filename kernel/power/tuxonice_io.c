@@ -498,13 +498,34 @@ static int read_next_page(int *my_io_index, unsigned long *write_pfn, struct pag
 	return first_filter->read_page(write_pfn, TOI_PAGE, buffer, &buf_size);
 }
 
-static void use_read_page(unsigned long write_pfn, struct page *buffer)
+static void use_read_page(unsigned long write_pfn, struct page *buffer, int index)
 {
 	struct page *final_page = pfn_to_page(write_pfn), *copy_page = final_page;
 	char *virt, *buffer_virt;
 	int was_present, cpu = smp_processor_id();
 	unsigned long idx = 0;
 
+	static int printed = 0;
+/*
+	if (index && cpu != index-1) {
+		hib_err("index%d!=cpu%d\n", index, cpu);
+		cpu = index - 1;
+	}
+*/
+	if (!index && cpu) {
+		hib_err("index%d!=cpu%d\n", index, cpu);
+		cpu = index;
+	}
+
+	if (!printed) {
+		if (smp_processor_id() && smp_processor_id() != index-1) {
+			hib_err("index%d!=cpu%d\n", index, cpu);
+			printed = 1;
+		}
+	} else {
+		if (smp_processor_id() == index-1)
+			printed = 0;
+	}
 	if (io_pageset == 1 && (!pageset1_copy_map ||
 				!memory_bm_test_bit_index(pageset1_copy_map, write_pfn, cpu))) {
 		int is_high = PageHighMem(final_page);
@@ -632,8 +653,9 @@ static int worker_rw_loop(void *data)
 			}
 
 			if (io_pageset == 1) {
-				printk(KERN_ERR "\nBreaking out of I/O loop "
-				       "because of result code %d.\n", result);
+				printk(KERN_ERR "Breaking out of I/O loop "
+				       "because of result code %pF, %d.\n", first_filter->read_page, result);
+				dump_stack();
 				break;
 			}
 			panic("Read chunk returned (%d)", result);
@@ -645,7 +667,7 @@ static int worker_rw_loop(void *data)
 		 */
 		if (!io_write) {
 			if (!PageResave(pfn_to_page(write_pfn)))
-				use_read_page(write_pfn, buffer);
+				use_read_page(write_pfn, buffer, (data ? (unsigned long)data: 0));
 			else {
 				mutex_lock(&io_mutex);
 				toi_message(TOI_IO, TOI_VERBOSE, 0, "Resaved %ld.", write_pfn);
@@ -721,6 +743,8 @@ int toi_start_other_threads(void)
 
 	toi_worker_command = TOI_IO_WORKER_STOP;
 
+	hib_err("max: %d, %d, %d, 0x%lx, %d\n", toi_max_workers, num_online_cpus(), to_start, cpumask_bits(cpu_online_mask)[0], smp_processor_id());
+
 	for_each_online_cpu(cpu) {
 		if (num_started == to_start)
 			break;
@@ -728,7 +752,8 @@ int toi_start_other_threads(void)
 		if (cpu == smp_processor_id())
 			continue;
 
-		p = kthread_create_on_node(worker_rw_loop, (void *)num_started + 1,
+		hib_err("ktoi%d, num_started: %ld\n", cpu, num_started);
+		p = kthread_create_on_node(worker_rw_loop, (void *)((unsigned long)cpu + 1),
 					   cpu_to_node(cpu), "ktoi_io/%d", cpu);
 		if (IS_ERR(p)) {
 			printk(KERN_ERR "ktoi_io for %i failed\n", cpu);
@@ -741,7 +766,7 @@ int toi_start_other_threads(void)
 		atomic_inc(&toi_num_other_threads);
 	}
 
-	hib_warn("Started %ld threads.", num_started);
+	hib_warn("Started %ld threads.\n", num_started);
 
 	toi_message(TOI_IO, TOI_LOW, 0, "Started %d threads.", num_started);
 	return num_started;
@@ -818,10 +843,13 @@ static int do_rw_loop(int write, int finish_at, struct memory_bitmap *pageflags,
 
 	workers_started = atomic_read(&toi_num_other_threads);
 
-	memory_bm_set_iterators(io_map, atomic_read(&toi_num_other_threads) + 1);
+	hib_log("toi_num_other_threads:%d, nr_cpumask_bits:%d\n", atomic_read(&toi_num_other_threads),  nr_cpumask_bits);
+	//memory_bm_set_iterators(io_map, atomic_read(&toi_num_other_threads) + 1);
+	memory_bm_set_iterators(io_map, nr_cpumask_bits + 1);
 	memory_bm_position_reset(io_map);
 
-	memory_bm_set_iterators(pageset1_copy_map, atomic_read(&toi_num_other_threads) + 1);
+	//memory_bm_set_iterators(pageset1_copy_map, atomic_read(&toi_num_other_threads) + 1);
+	memory_bm_set_iterators(pageset1_copy_map, nr_cpumask_bits + 1);
 	memory_bm_position_reset(pageset1_copy_map);
 
 	toi_worker_command = TOI_IO_WORKER_RUN;

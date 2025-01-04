@@ -72,7 +72,7 @@ void SYNA_PDTScan(void)
 #ifdef F54_Porting
             ret = sprintf(buf, "\nNon-Standard Page Description Table not supported\n");
 #else
-            printk("\nNon-Standard Page Description Table not supported\n");
+            pr_debug("\nNon-Standard Page Description Table not supported\n");
 #endif
             cleanExit(1);
         }
@@ -111,7 +111,7 @@ void SYNA_PDTScan(void)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #else
-                printk("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
+                pr_debug("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #endif
             }
             else if(in[5] == 0x34)
@@ -123,7 +123,7 @@ void SYNA_PDTScan(void)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #else
-                printk("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
+                pr_debug("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #endif
             }
             else if(in[5] == 0x01)
@@ -135,7 +135,7 @@ void SYNA_PDTScan(void)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #else
-                printk("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
+                pr_debug("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #endif
             }
             else if(in[5] == 0x54)
@@ -156,7 +156,7 @@ void SYNA_PDTScan(void)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #else
-                printk("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
+                pr_debug("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #endif
             }
             else if(in[5] == 0x1A)
@@ -171,7 +171,7 @@ void SYNA_PDTScan(void)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #else
-                printk("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
+                pr_debug("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
 #endif
             }
             else
@@ -179,7 +179,7 @@ void SYNA_PDTScan(void)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "\n-- RMI Function $%02X not supported --\n", in[5]);
 #else
-                printk("\n-- RMI Function $%02X not supported --\n", in[5]);
+                pr_debug("\n-- RMI Function $%02X not supported --\n", in[5]);
 #endif
             }
             FUNC_EXISTS = 1;
@@ -198,7 +198,7 @@ void SYNA_PDTScan_BootloaderMode()
         readRMI((i << 8) | PDT_ADDR, &tmp, 1);
         if(tmp & 0x40)
         {
-            printk("\nNon-Standard Page Description Table not supported\n");
+            pr_debug("\nNon-Standard Page Description Table not supported\n");
             cleanExit(1);
         }
 
@@ -217,7 +217,7 @@ void SYNA_PDTScan_BootloaderMode()
                 F34_Cmd_Base = (i << 8) | in[1];
                 F34_Ctrl_Base = (i << 8) | in[2];
                 F34_Data_Base = (i << 8) | in[3];
-                printk("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
+                pr_debug("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
             }
             else if(in[5] == 0x01)
             {         // Function01
@@ -225,44 +225,44 @@ void SYNA_PDTScan_BootloaderMode()
                 F01_Cmd_Base = (i << 8) | in[1];
                 F01_Ctrl_Base = (i << 8) | in[2];
                 F01_Data_Base = (i << 8) | in[3];
-                printk("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
+                pr_debug("\n-- RMI Function $%02X, Address = 0x%02x --\n", in[5], (PDT_ADDR - PDT_SIZE*j));
             }
             else
             {
-                printk("\n-- RMI Function $%02X not supported --\n", in[5]);
+                pr_debug("\n-- RMI Function $%02X not supported --\n", in[5]);
             }
         }
 }
 
 void SYNA_PrintRMI()
 {
-    printk("F11_Query_Base = 0x%x\n", F11_Query_Base);
-    printk("F11_Cmd_Base = 0x%x\n", F11_Cmd_Base);
-    printk("F11_Ctrl_Base = 0x%x\n", F11_Ctrl_Base);
-    printk("F11_Data_Base = 0x%x\n", F11_Data_Base);
-    printk("F34_Query_Base = 0x%x\n", F34_Query_Base);
-    printk("F34_Cmd_Base = 0x%x\n", F34_Cmd_Base);
-    printk("F34_Ctrl_Base = 0x%x\n", F34_Ctrl_Base);
-    printk("F34_Data_Base = 0x%x\n", F34_Data_Base);
-    printk("F01_Query_Base = 0x%x\n", F01_Query_Base);
-    printk("F01_Cmd_Base = 0x%x\n", F01_Cmd_Base);
-    printk("F01_Ctrl_Base = 0x%x\n", F01_Ctrl_Base);
-    printk("F01_Data_Base = 0x%x\n", F01_Data_Base);
-    printk("F54_Query_Base = 0x%x\n", F54_Query_Base);
-    printk("F54_Command_Base = 0x%x\n", F54_Command_Base);
-    printk("F54_Control_Base = 0x%x\n", F54_Control_Base);
-    printk("F54_Data_Base = 0x%x\n", F54_Data_Base);
-    printk("F54_Data_LowIndex = 0x%x\n", F54_Data_LowIndex);
-    printk("F54_Data_HighIndex = 0x%x\n", F54_Data_HighIndex);
-    printk("F54_Data_Buffer = 0x%x\n", F54_Data_Buffer);
-    printk("F54_CBCSettings = 0x%x\n", F54_CBCSettings);
+    pr_debug("F11_Query_Base = 0x%x\n", F11_Query_Base);
+    pr_debug("F11_Cmd_Base = 0x%x\n", F11_Cmd_Base);
+    pr_debug("F11_Ctrl_Base = 0x%x\n", F11_Ctrl_Base);
+    pr_debug("F11_Data_Base = 0x%x\n", F11_Data_Base);
+    pr_debug("F34_Query_Base = 0x%x\n", F34_Query_Base);
+    pr_debug("F34_Cmd_Base = 0x%x\n", F34_Cmd_Base);
+    pr_debug("F34_Ctrl_Base = 0x%x\n", F34_Ctrl_Base);
+    pr_debug("F34_Data_Base = 0x%x\n", F34_Data_Base);
+    pr_debug("F01_Query_Base = 0x%x\n", F01_Query_Base);
+    pr_debug("F01_Cmd_Base = 0x%x\n", F01_Cmd_Base);
+    pr_debug("F01_Ctrl_Base = 0x%x\n", F01_Ctrl_Base);
+    pr_debug("F01_Data_Base = 0x%x\n", F01_Data_Base);
+    pr_debug("F54_Query_Base = 0x%x\n", F54_Query_Base);
+    pr_debug("F54_Command_Base = 0x%x\n", F54_Command_Base);
+    pr_debug("F54_Control_Base = 0x%x\n", F54_Control_Base);
+    pr_debug("F54_Data_Base = 0x%x\n", F54_Data_Base);
+    pr_debug("F54_Data_LowIndex = 0x%x\n", F54_Data_LowIndex);
+    pr_debug("F54_Data_HighIndex = 0x%x\n", F54_Data_HighIndex);
+    pr_debug("F54_Data_Buffer = 0x%x\n", F54_Data_Buffer);
+    pr_debug("F54_CBCSettings = 0x%x\n", F54_CBCSettings);
 #ifdef _DS4_3_0_
-    printk("F54_PhysicalRx_Addr = 0x%x\n", F54_PhysicalRx_Addr);
+    pr_debug("F54_PhysicalRx_Addr = 0x%x\n", F54_PhysicalRx_Addr);
 #endif
-    printk("F1A_Query_Base = 0x%x\n", F1A_Query_Base);
-    printk("F1A_Command_Base = 0x%x\n", F1A_Command_Base);
-    printk("F1A_Control_Base = 0x%x\n", F1A_Control_Base);
-    printk("F1A_Data_Base = 0x%x\n", F1A_Data_Base);
+    pr_debug("F1A_Query_Base = 0x%x\n", F1A_Query_Base);
+    pr_debug("F1A_Command_Base = 0x%x\n", F1A_Command_Base);
+    pr_debug("F1A_Control_Base = 0x%x\n", F1A_Control_Base);
+    pr_debug("F1A_Data_Base = 0x%x\n", F1A_Data_Base);
 }
 
 void SYNA_ConstructRMI_F54(void)

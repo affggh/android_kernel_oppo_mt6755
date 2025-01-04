@@ -27,6 +27,8 @@
 #include <linux/sched/rt.h>
 #include <linux/kthread.h>
 
+#include "mach/hotplug.h"
+
 extern unsigned int get_normal_max_freq(void);
 extern unsigned int mt_dvfs_power_dispatch_safe(void);
 extern int mt_gpufreq_target(int idx);
@@ -263,15 +265,16 @@ void force_two_core(void)
 {
     bool raise_freq = false;
 
-    mutex_lock(&hp_mutex);
-    g_cpu_down_count = 0;
-    g_cpu_down_sum_load = 0;
-    if (num_online_cpus() < dbs_tuners_ins.cpu_num_limit) {
-        raise_freq = true;
-        g_next_hp_action = 1;
-        schedule_delayed_work_on(0, &hp_work, 0);
+    if (mutex_trylock(&hp_mutex)) {
+        g_cpu_down_count = 0;
+        g_cpu_down_sum_load = 0;
+        if (num_online_cpus() < dbs_tuners_ins.cpu_num_limit) {
+            raise_freq = true;
+            g_next_hp_action = 1;
+            schedule_delayed_work_on(0, &hp_work, 0);
+        }
+        mutex_unlock(&hp_mutex);
     }
-    mutex_unlock(&hp_mutex);
 
     if (raise_freq == true) {
 	wake_up_process(freq_up_task);
@@ -404,6 +407,7 @@ show_one(cpu_input_boost_enable, cpu_input_boost_enable);
 static void update_sampling_rate(unsigned int new_rate)
 {
 	int cpu;
+	unsigned long flags;
 
 	dbs_tuners_ins.sampling_rate = new_rate
 				     = max(new_rate, min_sampling_rate);
@@ -433,7 +437,9 @@ static void update_sampling_rate(unsigned int new_rate)
 		if (time_before(next_sampling, appointed_at)) {
 
 			mutex_unlock(&dbs_info->timer_mutex);
+			local_irq_save(flags);
 			cancel_delayed_work_sync(&dbs_info->work);
+			local_irq_restore(flags);
 			mutex_lock(&dbs_info->timer_mutex);
 
 			schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work,
@@ -447,6 +453,7 @@ static void update_sampling_rate(unsigned int new_rate)
 void bl_enable_timer(int enable)
 {
 	static unsigned int sampling_rate_backup = 0;
+	unsigned long flags;
 
 	if (enable && !sampling_rate_backup)
 		return;
@@ -465,7 +472,7 @@ void bl_enable_timer(int enable)
 		policy = cpufreq_cpu_get(0);
 		if (!policy)
 			return;
-        
+
 		dbs_info = &per_cpu(hp_cpu_dbs_info, 0);
 		cpufreq_cpu_put(policy);
 
@@ -477,9 +484,9 @@ void bl_enable_timer(int enable)
 		}
 
 		mutex_unlock(&dbs_info->timer_mutex);
-        
+		local_irq_save(flags);
 		cancel_delayed_work_sync(&dbs_info->work);
-
+		local_irq_restore(flags);
 		mutex_lock(&dbs_info->timer_mutex);
 
 		schedule_delayed_work_on(dbs_info->cpu, &dbs_info->work,
@@ -851,14 +858,14 @@ void hp_limited_cpu_num(int num)
 	dbs_tuners_ins.cpu_num_limit = num;
 
 	if (num < num_online_cpus()) {
-		printk("%s: CPU off due to thermal protection! limit_num = %d < online = %d\n", 
+		printk("%s: CPU off due to thermal protection! limit_num = %d < online = %d\n",
                     __func__, num, num_online_cpus());
 		g_next_hp_action = 0;
 		schedule_delayed_work_on(0, &hp_work, 0);
 		g_cpu_down_count = 0;
 		g_cpu_down_sum_load = 0;
 	}
-    
+
 	mutex_unlock(&hp_mutex);
 }
 EXPORT_SYMBOL(hp_limited_cpu_num);
@@ -1337,7 +1344,28 @@ static struct input_handler dbs_input_handler = {
 };
 #endif //#ifdef CONFIG_HOTPLUG_CPU
 
+static int bl_idle_notifier(struct notifier_block *nb,
+					     unsigned long val,
+					     void *data)
+{
+	if (atomic_read(&hotplug_cpu_count) != 1)
+		return 0;
 
+	switch (val) {
+	case IDLE_START:
+		bl_enable_timer(0);
+		break;
+	case IDLE_END:
+		bl_enable_timer(1);
+		break;
+	}
+
+	return 0;
+}
+
+struct notifier_block bl_idle_nb = {
+	.notifier_call = bl_idle_notifier,
+};
 
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				   unsigned int event)
@@ -1413,9 +1441,11 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		mutex_init(&this_dbs_info->timer_mutex);
 		dbs_timer_init(this_dbs_info);
+		idle_notifier_register(&bl_idle_nb);
 		break;
 
 	case CPUFREQ_GOV_STOP:
+		idle_notifier_unregister(&bl_idle_nb);
 		dbs_timer_exit(this_dbs_info);
 
 		mutex_lock(&dbs_mutex);

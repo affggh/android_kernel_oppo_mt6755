@@ -18,7 +18,6 @@
 #include <linux/hwmsen_dev.h>
 #include <linux/sensors_io.h>
 #include <linux/hwmsen_helper.h>
-#include <linux/xlog.h>
 
 
 #include <mach/mt_typedefs.h>
@@ -185,19 +184,16 @@ static int __init it6151_i2c_init(void)
 {    
    // int ret=0;  //fixed for build warning
     
-    //battery_xlog_printk(BAT_LOG_CRTI,"[it6151_i2c_init] init start\n");
     printk("[it6151_i2c_init] init start\n");
     
     i2c_register_board_info(it6151_BUSNUM, it6151_i2c, 2);
 
     if(i2c_add_driver(&it6151_i2c_driver)!=0)
     {
-        //battery_xlog_printk(BAT_LOG_CRTI,"[it6151_i2c_init] failed to register it6151 i2c driver.\n");
         printk("[it6151_i2c_init] failed to register it6151 i2c driver.\n");
     }
     else
     {
-        //battery_xlog_printk(BAT_LOG_CRTI,"[it6151_i2c_init] Success to register it6151 i2c driver.\n");
         printk("[it6151_i2c_init] Success to register it6151 i2c driver.\n");
     }
 

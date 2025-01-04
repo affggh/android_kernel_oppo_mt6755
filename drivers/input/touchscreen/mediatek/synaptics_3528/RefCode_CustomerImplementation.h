@@ -2,8 +2,8 @@
 
 extern int synaptics_ts_read(struct i2c_client *client, u8 reg, int num, u8 *buf);
 extern int synaptics_ts_read_f54(struct i2c_client *client, u8 reg, int num, u8 *buf);
-extern int synaptics_ts_write(struct i2c_client *client, u8 reg, u8 * buf, int len);
-extern struct i2c_client* ds4_i2c_client;
+extern int synaptics_ts_write(struct i2c_client *client, u8 reg, u8 *buf, int len);
+extern struct i2c_client *ds4_i2c_client;
 
 void device_I2C_read(unsigned char add, unsigned char *value, unsigned short len);
 void device_I2C_write(unsigned char add, unsigned char *value, unsigned short len);

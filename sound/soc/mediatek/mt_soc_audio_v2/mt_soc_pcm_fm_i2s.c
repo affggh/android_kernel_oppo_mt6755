@@ -224,6 +224,8 @@ static int mtk_pcm_fm_i2s_open(struct snd_pcm_substream *substream)
         mtk_pcm_fm_i2s_close(substream);
         return ret;
     }
+    
+    SetFMEnableFlag(true);
     printk("mtk_pcm_fm_i2s_open return\n");
     return 0;
 }
@@ -240,7 +242,7 @@ static int mtk_pcm_fm_i2s_close(struct snd_pcm_substream *substream)
     {
         SetI2SASRCEnable(false);
         SetI2SASRCConfig(false, 0); // Setting to bypass ASRC
-        Set2ndI2SInEnable(false);
+        Afe_Set_Reg(AFE_I2S_CON, 0x0, 0x1);
     }
 
     SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_OUT_DAC, false);
@@ -261,6 +263,8 @@ static int mtk_pcm_fm_i2s_close(struct snd_pcm_substream *substream)
     AudDrv_I2S_Clk_Off();
     AudDrv_Clk_Off();
     mPrepareDone = false;
+    SetFMEnableFlag(false);
+    
     return 0;
 }
 
@@ -282,7 +286,7 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
         SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I11, Soc_Aud_InterConnectionOutput_O04);
 
         // Set HW_GAIN
-        SetHwDigitalGainMode(Soc_Aud_Hw_Digital_Gain_HW_DIGITAL_GAIN1, runtime->rate, 0x80);
+        SetHwDigitalGainMode(Soc_Aud_Hw_Digital_Gain_HW_DIGITAL_GAIN1, runtime->rate, 0x40);
         SetHwDigitalGainEnable(Soc_Aud_Hw_Digital_Gain_HW_DIGITAL_GAIN1, true);
         SetHwDigitalGain(mfm_i2s_Volume, Soc_Aud_Hw_Digital_Gain_HW_DIGITAL_GAIN1);
 
@@ -302,6 +306,12 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
             //set merge interface
             SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2, true);
 
+            // reset I2S In for 4pin I2S control
+            if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_4PIN_IN_OUT) == true)
+            {
+                Afe_Set_Reg(AFE_I2S_CON, 0x0, 0x1);
+            }
+
             // Config 2nd I2S IN
             memset((void *)&m2ndI2SInAttribute, 0, sizeof(m2ndI2SInAttribute));
 
@@ -314,10 +324,13 @@ static int mtk_pcm_fm_i2s_prepare(struct snd_pcm_substream *substream)
             m2ndI2SInAttribute.mI2S_WLEN = Soc_Aud_I2S_WLEN_WLEN_16BITS;
             Set2ndI2SIn(&m2ndI2SInAttribute);
 
-            SetI2SASRCConfig(true, 44100);  // Covert from 32000 Hz to 44100 Hz
+		if (runtime->rate == 48000)
+			SetI2SASRCConfig(true, 48000);  /* Covert from 32000 Hz to 48000 Hz */
+		else
+			SetI2SASRCConfig(true, 44100);  /* Covert from 32000 Hz to 44100 Hz */
             SetI2SASRCEnable(true);
 
-            Set2ndI2SInEnable(true);
+            Afe_Set_Reg(AFE_I2S_CON, 0x1, 0x1);
         }
         else
         {

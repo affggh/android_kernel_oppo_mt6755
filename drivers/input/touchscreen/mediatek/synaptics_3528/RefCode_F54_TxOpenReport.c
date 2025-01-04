@@ -45,7 +45,7 @@ unsigned char F54_TxOpenReport(void)
 
     ret = sprintf(buf, "\nBin #: 6        Name: Transmitter Open Test\n");
 #else
-   printk("\nBin #: 6        Name: Transmitter Open Test\n");
+   pr_debug("\nBin #: 6        Name: Transmitter Open Test\n");
 #endif
     for (i = 0; i < CFG_F54_TXCOUNT; i++)
         ImageArray[i] = 1;
@@ -70,7 +70,7 @@ unsigned char F54_TxOpenReport(void)
 
    readRMI(F54_Data_Buffer, &ImageBuffer[0], 4);
 
-//    printk("Buffer : 0x%x 0x%x 0x%x 0x%x \n", ImageBuffer[0], ImageBuffer[1], ImageBuffer[2], ImageBuffer[3]);
+//    pr_debug("Buffer : 0x%x 0x%x 0x%x 0x%x \n", ImageBuffer[0], ImageBuffer[1], ImageBuffer[2], ImageBuffer[3]);
 
     // One bit per transmitter channel
     k = 0;
@@ -84,23 +84,23 @@ unsigned char F54_TxOpenReport(void)
 #ifdef F54_Porting
     ret += sprintf(buf+ret, "Column:\t");
 #else
-   printk("Column:\t");
+   pr_debug("Column:\t");
 #endif
     for (i = 0; i < numberOfTx; i++)
    {
 #ifdef F54_Porting
         ret += sprintf(buf+ret, "Tx%d,\t", TxChannelUsed[i]);
 #else
-       printk("Tx%d,\t", TxChannelUsed[i]);
+       pr_debug("Tx%d,\t", TxChannelUsed[i]);
 #endif
    }
 #ifdef F54_Porting
     ret += sprintf(buf+ret, "\n");
     ret += sprintf(buf+ret, "0:\t");
 #else
-   printk("\n");
+   pr_debug("\n");
 
-   printk("0:\t");
+   pr_debug("0:\t");
 #endif
    for (i = 0; i < numberOfTx; i++)
    {
@@ -110,7 +110,7 @@ unsigned char F54_TxOpenReport(void)
 #ifdef F54_Porting
             ret += sprintf(buf+ret, "%d,\t", ImageArray[TxChannelUsed[i]]);
 #else
-           printk("%d,\t", ImageArray[TxChannelUsed[i]]);
+           pr_debug("%d,\t", ImageArray[TxChannelUsed[i]]);
 #endif
        }
        else
@@ -118,26 +118,26 @@ unsigned char F54_TxOpenReport(void)
 #ifdef F54_Porting
             ret += sprintf(buf+ret, "%d(*),\t", ImageArray[TxChannelUsed[i]]);
 #else
-           printk("%d(*),\t", ImageArray[TxChannelUsed[i]]);
+           pr_debug("%d(*),\t", ImageArray[TxChannelUsed[i]]);
 #endif
        }
    }
 #ifdef F54_Porting
     ret += sprintf(buf+ret, "\n");
 #else
-   printk("\n");
+   pr_debug("\n");
 #endif
 
    /*
    // Check against test limits
-   printk("\nTx-Tx short test result:\n");
+   pr_debug("\nTx-Tx short test result:\n");
    for (i = 0; i < numberOfTx; i++)
    {
         if (ImageArray[i]== TxTxLimit)
                Result[i] = 'P'; //Pass
         else
             Result[i] = 'F'; //Fail
-        printk("Tx[%d] = %c\n", TxChannelUsed[i], Result[i]);
+        pr_debug("Tx[%d] = %c\n", TxChannelUsed[i], Result[i]);
    }
    */
 
@@ -155,7 +155,7 @@ unsigned char F54_TxOpenReport(void)
         ret += sprintf(buf+ret, "Test Result: Pass\n");
         //write_log(buf);
 #else
-        printk("Test Result: Pass\n");
+        pr_debug("Test Result: Pass\n");
 #endif
         return 1; //Pass
     }
@@ -165,7 +165,7 @@ unsigned char F54_TxOpenReport(void)
         ret += sprintf(buf+ret, "Test Result: Fail\n");
         //write_log(buf);
 #else
-         printk("Test Result: Fail\n");
+         pr_debug("Test Result: Fail\n");
 #endif
          return 0; //Fail
      }
@@ -246,27 +246,27 @@ int F54_GetTxOpenReport(char *buf)
 
     /*
     // Check against test limits
-    printk("\nTx-Tx short test result:\n");
+    pr_debug("\nTx-Tx short test result:\n");
     for (i = 0; i < numberOfTx; i++)
     {
     if (ImageArray[i]== TxTxLimit)
     Result[i] = 'P'; //Pass
     else
     Result[i] = 'F'; //Fail
-    printk("Tx[%d] = %c\n", TxChannelUsed[i], Result[i]);
+    pr_debug("Tx[%d] = %c\n", TxChannelUsed[i], Result[i]);
     }
      */
 
     /*
     // Check against test limits
-    printk("\nTx-Tx short test result:\n");
+    pr_debug("\nTx-Tx short test result:\n");
     for (i = 0; i < numberOfTx; i++)
     {
     if (ImageArray[i]== TxTxLimit)
     Result[i] = 'P'; //Pass
     else
     Result[i] = 'F'; //Fail
-    printk("Tx[%d] = %c\n", TxChannelUsed[i], Result[i]);
+    pr_debug("Tx[%d] = %c\n", TxChannelUsed[i], Result[i]);
     }
      */
 

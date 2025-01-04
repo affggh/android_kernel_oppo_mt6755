@@ -1706,8 +1706,14 @@ static void handle_port_status(struct xhci_hcd *xhci,
 			goto cleanup;
 		} else {
 			xhci_dbg(xhci, "resume HS port %d\n", port_id);
-			bus_state->resume_done[faked_port_index] = jiffies +
+			bus_state->resume_done[faked_port_index] = jiffies +				
+#ifndef VENDOR_EDIT 
+// wenxian.zhen@Phone.Bsp.Driver, 2016/02/29  modified  usb: host: xhci: use new USB_RESUME_TIMEOUT
 				msecs_to_jiffies(20);
+#else
+				msecs_to_jiffies(USB_RESUME_TIMEOUT);
+#endif /*CONFIG_VENDOR_EDIT*/
+			
 			set_bit(faked_port_index, &bus_state->resuming_ports);
 			mod_timer(&hcd->rh_timer,
 				  bus_state->resume_done[faked_port_index]);

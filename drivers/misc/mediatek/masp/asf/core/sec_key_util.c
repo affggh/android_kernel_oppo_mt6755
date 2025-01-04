@@ -11,13 +11,12 @@
  **************************************************************************/
 #define ENCODE_MAGIC                (0x1)
 
-void sec_decode_key(uchar* key, uint32 key_len, uchar* seed, uint32 seed_len)
+void sec_decode_key(unsigned char *key, unsigned int key_len, unsigned char *seed, unsigned int seed_len)
 {
-    uint32 i = 0;
+	unsigned int i = 0;
 
-    for(i=0; i<key_len; i++)
-    {
-        key[i] -= seed[i%seed_len];
-        key[i] -= ENCODE_MAGIC;
-    }
+	for (i = 0; i < key_len; i++) {
+		key[i] -= seed[i % seed_len];
+		key[i] -= ENCODE_MAGIC;
+	}
 }

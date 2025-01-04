@@ -34,19 +34,43 @@
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
-#include <linux/earlysuspend.h>
 #include <linux/aee.h>
 
 #ifdef CONFIG_MTK_SMARTBOOK_SUPPORT
 #include <linux/sbsuspend.h>	/* smartbook */
 #endif
 
-#include <asm/atomic.h>
-#include <asm/uaccess.h>
+#include <linux/atomic.h>
+#include <linux/uaccess.h>
 
 #include <mach/hal_pub_kpd.h>
+#if !defined(CONFIG_MTK_LEGACY)
+#define KEY_CALL	KEY_SEND
+#define KEY_ENDCALL	KEY_END
+#define KEY_FOCUS	KEY_HP
 
-#define KPD_AUTOTEST	KPD_YES
+struct keypad_dts_data {
+	u32 kpd_key_debounce;
+	u32 kpd_sw_pwrkey;
+	u32 kpd_hw_pwrkey;
+	u32 kpd_sw_rstkey;
+	u32 kpd_hw_rstkey;
+	u32 kpd_use_extend_type;
+	u32 kpd_hw_init_map[72];
+	u32 kpd_pwrkey_eint_gpio;
+	u32 kpd_pwrkey_gpio_din;
+	u32 kpd_hw_dl_key1;
+	u32 kpd_hw_dl_key2;
+	u32 kpd_hw_dl_key3;
+	u32 kpd_hw_recovery_key;
+	u32 kpd_hw_factory_key;
+};
+extern struct keypad_dts_data kpd_dts_data;
+#define KPD_NO 0
+#define KPD_YES 1
+#endif
+
+#define KPD_AUTOTEST	KPD_NO
 #define KPD_DEBUG	KPD_YES
 
 #if KPD_AUTOTEST
@@ -83,13 +107,13 @@
 #endif
 #define SET_KPD_KCOL		_IO('k', 29)
 
-
 #define KPD_SAY		"kpd: "
 #if KPD_DEBUG
-#define kpd_print(fmt, arg...)	printk(KPD_SAY fmt, ##arg)
+#define kpd_print(fmt, arg...)	pr_debug(KPD_SAY fmt, ##arg)
+#define kpd_info(fmt, arg...)	pr_warn(KPD_SAY fmt, ##arg)
 #else
 #define kpd_print(fmt, arg...)	do {} while (0)
+#define kpd_info(fmt, arg...)	do {} while (0)
 #endif
-
 
 #endif				/* __KPD_H__ */

@@ -660,12 +660,9 @@ static int compat_gpr_get(struct task_struct *target,
 		}
 
 		if (!ubuf && kbuf) {
-			if (i == 0 && NULL != target && target->pid == current->pid)
-				printk(KERN_WARNING "coredump(%d) copy registers to kbuf\n", current->pid);
 			memcpy(kbuf, reg, sizeof(compat_ulong_t));
 			kbuf += sizeof(compat_ulong_t);
-		}
-		else {
+		} else {
 			ret = copy_to_user(ubuf, reg, sizeof(compat_ulong_t));
 
 			if (ret)

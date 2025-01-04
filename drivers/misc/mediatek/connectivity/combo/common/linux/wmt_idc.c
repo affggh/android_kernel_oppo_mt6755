@@ -58,6 +58,7 @@ INT32 wmt_idc_msg_from_lte_handing(ipc_ilm_t *ilm)
 			WMT_ERR_FUNC("wmt handing idc msg fail\n");
 			return -2;
 		}
+		wmt_lib_notify_stp_sleep();
 	} else {
 		WMT_INFO_FUNC("Received LTE msg,but STP is not ready,drop it!\n");
 	}
@@ -191,7 +192,7 @@ INT32 wmt_idc_msg_to_lte_handing(VOID)
 					gWmtIdcInfo.iit.msg_id = opcode + IPC_EL1_MSG_ID_BEGIN - LTE_MSG_ID_OFFSET + 1;
 					/*handling flag value in wmt cmd*/
 					mtk_conn_md_bridge_send_msg(&gWmtIdcInfo.iit);
-					WMT_DBG_FUNC("wmt_idc_msg_to_lte: 0x%x !\n",gWmtIdcInfo.iit.msg_id);
+					WMT_INFO_FUNC("wmt_idc_msg_to_lte: 0x%x !\n",gWmtIdcInfo.iit.msg_id);
 				} else {
 					WMT_ERR_FUNC("opcode(%d)from connsys fw is out of range,drop it!\n",opcode);
 				}

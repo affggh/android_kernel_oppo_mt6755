@@ -100,10 +100,10 @@ typedef struct _epl_raw_data
 
 /*----------------------------------------------------------------------------*/
 #define APS_TAG                  "[ALS/PS] "
-#define APS_FUN(f)               printk(KERN_ERR APS_TAG"%s\n", __FUNCTION__)
-#define APS_ERR(fmt, args...)    printk(KERN_ERR  APS_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define APS_LOG(fmt, args...)    printk(KERN_ERR APS_TAG fmt, ##args)
-#define APS_DBG(fmt, args...)    printk(KERN_ERR APS_TAG fmt, ##args)
+#define APS_FUN(f)               pr_debug(APS_TAG"%s\n", __FUNCTION__)
+#define APS_ERR(fmt, args...)    pr_err(APS_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define APS_LOG(fmt, args...)    pr_debug(APS_TAG fmt, ##args)
+#define APS_DBG(fmt, args...)    pr_debug(APS_TAG fmt, ##args)
 #define FTM_CUST_ALSPS "/data/epl2182"
 
 #define POWER_NONE_MACRO MT65XX_POWER_NONE
@@ -352,7 +352,7 @@ static int elan_epl2182_psensor_enable(struct epl2182_priv *epl_data, int enable
     struct i2c_client *client = epl_data->client;
 
 
-    printk("[ELAN epl2182] %s enable = %d\n", __func__, enable);
+    APS_LOG("[ELAN epl2182] %s enable = %d\n", __func__, enable);
 
     epl_data->enable_pflag = enable;
     ret = elan_epl2182_I2C_Write(client,REG_9,W_SINGLE_BYTE,0x02,EPL_INT_DISABLE | EPL_DRIVE_120MA);
@@ -375,7 +375,7 @@ static int elan_epl2182_psensor_enable(struct epl2182_priv *epl_data, int enable
 		msleep(PS_DELAY);
         ret = elan_epl2182_I2C_Read(client,REG_13,R_SINGLE_BYTE,0x01,read_data);
         ps_state= !((read_data[0]&0x04)>>2);
-        printk("epl2182 ps state = %d, gRawData.ps_state = %d, %s\n", ps_state,gRawData.ps_state, __func__);
+        APS_LOG("epl2182 ps state = %d, gRawData.ps_state = %d, %s\n", ps_state,gRawData.ps_state, __func__);
 
 		int_flag = ps_state;
 		schedule_work(&epl_data->data_work);
@@ -799,7 +799,7 @@ static int alsps_irq_handler(void* data, uint len)
 		return -1;
 	}
 
-    APS_ERR("len = %d, type = %d, sction = %d, event = %d, data = %d\n", len, rsp->rsp.sensorType, rsp->rsp.action, rsp->rsp.errCode, rsp->notify_rsp.data[1]);
+    APS_LOG("len = %d, type = %d, sction = %d, event = %d, data = %d\n", len, rsp->rsp.sensorType, rsp->rsp.action, rsp->rsp.errCode, rsp->notify_rsp.data[1]);
 
 	switch(rsp->rsp.action)
     {
@@ -859,7 +859,7 @@ static void epl2182_eint_work(struct work_struct *work)
     if(epld->enable_pflag==0)
         goto exit;
 
-	APS_ERR("epl2182 int top half time = %lld\n", int_top_time);	
+	APS_LOG("epl2182 int top half time = %lld\n", int_top_time);	
 
         elan_epl2182_I2C_Read(epld->client,REG_16,R_TWO_BYTE,0x02,read_data);
         gRawData.ps_raw = (read_data[1]<<8) | read_data[0];
@@ -1214,7 +1214,7 @@ static int set_psensor_threshold(struct i2c_client *client)
 #else
 	int databuf[2];   
 
-    APS_ERR("set_psensor_threshold function high: 0x%x, low:0x%x\n", atomic_read(&obj->ps_thd_val_high), atomic_read(&obj->ps_thd_val_low));
+    APS_LOG("set_psensor_threshold function high: 0x%x, low:0x%x\n", atomic_read(&obj->ps_thd_val_high), atomic_read(&obj->ps_thd_val_low));
 	databuf[0] = atomic_read(&obj->ps_thd_val_low);
 	databuf[1] = atomic_read(&obj->ps_thd_val_high);//threshold value need to confirm
 
@@ -1454,7 +1454,7 @@ static long epl2182_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
 			
 						case ALSPS_IOCTL_GET_CALI:
 							ps_cali = obj->ps_cali ;
-							APS_ERR("%s set ps_calix%x\n", __func__, obj->ps_cali);
+							APS_LOG("%s set ps_calix%x\n", __func__, obj->ps_cali);
 							if(copy_to_user(ptr, &ps_cali, sizeof(ps_cali)))
 							{
 								err = -EFAULT;
@@ -1479,7 +1479,7 @@ static long epl2182_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
                             err = SCP_sensorHub_req_send(&data, &len, 1);
 #endif
                             
-							APS_ERR("%s set ps_calix%x\n", __func__, obj->ps_cali); 
+							APS_LOG("%s set ps_calix%x\n", __func__, obj->ps_cali); 
 							break;
 			
 						case ALSPS_SET_PS_THRESHOLD:
@@ -1488,7 +1488,7 @@ static long epl2182_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
 								err = -EFAULT;
 								goto err_out;
 							}
-							APS_ERR("%s set threshold high: 0x%x, low: 0x%x\n", __func__, threshold[0],threshold[1]); 
+							APS_LOG("%s set threshold high: 0x%x, low: 0x%x\n", __func__, threshold[0],threshold[1]); 
 							atomic_set(&obj->ps_thd_val_high,  (threshold[0]+obj->ps_cali));
 							atomic_set(&obj->ps_thd_val_low,  (threshold[1]+obj->ps_cali));//need to confirm
 			
@@ -1497,10 +1497,10 @@ static long epl2182_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
 							break;
 							
 						case ALSPS_GET_PS_THRESHOLD_HIGH:
-							APS_ERR("%s get threshold high before cali: 0x%x\n", __func__, atomic_read(&obj->ps_thd_val_high)); 
+							APS_LOG("%s get threshold high before cali: 0x%x\n", __func__, atomic_read(&obj->ps_thd_val_high)); 
 							threshold[0] = atomic_read(&obj->ps_thd_val_high) - obj->ps_cali;
-							APS_ERR("%s set ps_calix%x\n", __func__, obj->ps_cali);
-							APS_ERR("%s get threshold high: 0x%x\n", __func__, threshold[0]); 
+							APS_LOG("%s set ps_calix%x\n", __func__, obj->ps_cali);
+							APS_LOG("%s get threshold high: 0x%x\n", __func__, threshold[0]); 
 							if(copy_to_user(ptr, &threshold[0], sizeof(threshold[0])))
 							{
 								err = -EFAULT;
@@ -1509,10 +1509,10 @@ static long epl2182_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
 							break;
 							
 						case ALSPS_GET_PS_THRESHOLD_LOW:
-							APS_ERR("%s get threshold low before cali: 0x%x\n", __func__, atomic_read(&obj->ps_thd_val_low)); 
+							APS_LOG("%s get threshold low before cali: 0x%x\n", __func__, atomic_read(&obj->ps_thd_val_low)); 
 							threshold[0] = atomic_read(&obj->ps_thd_val_low) - obj->ps_cali;
-							APS_ERR("%s set ps_calix%x\n", __func__, obj->ps_cali);
-							APS_ERR("%s get threshold low: 0x%x\n", __func__, threshold[0]); 
+							APS_LOG("%s set ps_calix%x\n", __func__, obj->ps_cali);
+							APS_LOG("%s get threshold low: 0x%x\n", __func__, threshold[0]); 
 							if(copy_to_user(ptr, &threshold[0], sizeof(threshold[0])))
 							{
 								err = -EFAULT;
@@ -1930,7 +1930,7 @@ static int epl2182_i2c_probe(struct i2c_client *client, const struct i2c_device_
 
     epl2182_get_addr(obj->hw, &obj->addr);
 
-    APS_ERR("addr is 0x%x!\n",obj->addr.write_addr);
+    APS_LOG("addr is 0x%x!\n",obj->addr.write_addr);
 	
     epl2182_obj->als_level_num = sizeof(epl2182_obj->hw->als_level)/sizeof(epl2182_obj->hw->als_level[0]);
     epl2182_obj->als_value_num = sizeof(epl2182_obj->hw->als_value)/sizeof(epl2182_obj->hw->als_value[0]);
@@ -1989,7 +1989,7 @@ static int epl2182_i2c_probe(struct i2c_client *client, const struct i2c_device_
         goto exit_init_failed;
     }
 
-   APS_ERR("epl2182_init_client OK!\n");
+   APS_LOG("epl2182_init_client OK!\n");
    
     if((err = misc_register(&epl2182_device)))
     {
@@ -2065,14 +2065,14 @@ static int epl2182_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	}
 
 
-	err = batch_register_support_info(ID_LIGHT,als_ctl.is_support_batch, 100, 0);
+	err = batch_register_support_info(ID_LIGHT,als_ctl.is_support_batch, 1, 0);
 	if(err)
 	{
 		APS_ERR("register light batch support err = %d\n", err);
 		goto exit_sensor_obj_attach_fail;
 	}
 	
-	err = batch_register_support_info(ID_PROXIMITY,ps_ctl.is_support_batch, 100, 0);
+	err = batch_register_support_info(ID_PROXIMITY,ps_ctl.is_support_batch, 1, 0);
 	if(err)
 	{
 		APS_ERR("register proximity batch support err = %d\n", err);
@@ -2153,13 +2153,13 @@ static int alsps_local_init(void)
 		return -1;
 	}
 
-	APS_ERR("add driver epl2182_i2c_driver ok!\n");
+	APS_LOG("add driver epl2182_i2c_driver ok!\n");
 	
 	if(-1 == alsps_init_flag)
 	{
 	   return -1;
 	}
-	//printk("fwq loccal init---\n");
+	//APS_LOG("fwq loccal init---\n");
 	return 0;
 }
 /*----------------------------------------------------------------------------*/

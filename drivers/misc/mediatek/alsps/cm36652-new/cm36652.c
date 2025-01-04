@@ -26,7 +26,9 @@
 #include <asm/atomic.h>
 
 #include <mach/mt_typedefs.h>
+#ifdef CONFIG_MTK_LEGACY
 #include <mach/mt_gpio.h>
+#endif
 #include <mach/mt_pm_ldo.h>
 
 #define POWER_NONE_MACRO MT65XX_POWER_NONE
@@ -35,12 +37,18 @@
 #include <linux/hwmsen_dev.h>
 #include <linux/sensors_io.h>
 #include <asm/io.h>
+#ifdef CONFIG_MTK_LEGACY
 #include <cust_eint.h>
+#endif
 #include <cust_alsps.h>
 #include "cm36652.h"
 #include <linux/sched.h>
 #include <alsps.h>
 #include <linux/batch.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <mach/eint.h>
 
 #ifdef CUSTOM_KERNEL_SENSORHUB
 #include <SCP_sensorHub.h>
@@ -53,10 +61,10 @@
 #define CM36652_DEV_NAME     "cm36652"
 /*----------------------------------------------------------------------------*/
 #define APS_TAG                  "[ALS/PS] "
-#define APS_FUN(f)               printk(KERN_INFO 	APS_TAG"%s\n", __FUNCTION__)
-#define APS_ERR(fmt, args...)    printk(KERN_ERR  	APS_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define APS_LOG(fmt, args...)    printk(KERN_ERR	APS_TAG fmt, ##args)
-#define APS_DBG(fmt, args...)    printk(KERN_INFO 	APS_TAG fmt, ##args)    
+#define APS_FUN(f)               pr_info(APS_TAG"%s\n", __FUNCTION__)
+#define APS_ERR(fmt, args...)    pr_err(APS_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define APS_LOG(fmt, args...)    pr_info(APS_TAG fmt, ##args)
+#define APS_DBG(fmt, args...)    pr_debug(APS_TAG fmt, ##args)    
 
 #define I2C_FLAG_WRITE	0
 #define I2C_FLAG_READ	1
@@ -86,11 +94,21 @@ static int cm36652_i2c_remove(struct i2c_client *client);
 static int cm36652_i2c_detect(struct i2c_client *client, struct i2c_board_info *info);
 static int cm36652_i2c_suspend(struct i2c_client *client, pm_message_t msg);
 static int cm36652_i2c_resume(struct i2c_client *client);
+extern struct platform_device *get_alsps_platformdev() ;
 
 /*----------------------------------------------------------------------------*/
 static const struct i2c_device_id cm36652_i2c_id[] = {{CM36652_DEV_NAME,0},{}};
-static struct i2c_board_info __initdata i2c_cm36652={ I2C_BOARD_INFO(CM36652_DEV_NAME, 0x60)};
+//static struct i2c_board_info __initdata i2c_cm36652={ I2C_BOARD_INFO(CM36652_DEV_NAME, 0x60)};
 static unsigned long long int_top_time = 0;
+/* Maintain alsps cust info here */
+struct alsps_hw alsps_cust;
+static struct alsps_hw *hw = &alsps_cust;
+struct platform_device *alspsPltFmDev;
+
+/* For alsp driver get cust info */
+struct alsps_hw *get_cust_alsps(void) {
+    return &alsps_cust;
+}
 /*----------------------------------------------------------------------------*/
 struct cm36652_priv {
 	struct alsps_hw  *hw;
@@ -114,6 +132,8 @@ struct cm36652_priv {
 	atomic_t	ps_suspend;
 	atomic_t 	trace;
 	atomic_t  init_done;
+	struct device_node *irq_node;
+	int		irq;
 	
 	/*data*/
 	u16			als;
@@ -142,6 +162,13 @@ struct cm36652_priv {
 };
 /*----------------------------------------------------------------------------*/
 
+#ifdef CONFIG_OF
+static const struct of_device_id alsps_of_match[] = {
+        {.compatible = "mediatek,ALSPS"},
+        {},
+};
+#endif
+
 static struct i2c_driver cm36652_i2c_driver = {	
 	.probe      = cm36652_i2c_probe,
 	.remove     = cm36652_i2c_remove,
@@ -151,6 +178,9 @@ static struct i2c_driver cm36652_i2c_driver = {
 	.id_table   = cm36652_i2c_id,
 	.driver = {
 		.name = CM36652_DEV_NAME,
+#ifdef CONFIG_OF
+        .of_match_table = alsps_of_match,
+#endif
 	},
 };
 
@@ -170,7 +200,7 @@ static struct cm36652_priv *cm36652_obj = NULL;
 //static struct PS_CALI_DATA_STRUCT ps_cali={0,0,0};
 static int intr_flag = 1; //hw default away after enable.
 
-static int cm36652_local_init(void);
+static int cm36652_local_init();
 static int cm36652_remove(void);
 static int cm36652_init_flag =-1; // 0<==>OK -1 <==> fail
 static struct alsps_init_info cm36652_init_info = {
@@ -199,6 +229,7 @@ typedef enum {
     CMC_TRC_I2C     = 0x0010,
     CMC_TRC_CVT_ALS = 0x0020,
     CMC_TRC_CVT_PS  = 0x0040,
+    CMC_TRC_CVT_AAL = 0x0080,
     CMC_TRC_DEBUG   = 0x8000,
 } CMC_TRC;
 /*-----------------------------------------------------------------------------*/
@@ -239,6 +270,9 @@ int CM36652_i2c_master_operate(struct i2c_client *client, const char *buf, int c
 /*----------------------------------------------------------------------------*/
 static void cm36652_power(struct alsps_hw *hw, unsigned int on) 
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef __USE_LINUX_REGULATOR_FRAMEWORK__
+#else
 	static unsigned int power_on = 0;
 
 	APS_LOG("power %s\n", on ? "on" : "off");
@@ -265,6 +299,8 @@ static void cm36652_power(struct alsps_hw *hw, unsigned int on)
 		}
 	}
 	power_on = on;
+#endif
+#endif
 }
 /********************************************************************/
 int cm36652_enable_ps(struct i2c_client *client, int enable)
@@ -593,70 +629,66 @@ static int cm36652_get_ps_value(struct cm36652_priv *obj, u8 ps)
 /********************************************************************/
 static int cm36652_get_als_value(struct cm36652_priv *obj, u16 als)
 {
-		int idx;
-		int invalid = 0;
-		for(idx = 0; idx < obj->als_level_num; idx++)
-		{
-			if(als < obj->hw->als_level[idx])
-			{
-				break;
-			}
-		}
-		if(idx >= obj->als_value_num)
-		{
-			APS_ERR("exceed range\n"); 
-			idx = obj->als_value_num - 1;
-		}
-		
-		if(1 == atomic_read(&obj->als_deb_on))
-		{
-			unsigned long endt = atomic_read(&obj->als_deb_end);
-			if(time_after(jiffies, endt))
-			{
-				atomic_set(&obj->als_deb_on, 0);
-			}
-			
-			if(1 == atomic_read(&obj->als_deb_on))
-			{
-				invalid = 1;
-			}
-		}
-	
-		if(!invalid)
-		{
-		#if 1//defined(CONFIG_MTK_AAL_SUPPORT)
-      	int level_high = obj->hw->als_level[idx];
-    		int level_low = (idx > 0) ? obj->hw->als_level[idx-1] : 0;
-        int level_diff = level_high - level_low;
-				int value_high = obj->hw->als_value[idx];
-        int value_low = (idx > 0) ? obj->hw->als_value[idx-1] : 0;
-        int value_diff = value_high - value_low;
-        int value = 0;
-        
-        if ((level_low >= level_high) || (value_low >= value_high))
-            value = value_low;
-        else
-            value = (level_diff * value_low + (als - level_low) * value_diff + ((level_diff + 1) >> 1)) / level_diff;
+	int idx = 0;
+	int invalid = 0;
+	int level_high = 0;
+	int level_low = 0;
+	int level_diff = 0;
+	int value_high = 0;
+	int value_low = 0;
+	int value_diff = 0;
+	int value = 0;
 
-		APS_DBG("ALS: %d [%d, %d] => %d [%d, %d] \n", als, level_low, level_high, value, value_low, value_high);
-		return value;
-		#endif
-			if (atomic_read(&obj->trace) & CMC_TRC_CVT_ALS)
-			{
-				APS_DBG("ALS: %05d => %05d\n", als, obj->hw->als_value[idx]);
-			}
-			
-			return obj->hw->als_value[idx];
-		}
+	if ((0 == obj->als_level_num) || (0 == obj->als_value_num))
+	{
+		APS_ERR("invalid als_level_num = %d, als_value_num = %d\n", obj->als_level_num, obj->als_value_num);
+		return -1;
+	}
+
+	if (1 == atomic_read(&obj->als_deb_on))	{
+		unsigned long endt = atomic_read(&obj->als_deb_end);
+		if (time_after(jiffies, endt))
+			atomic_set(&obj->als_deb_on, 0);
+
+		if (1 == atomic_read(&obj->als_deb_on))
+			invalid = 1;
+	}
+
+	for (idx = 0; idx < obj->als_level_num; idx++) {
+		if (als < obj->hw->als_level[idx])
+			break;
+	}
+
+	if (idx >= obj->als_level_num || idx >= obj->als_value_num) {
+		if (idx < obj->als_value_num)
+			value = obj->hw->als_value[idx-1];
 		else
-		{
-			if(atomic_read(&obj->trace) & CMC_TRC_CVT_ALS)
-			{
-				APS_DBG("ALS: %05d => %05d (-1)\n", als, obj->hw->als_value[idx]);	  
-			}
-			return -1;
-		}
+			value = obj->hw->als_value[obj->als_value_num-1];
+	} else {
+		level_high = obj->hw->als_level[idx];
+		level_low = (idx > 0) ? obj->hw->als_level[idx-1] : 0;
+		level_diff = level_high - level_low;
+		value_high = obj->hw->als_value[idx];
+		value_low = (idx > 0) ? obj->hw->als_value[idx-1] : 0;
+		value_diff = value_high - value_low;
 
+		if ((level_low >= level_high) || (value_low >= value_high))
+			value = value_low;
+		else
+			value = (level_diff * value_low + (als - level_low) * value_diff + ((level_diff + 1) >> 1)) / level_diff;
+	}
+
+	if (!invalid) {
+		if (atomic_read(&obj->trace) & CMC_TRC_CVT_AAL)
+			APS_DBG("ALS: %d [%d, %d] => %d [%d, %d] \n", als, level_low, level_high, value, value_low, value_high);
+
+		return value;
+	} else {
+		if (atomic_read(&obj->trace) & CMC_TRC_CVT_ALS)
+			APS_DBG("ALS: %05d => %05d (-1)\n", als, value);
+
+		return -1;
+	}
 }
 
 
@@ -1111,14 +1143,18 @@ static void cm36652_eint_work(struct work_struct *work)
 		APS_LOG("cm36652 interrupt value = %d\n", intr_flag);
 		res = ps_report_interrupt_data(intr_flag);	
 	}
-#ifdef CUST_EINT_ALS_TYPE
+#if defined(CONFIG_OF)
+	enable_irq(obj->irq);
+#elif defined(CUST_EINT_ALS_TYPE)
 	mt_eint_unmask(CUST_EINT_ALS_NUM);
 #else
 	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);
 #endif
 	return;
 	EXIT_INTR_ERR:
-#ifdef CUST_EINT_ALS_TYPE
+#if defined(CONFIG_OF)
+	enable_irq(obj->irq);
+#elif defined(CUST_EINT_ALS_TYPE)
 	mt_eint_unmask(CUST_EINT_ALS_NUM);
 #else
 	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);
@@ -1183,7 +1219,7 @@ static void cm36652_init_done_work(struct work_struct *work)
     mutex_lock(&cm36652_mutex);
     data.activate_req.sensorType = ID_PROXIMITY;
     data.activate_req.action = SENSOR_HUB_ACTIVATE;
-    if ((CMC_BIT_PS&obj->enable) != 0)
+    if(test_bit(CMC_BIT_PS, &obj->enable))
     {
         data.activate_req.enable = 1;
     }
@@ -1195,7 +1231,7 @@ static void cm36652_init_done_work(struct work_struct *work)
     SCP_sensorHub_req_send(&data, &len, 1);
 
     data.activate_req.sensorType = ID_LIGHT;
-    if ((CMC_BIT_ALS&obj->enable) != 0)
+    if (test_bit(CMC_BIT_ALS, &obj->enable))
     {
         data.activate_req.enable = 1;
     }
@@ -1221,6 +1257,15 @@ static void cm36652_eint_func(void)
 	int_top_time = sched_clock();
 	schedule_work(&obj->eint_work);
 }
+#if defined(CONFIG_OF)
+static irqreturn_t cm36652_eint_handler(int irq, void *desc)
+{
+	cm36652_eint_func();
+	disable_irq_nosync(cm36652_obj->irq);
+	
+	return IRQ_HANDLED;
+}
+#endif
 /*----------------------------------------------------------------------------*/
 #ifdef CUSTOM_KERNEL_SENSORHUB
 static int cm36652_irq_handler(void* data, uint len)
@@ -1271,33 +1316,90 @@ static int cm36652_irq_handler(void* data, uint len)
 /*----------------------------------------------------------------------------*/
 int cm36652_setup_eint(struct i2c_client *client)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CUSTOM_KERNEL_SENSORHUB
     int err = 0;
 
     err = SCP_sensorHub_rsp_registration(ID_PROXIMITY, cm36652_irq_handler);
 #else //#ifdef CUSTOM_KERNEL_SENSORHUB
+	int ret;
+#if defined(CONFIG_OF)
+	u32 ints[2] = {0, 0};
+#endif
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pins_default;
+	struct pinctrl_state *pins_cfg;
+	
+#ifdef CONFIG_MTK_LEGACY
 	mt_set_gpio_dir(GPIO_ALS_EINT_PIN, GPIO_DIR_IN);
 	mt_set_gpio_mode(GPIO_ALS_EINT_PIN, GPIO_ALS_EINT_PIN_M_EINT);
 	mt_set_gpio_pull_enable(GPIO_ALS_EINT_PIN, TRUE);
 	mt_set_gpio_pull_select(GPIO_ALS_EINT_PIN, GPIO_PULL_UP);
+#else
+	alspsPltFmDev = get_alsps_platformdev();
 
-#ifdef CUST_EINT_ALS_TYPE
+	pinctrl = devm_pinctrl_get(&alspsPltFmDev->dev);
+	if (IS_ERR(pinctrl)) {
+		ret = PTR_ERR(pinctrl);
+		APS_ERR("Cannot find alsps pinctrl!\n");
+	}
+	pins_default = pinctrl_lookup_state(pinctrl, "pin_default");
+	if (IS_ERR(pins_default)) {
+		ret = PTR_ERR(pins_default);
+		APS_ERR("Cannot find alsps pinctrl default!\n");
+		
+	}
+
+	pins_cfg = pinctrl_lookup_state(pinctrl, "pin_cfg");
+	if (IS_ERR(pins_cfg)) {
+		ret = PTR_ERR(pins_cfg);
+		APS_ERR("Cannot find alsps pinctrl pin_cfg!\n");
+		
+	}
+    pinctrl_select_state(pinctrl, pins_cfg);
+#endif
+
+#if defined(CONFIG_OF)
+	if (cm36652_obj->irq_node)
+	{
+		of_property_read_u32_array(cm36652_obj->irq_node, "debounce", ints, ARRAY_SIZE(ints));
+		mt_gpio_set_debounce(ints[0], ints[1]);
+		APS_LOG("ints[0] = %d, ints[1] = %d!!\n", ints[0], ints[1]);
+		
+		cm36652_obj->irq = irq_of_parse_and_map(cm36652_obj->irq_node, 0);
+		APS_LOG("cm36652_obj->irq = %d\n", cm36652_obj->irq);
+		if (!cm36652_obj->irq)
+		{
+			APS_ERR("irq_of_parse_and_map fail!!\n");
+			return -EINVAL;
+		}
+		
+		if(request_irq(cm36652_obj->irq, cm36652_eint_handler, IRQF_TRIGGER_NONE, "ALS-eint", NULL)) {
+			APS_ERR("IRQ LINE NOT AVAILABLE!!\n");
+			return -EINVAL;
+		}
+		
+		enable_irq(cm36652_obj->irq);
+	}
+	else
+	{
+		APS_ERR("null irq node!!\n");
+		return -EINVAL;
+	}
+#elif defined(CUST_EINT_ALS_TYPE)
 	mt_eint_set_hw_debounce(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_CN);
 	mt_eint_registration(CUST_EINT_ALS_NUM, CUST_EINT_ALS_TYPE, cm36652_eint_func, 0);
+	mt_eint_unmask(CUST_EINT_ALS_NUM);
 #else
 	mt65xx_eint_set_sens(CUST_EINT_ALS_NUM, CUST_EINT_ALS_SENSITIVE);
 	mt65xx_eint_set_polarity(CUST_EINT_ALS_NUM, CUST_EINT_ALS_POLARITY);
 	mt65xx_eint_set_hw_debounce(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_CN);
 	mt65xx_eint_registration(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_EN, CUST_EINT_ALS_POLARITY, cm36652_eint_func, 0);
-#endif
-
-#ifdef CUST_EINT_ALS_TYPE
-	mt_eint_unmask(CUST_EINT_ALS_NUM);
-#else
 	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);  
 #endif
 
 #endif //#ifdef CUSTOM_KERNEL_SENSORHUB
+#endif
     return 0;
 }
 /*-------------------------------MISC device related------------------------------------------*/
@@ -1525,7 +1627,7 @@ static long cm36652_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
 				{
 					goto err_out;
 				}
-				if(obj->ps > atomic_read(&obj->ps_thd_val_high))
+				if(obj->ps > atomic_read(&obj->ps_thd_val_low))
 					{
 						ps_result = 0;
 					}
@@ -1645,6 +1747,72 @@ static struct miscdevice cm36652_device = {
 
 /*--------------------------------------------------------------------------------------*/
 #if defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CUSTOM_KERNEL_SENSORHUB
+static void cm36652_early_suspend(struct early_suspend *h)
+{
+    struct cm36652_priv *obj = container_of(h, struct cm36652_priv, early_drv);
+    int err;
+    SCP_SENSOR_HUB_DATA req;
+    int len;
+    
+    APS_FUN();
+    APS_ERR("cm36652_early_suspend!!\n");
+
+    if(!obj)
+    {
+        APS_ERR("null pointer!!\n");
+        return;
+    }
+
+    atomic_set(&obj->als_suspend, 1);
+    if (atomic_read(&obj->init_done))
+    {
+        req.activate_req.sensorType = ID_LIGHT;
+        req.activate_req.action = SENSOR_HUB_ACTIVATE;
+        req.activate_req.enable = 0;
+        len = sizeof(req.activate_req);
+        err = SCP_sensorHub_req_send(&req, &len, 1);
+    }
+    else
+    {
+        APS_ERR("sensor hub has not been ready!!\n");
+    }
+}
+
+static void cm36652_late_resume(struct early_suspend *h) 
+{
+    struct cm36652_priv *obj = container_of(h, struct cm36652_priv, early_drv);
+    int err;
+    SCP_SENSOR_HUB_DATA req;
+    int len;
+    
+    APS_FUN();
+    APS_ERR("cm36652_late_resume!!\n");
+
+    if(!obj)
+    {
+        APS_ERR("null pointer!!\n");
+        return;
+    }
+    
+    atomic_set(&obj->als_suspend, 0);
+    if(test_bit(CMC_BIT_ALS, &obj->enable))
+    {
+        if (atomic_read(&obj->init_done))
+        {
+            req.activate_req.sensorType = ID_LIGHT;
+            req.activate_req.action = SENSOR_HUB_ACTIVATE;
+            req.activate_req.enable = 1;
+            len = sizeof(req.activate_req);
+            err = SCP_sensorHub_req_send(&req, &len, 1);
+        }
+        else
+        {
+            APS_ERR("sensor hub has not been ready!!\n");
+        }
+    }
+}
+#else //#ifdef CUSTOM_KERNEL_SENSORHUB
 static void cm36652_early_suspend(struct early_suspend *h)
 {
 		struct cm36652_priv *obj = container_of(h, struct cm36652_priv, early_drv);	
@@ -1687,6 +1855,7 @@ static void cm36652_late_resume(struct early_suspend *h)
 			}
 		}
 }
+#endif //#ifdef CUSTOM_KERNEL_SENSORHUB
 #endif //#if defined(CONFIG_HAS_EARLYSUSPEND)
 /*--------------------------------------------------------------------------------*/
 static int cm36652_init_client(struct i2c_client *client)
@@ -1813,13 +1982,19 @@ static int als_enable_nodata(int en)
     {
         APS_ERR("sensor hub has not been ready!!\n");
     }
-    mutex_lock(&cm36652_mutex);
-    if (en)
-        cm36652_obj->enable |= CMC_BIT_ALS;
-    else
-        cm36652_obj->enable &= ~CMC_BIT_ALS;
-    mutex_unlock(&cm36652_mutex);
+ 	mutex_lock(&cm36652_mutex);
+	if (en)
+		set_bit(CMC_BIT_ALS, &cm36652_obj->enable);
+	else
+		clear_bit(CMC_BIT_ALS, &cm36652_obj->enable);
+	mutex_unlock(&cm36652_mutex);
 #else //#ifdef CUSTOM_KERNEL_SENSORHUB
+	mutex_lock(&cm36652_mutex);
+	if (en)
+		set_bit(CMC_BIT_ALS, &cm36652_obj->enable);
+	else
+		clear_bit(CMC_BIT_ALS, &cm36652_obj->enable);
+	mutex_unlock(&cm36652_mutex);
 	if(!cm36652_obj)
 	{
 		APS_ERR("cm36652_obj is null!!\n");
@@ -1891,6 +2066,8 @@ static int als_get_data(int* value, int* status)
 	else
 	{
 		*value = cm36652_get_als_value(obj, obj->als);
+		if (*value < 0)
+			err = -1;
 		*status = SENSOR_STATUS_ACCURACY_MEDIUM;
 	}
 #endif //#ifdef CUSTOM_KERNEL_SENSORHUB
@@ -1932,11 +2109,19 @@ static int ps_enable_nodata(int en)
     }
     mutex_lock(&cm36652_mutex);
     if (en)
-        cm36652_obj->enable |= CMC_BIT_PS;
+        set_bit(CMC_BIT_PS, &cm36652_obj->enable);
     else
-        cm36652_obj->enable &= ~CMC_BIT_PS;
+        clear_bit(CMC_BIT_PS, &cm36652_obj->enable);
     mutex_unlock(&cm36652_mutex);
 #else //#ifdef CUSTOM_KERNEL_SENSORHUB
+	mutex_lock(&cm36652_mutex);
+	if (en)
+		set_bit(CMC_BIT_PS, &cm36652_obj->enable);
+
+	else
+		clear_bit(CMC_BIT_PS, &cm36652_obj->enable);
+
+	mutex_unlock(&cm36652_mutex);
 	if(!cm36652_obj)
 	{
 		APS_ERR("cm36652_obj is null!!\n");
@@ -2010,11 +2195,13 @@ static int ps_get_data(int* value, int* status)
     else
     {
         *value = cm36652_get_ps_value(cm36652_obj, cm36652_obj->ps);
+		if (*value < 0)
+			err = -1;
         *status = SENSOR_STATUS_ACCURACY_MEDIUM;
     }
 #endif //#ifdef CUSTOM_KERNEL_SENSORHUB
     
-	return 0;
+	return err;
 }
 
 
@@ -2040,7 +2227,7 @@ static int cm36652_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	memset(obj, 0, sizeof(*obj));
 	cm36652_obj = obj;
 	
-	obj->hw = get_cust_alsps_hw();//get custom file data struct
+	obj->hw = hw;
 	
 	INIT_WORK(&obj->eint_work, cm36652_eint_work);
 #ifdef CUSTOM_KERNEL_SENSORHUB
@@ -2066,6 +2253,7 @@ static int cm36652_i2c_probe(struct i2c_client *client, const struct i2c_device_
 	atomic_set(&obj->als_thd_val_high,  obj->hw->als_threshold_high);
 	atomic_set(&obj->als_thd_val_low,  obj->hw->als_threshold_low);
 	atomic_set(&obj->init_done,  0);
+	obj->irq_node = of_find_compatible_node(NULL, NULL, "mediatek, ALS-eint");
 	
 	obj->enable = 0;
 	obj->pending_intr = 0;
@@ -2226,13 +2414,46 @@ static int cm36652_i2c_detect(struct i2c_client *client, struct i2c_board_info *
 
 static int cm36652_i2c_suspend(struct i2c_client *client, pm_message_t msg)
 {
-	APS_FUN();
+	struct cm36652_priv *obj = i2c_get_clientdata(client);
+	int err;
+	APS_FUN();	  
+	
+	if(!obj)
+	{
+		APS_ERR("null pointer!!\n");
+		return;
+	}
+	
+	atomic_set(&obj->als_suspend, 1);
+	if((err = cm36652_enable_als(obj->client, 0)))
+	{
+		APS_ERR("disable als fail: %d\n", err); 
+	}
 	return 0;
 }
 
 static int cm36652_i2c_resume(struct i2c_client *client)
 {
+    struct cm36652_priv *obj = i2c_get_clientdata(client);
+	int err;
+	hwm_sensor_data sensor_data;
+	memset(&sensor_data, 0, sizeof(sensor_data));
 	APS_FUN();
+	if(!obj)
+	{
+		APS_ERR("null pointer!!\n");
+		return;
+	}
+	
+	atomic_set(&obj->als_suspend, 0);
+	if(test_bit(CMC_BIT_ALS, &obj->enable))
+	{
+		if((err = cm36652_enable_als(obj->client, 1)))
+		{
+			APS_ERR("enable als fail: %d\n", err);		  
+	
+		}
+	}
 	return 0;
 }
 
@@ -2242,7 +2463,6 @@ static int cm36652_i2c_resume(struct i2c_client *client)
 static int cm36652_remove(void)
 {
 	//APS_FUN(); 
-	struct alsps_hw *hw = get_cust_alsps_hw();
 	
 	cm36652_power(hw, 0);//*****************  
 	
@@ -2251,10 +2471,9 @@ static int cm36652_remove(void)
 }
 /*----------------------------------------------------------------------------*/
 
-static int  cm36652_local_init(void)
+static int  cm36652_local_init()
 {
-    struct alsps_hw *hw = get_cust_alsps_hw();
-	//printk("fwq loccal init+++\n");
+	//APS_LOG("fwq loccal init+++\n");
 
 	cm36652_power(hw, 1);
 	if(i2c_add_driver(&cm36652_i2c_driver))
@@ -2266,7 +2485,7 @@ static int  cm36652_local_init(void)
 	{
 	   return -1;
 	}
-	//printk("fwq loccal init---\n");
+	//APS_LOG("fwq loccal init---\n");
 	return 0;
 }
 
@@ -2274,10 +2493,15 @@ static int  cm36652_local_init(void)
 /*----------------------------------------------------------------------------*/
 static int __init cm36652_init(void)
 {
-	//APS_FUN();
-	struct alsps_hw *hw = get_cust_alsps_hw();
+    const char *name = "mediatek,CM36652";
+    hw =   get_alsps_dts_func(name, hw);
+	if (!hw)
+	    hw = get_cust_alsps_hw();
+#ifdef CONFIG_MTK_LEGACY
+	struct i2c_board_info i2c_cm36652={ I2C_BOARD_INFO(CM36652_DEV_NAME,hw->i2c_addr[0] )};
 	APS_LOG("%s: i2c_number=%d, i2c_addr: 0x%x\n", __func__, hw->i2c_num, hw->i2c_addr[0]);
 	i2c_register_board_info(hw->i2c_num, &i2c_cm36652, 1);
+#endif
 	alsps_driver_add(&cm36652_init_info);
 	return 0;
 }

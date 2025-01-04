@@ -24,14 +24,16 @@
 struct cqdma_env_info {
 	void __iomem *base;
 	u32 irq;
-	u32 nr_channel;
 };
 
-static struct cqdma_env_info env_info;
+#define MAX_CQDMA_CHANNELS 2
+
+static struct cqdma_env_info env_info[MAX_CQDMA_CHANNELS];
+static u32 nr_cqdma_channel;
 
 #define LDVT
 
-/* 
+/*
  * DMA information
  */
 
@@ -40,38 +42,40 @@ static struct cqdma_env_info env_info;
 /*
  * General DMA channel register mapping
  */
-#define DMA_INT_FLAG           IOMEM((env_info.base + 0x0000))
-#define DMA_INT_EN             IOMEM((env_info.base + 0x0004))
-#define DMA_START              IOMEM((env_info.base + 0x0008))
-#define DMA_RESET              IOMEM((env_info.base + 0x000C))
-#define DMA_STOP               IOMEM((env_info.base + 0x0010))
-#define DMA_FLUSH              IOMEM((env_info.base + 0x0014))
-#define DMA_CON                IOMEM((env_info.base + 0x0018))
-#define DMA_SRC                IOMEM((env_info.base + 0x001C))
-#define DMA_DST                IOMEM((env_info.base + 0x0020))
-#define DMA_LEN1               IOMEM((env_info.base + 0x0024))
-#define DMA_LEN2               IOMEM((env_info.base + 0x0028))
-#define DMA_JUMP_ADDR          IOMEM((env_info.base + 0x002C))
-#define DMA_IBUFF_SIZE         IOMEM((env_info.base + 0x0030))
-#define DMA_CONNECT            IOMEM((env_info.base + 0x0034))
-#define DMA_AXIATTR            IOMEM((env_info.base + 0x0038))
-#define DMA_DBG_STAT           IOMEM((env_info.base + 0x0050))
+#define DMA_INT_FLAG(ch)           IOMEM((env_info[ch].base + 0x0000))
+#define DMA_INT_EN(ch)             IOMEM((env_info[ch].base + 0x0004))
+#define DMA_START(ch)              IOMEM((env_info[ch].base + 0x0008))
+#define DMA_RESET(ch)              IOMEM((env_info[ch].base + 0x000C))
+#define DMA_STOP(ch)               IOMEM((env_info[ch].base + 0x0010))
+#define DMA_FLUSH(ch)              IOMEM((env_info[ch].base + 0x0014))
+#define DMA_CON(ch)                IOMEM((env_info[ch].base + 0x0018))
+#define DMA_SRC(ch)                IOMEM((env_info[ch].base + 0x001C))
+#define DMA_DST(ch)                IOMEM((env_info[ch].base + 0x0020))
+#define DMA_LEN1(ch)               IOMEM((env_info[ch].base + 0x0024))
+#define DMA_LEN2(ch)               IOMEM((env_info[ch].base + 0x0028))
+#define DMA_JUMP_ADDR(ch)          IOMEM((env_info[ch].base + 0x002C))
+#define DMA_IBUFF_SIZE(ch)         IOMEM((env_info[ch].base + 0x0030))
+#define DMA_CONNECT(ch)            IOMEM((env_info[ch].base + 0x0034))
+#define DMA_AXIATTR(ch)            IOMEM((env_info[ch].base + 0x0038))
+#define DMA_DBG_STAT(ch)           IOMEM((env_info[ch].base + 0x0050))
+#define DMA_SRC_ADDR2(ch)          IOMEM((env_info[ch].base + 0x00E0))
+#define DMA_DST_ADDR2(ch)          IOMEM((env_info[ch].base + 0x00E4))
+#define DMA_JUMP_ADDR2(ch)         IOMEM((env_info[ch].base + 0x00E8))
 
-#define DMA_SRC_4G_SUPPORT           (env_info.base + 0x0040)
-#define DMA_DST_4G_SUPPORT       (env_info.base + 0x0044)
-#define DMA_JUMP_4G_SUPPORT       (env_info.base + 0x0048)
-#define DMA_VIO_DBG1           (env_info.base + 0x003c)
-#define DMA_VIO_DBG           (env_info.base + 0x0060)
-#define DMA_GDMA_SEC_EN           (env_info.base + 0x0058)
+#define DMA_VIO_DBG1(ch)           (env_info[ch].base + 0x003c)
+#define DMA_SRC_4G_SUPPORT(ch)     (env_info[ch].base + 0x0040)
+#define DMA_DST_4G_SUPPORT(ch)     (env_info[ch].base + 0x0044)
+#define DMA_JUMP_4G_SUPPORT(ch)    (env_info[ch].base + 0x0048)
+#define DMA_GDMA_SEC_EN(ch)        (env_info[ch].base + 0x0058)
+#define DMA_VIO_DBG(ch)            (env_info[ch].base + 0x0060)
 
 /*
  * Register Setting
  */
-
 #define DMA_GDMA_LEN_MAX_MASK   (0x000FFFFF)
 
 #define DMA_CON_DIR             (0x00000001)
-#define DMA_CON_FPEN            (0x00000002)    /* Use fix pattern. */
+#define DMA_CON_FPEN            (0x00000002)	/* Use fix pattern. */
 #define DMA_CON_SLOW_EN         (0x00000004)
 #define DMA_CON_DFIX            (0x00000008)
 #define DMA_CON_SFIX            (0x00000010)
@@ -103,6 +107,7 @@ static struct cqdma_env_info env_info;
 #define DMA_WRITE_COHER_BIT     (0x00100000)
 #define DMA_GSEC_EN_BIT         (0x00000001)
 #define DMA_SEC_EN_BIT          (0x00000001)
+#define DMA_ADDR2_EN_BIT        (0x00000001)
 
 
 
@@ -118,11 +123,10 @@ static struct cqdma_env_info env_info;
  * channel information structures
  */
 
-struct dma_ctrl
-{
-    int in_use;
-    void (*isr_cb)(void *);
-    void *data;
+struct dma_ctrl {
+	int in_use;
+	void (*isr_cb) (void *);
+	void *data;
 };
 
 /*
@@ -135,7 +139,7 @@ static struct dma_ctrl dma_ctrl[CQDMA_MAX_CHANNEL];
 static DEFINE_SPINLOCK(dma_drv_lock);
 
 #define PDN_APDMA_MODULE_NAME ("CQDMA")
-#define GDMA_WARM_RST_TIMEOUT   (100) // ms
+#define GDMA_WARM_RST_TIMEOUT   (100)	/* ms */
 volatile unsigned int DMA_INT_DONE;
 /*
  * mt_req_gdma: request a general DMA.
@@ -150,18 +154,18 @@ int mt_req_gdma(DMA_CHAN chan)
 	spin_lock_irqsave(&dma_drv_lock, flags);
 
 	if (chan == GDMA_ANY) {
-		for (i = GDMA_START; i < env_info.nr_channel; i++) {
-			if (dma_ctrl[i].in_use) {
+		for (i = GDMA_START; i < nr_cqdma_channel; i++) {
+			if (dma_ctrl[i].in_use)
 				continue;
-			} else {
+			else {
 				dma_ctrl[i].in_use = 1;
 				break;
 			}
 		}
 	} else {
-		if (dma_ctrl[chan].in_use) {
-			i = env_info.nr_channel;
-		} else {
+		if (dma_ctrl[chan].in_use)
+			i = nr_cqdma_channel;
+		else {
 			i = chan;
 			dma_ctrl[chan].in_use = 1;
 		}
@@ -169,7 +173,7 @@ int mt_req_gdma(DMA_CHAN chan)
 
 	spin_unlock_irqrestore(&dma_drv_lock, flags);
 
-	if (i < env_info.nr_channel) {
+	if (i < nr_cqdma_channel) {
 		mt_reset_gdma_conf(i);
 		return i;
 	} else {
@@ -185,16 +189,14 @@ EXPORT_SYMBOL(mt_req_gdma);
  */
 int mt_start_gdma(int channel)
 {
-	if ((channel < GDMA_START) || (channel >= (GDMA_START + env_info.nr_channel))) {
+	if ((channel < GDMA_START) || (channel >= (GDMA_START + nr_cqdma_channel)))
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (dma_ctrl[channel].in_use == 0) {
+	if (dma_ctrl[channel].in_use == 0)
 		return -DMA_ERR_CH_FREE;
-	}
 
-	mt_reg_sync_writel(DMA_INT_FLAG_CLR_BIT, DMA_INT_FLAG);
-	mt_reg_sync_writel(DMA_START_BIT, DMA_START);
+	mt_reg_sync_writel(DMA_INT_FLAG_CLR_BIT, DMA_INT_FLAG(channel));
+	mt_reg_sync_writel(DMA_START_BIT, DMA_START(channel));
 
 	return 0;
 }
@@ -204,25 +206,22 @@ EXPORT_SYMBOL(mt_start_gdma);
  * mt_polling_gdma: wait the DMA to finish for the specified GDMA channel
  * @channel: GDMA channel to polling
  * @timeout: polling timeout in ms
- * Return 0 for success; 
+ * Return 0 for success;
  * Return 1 for timeout
  * return negative errot code for failure.
  */
 int mt_polling_gdma(int channel, unsigned long timeout)
 {
-	if (channel < GDMA_START) {
+	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (channel >= (GDMA_START + env_info.nr_channel)) {
+	if (channel >= (GDMA_START + nr_cqdma_channel))
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (dma_ctrl[channel].in_use == 0) {
+	if (dma_ctrl[channel].in_use == 0)
 		return -DMA_ERR_CH_FREE;
-	}
 
-	timeout = jiffies + ((HZ * timeout) / 1000); 
+	timeout = jiffies + ((HZ * timeout) / 1000);
 
 	do {
 		if (time_after(jiffies, timeout)) {
@@ -230,7 +229,7 @@ int mt_polling_gdma(int channel, unsigned long timeout)
 			mt_dump_gdma(channel);
 			return 1;
 		}
-	} while (readl(DMA_START));
+	} while (readl(DMA_START(channel)));
 
 	return 0;
 }
@@ -243,22 +242,20 @@ EXPORT_SYMBOL(mt_polling_gdma);
  */
 int mt_stop_gdma(int channel)
 {
-	if (channel < GDMA_START) {
+	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (channel >= (GDMA_START + env_info.nr_channel)) {
+	if (channel >= (GDMA_START + nr_cqdma_channel))
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (dma_ctrl[channel].in_use == 0) {
+	if (dma_ctrl[channel].in_use == 0)
 		return -DMA_ERR_CH_FREE;
-	}
 
-	mt_reg_sync_writel(DMA_FLUSH_BIT, DMA_FLUSH);
-	while (readl(DMA_START));
-	mt_reg_sync_writel(DMA_FLUSH_CLR_BIT, DMA_FLUSH);
-	mt_reg_sync_writel(DMA_INT_FLAG_CLR_BIT, DMA_INT_FLAG);
+	mt_reg_sync_writel(DMA_FLUSH_BIT, DMA_FLUSH(channel));
+	while (readl(DMA_START(channel)))
+		;
+	mt_reg_sync_writel(DMA_FLUSH_CLR_BIT, DMA_FLUSH(channel));
+	mt_reg_sync_writel(DMA_INT_FLAG_CLR_BIT, DMA_INT_FLAG(channel));
 
 	return 0;
 }
@@ -275,128 +272,158 @@ int mt_config_gdma(int channel, struct mt_gdma_conf *config, DMA_CONF_FLAG flag)
 {
 	unsigned int dma_con = 0x0, limiter = 0;
 
-	if ((channel < GDMA_START) || (channel >= (GDMA_START + env_info.nr_channel))) {
+	if ((channel < GDMA_START) || (channel >= (GDMA_START + nr_cqdma_channel)))
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (dma_ctrl[channel].in_use == 0) {
+	if (dma_ctrl[channel].in_use == 0)
 		return -DMA_ERR_CH_FREE;
-	}
 
-	if (!config) {
+	if (!config)
 		return -DMA_ERR_INV_CONFIG;
-	}
 
 	if (config->sfix) {
-		pr_notice("GMDA fixed address mode doesn't support\n");
+		pr_err("GMDA fixed address mode doesn't support\n");
 		return -DMA_ERR_INV_CONFIG;
 	}
 
 	if (config->dfix) {
-		pr_notice("GMDA fixed address mode doesn't support\n");
+		pr_err("GMDA fixed address mode doesn't support\n");
 		return -DMA_ERR_INV_CONFIG;
 	}
 
 	if (config->count > MAX_TRANSFER_LEN1) {
-		pr_notice("GDMA transfer length cannot exceeed 0x%x.\n", MAX_TRANSFER_LEN1);
+		pr_err("GDMA transfer length cannot exceeed 0x%x.\n", MAX_TRANSFER_LEN1);
 		return -DMA_ERR_INV_CONFIG;
 	}
 
 	if (config->limiter > MAX_SLOW_DOWN_CNTER) {
-		pr_notice("GDMA slow down counter cannot exceeed 0x%x.\n", MAX_SLOW_DOWN_CNTER);
+		pr_err("GDMA slow down counter cannot exceeed 0x%x.\n", MAX_SLOW_DOWN_CNTER);
 		return -DMA_ERR_INV_CONFIG;
 	}
 
 	switch (flag) {
-		case ALL:
-			/* Control Register */
-			mt_reg_sync_writel((u32)config->src, DMA_SRC);
-			mt_reg_sync_writel((u32)config->dst, DMA_DST);
-			mt_reg_sync_writel((config->wplen) & DMA_GDMA_LEN_MAX_MASK, DMA_LEN2);
-			mt_reg_sync_writel(config->wpto, DMA_JUMP_ADDR);
-			mt_reg_sync_writel((config->count) & DMA_GDMA_LEN_MAX_MASK, DMA_LEN1);
+	case ALL:
+		/* Control Register */
+		mt_reg_sync_writel((u32) config->src, DMA_SRC(channel));
+		mt_reg_sync_writel((u32) config->dst, DMA_DST(channel));
+		mt_reg_sync_writel((config->wplen) & DMA_GDMA_LEN_MAX_MASK, DMA_LEN2(channel));
+		mt_reg_sync_writel(config->wpto, DMA_JUMP_ADDR(channel));
+		mt_reg_sync_writel((config->count) & DMA_GDMA_LEN_MAX_MASK, DMA_LEN1(channel));
 
-			/*setup security channel */
-			if (config->sec){
-				pr_notice("1:ChSEC:%x\n",readl(DMA_GDMA_SEC_EN));
-				mt_reg_sync_writel((DMA_SEC_EN_BIT|readl(DMA_GDMA_SEC_EN)), DMA_GDMA_SEC_EN);
-				pr_notice("2:ChSEC:%x\n",readl(DMA_GDMA_SEC_EN));
-			} else {
-				pr_notice("1:ChSEC:%x\n",readl(DMA_GDMA_SEC_EN));
-				mt_reg_sync_writel(((~DMA_SEC_EN_BIT)&readl(DMA_GDMA_SEC_EN)), DMA_GDMA_SEC_EN);
-				pr_notice("2:ChSEC:%x\n",readl(DMA_GDMA_SEC_EN));
+		/*setup security channel */
+		if (config->sec) {
+			pr_debug("1:ChSEC:%x\n", readl(DMA_GDMA_SEC_EN(channel)));
+			mt_reg_sync_writel((DMA_SEC_EN_BIT | readl(DMA_GDMA_SEC_EN(channel))),
+					   DMA_GDMA_SEC_EN(channel));
+			pr_debug("2:ChSEC:%x\n", readl(DMA_GDMA_SEC_EN(channel)));
+		} else {
+			pr_debug("1:ChSEC:%x\n", readl(DMA_GDMA_SEC_EN(channel)));
+			mt_reg_sync_writel(((~DMA_SEC_EN_BIT) & readl(DMA_GDMA_SEC_EN(channel))),
+					   DMA_GDMA_SEC_EN(channel));
+			pr_debug("2:ChSEC:%x\n", readl(DMA_GDMA_SEC_EN(channel)));
+		}
+
+		/*setup domain_cfg */
+		if (config->domain) {
+			pr_debug("1:Domain_cfg:%x\n", readl(DMA_GDMA_SEC_EN(channel)));
+			mt_reg_sync_writel(((config->domain << 1) | readl(DMA_GDMA_SEC_EN(channel))),
+					   DMA_GDMA_SEC_EN(channel));
+			pr_debug("2:Domain_cfg:%x\n", readl(DMA_GDMA_SEC_EN(channel)));
+		} else {
+			pr_debug("1:Domain_cfg:%x\n", readl(DMA_GDMA_SEC_EN(channel)));
+			mt_reg_sync_writel((0x1 & readl(DMA_GDMA_SEC_EN(channel))), DMA_GDMA_SEC_EN(channel));
+			pr_debug("2:Domain_cfg:%x\n", readl(DMA_GDMA_SEC_EN(channel)));
+		}
+
+		/*LPAE for 4GB mode*/
+		if (config->LPAE_en) {
+			pr_debug("1:ADDR2_cfg:%x %x %x\n",
+					readl(DMA_SRC_ADDR2(channel)),
+					readl(DMA_DST_ADDR2(channel)),
+					readl(DMA_JUMP_ADDR2(channel)));
+			mt_reg_sync_writel((DMA_ADDR2_EN_BIT | readl(DMA_SRC_ADDR2(channel))),
+					   DMA_SRC_ADDR2(channel));
+			mt_reg_sync_writel((DMA_ADDR2_EN_BIT | readl(DMA_DST_ADDR2(channel))),
+					   DMA_DST_ADDR2(channel));
+			mt_reg_sync_writel((DMA_ADDR2_EN_BIT | readl(DMA_JUMP_ADDR2(channel))),
+					   DMA_JUMP_ADDR2(channel));
+			pr_debug("2:ADDR2_cfg:%x %x %x\n",
+					readl(DMA_SRC_ADDR2(channel)),
+					readl(DMA_DST_ADDR2(channel)),
+					readl(DMA_JUMP_ADDR2(channel)));
+		} else {
+			pr_debug("1:ADDR2_cfg:%x %x %x\n",
+					readl(DMA_SRC_ADDR2(channel)),
+					readl(DMA_DST_ADDR2(channel)),
+					readl(DMA_JUMP_ADDR2(channel)));
+			mt_reg_sync_writel(((~DMA_ADDR2_EN_BIT) & readl(DMA_SRC_ADDR2(channel))),
+					   DMA_SRC_ADDR2(channel));
+			mt_reg_sync_writel(((~DMA_ADDR2_EN_BIT) & readl(DMA_DST_ADDR2(channel))),
+					   DMA_DST_ADDR2(channel));
+			mt_reg_sync_writel(((~DMA_ADDR2_EN_BIT) & readl(DMA_JUMP_ADDR2(channel))),
+					   DMA_JUMP_ADDR2(channel));
+			pr_debug("2:ADDR2_cfg:%x %x %x\n",
+					readl(DMA_SRC_ADDR2(channel)),
+					readl(DMA_DST_ADDR2(channel)),
+					readl(DMA_JUMP_ADDR2(channel)));
+		}
+
+		if (config->wpen)
+			dma_con |= DMA_CON_WPEN;
+
+		if (config->wpsd)
+			dma_con |= DMA_CON_WPSD;
+
+		if (config->iten) {
+			dma_ctrl[channel].isr_cb = config->isr_cb;
+			dma_ctrl[channel].data = config->data;
+			mt_reg_sync_writel(DMA_INT_EN_BIT, DMA_INT_EN(channel));
+		} else {
+			dma_ctrl[channel].isr_cb = NULL;
+			dma_ctrl[channel].data = NULL;
+			mt_reg_sync_writel(DMA_INT_EN_CLR_BIT, DMA_INT_EN(channel));
+		}
+
+		if (!(config->dfix) && !(config->sfix))
+			dma_con |= (config->burst & DMA_CON_BURST_MASK);
+		else {
+			if (config->dfix) {
+				dma_con |= DMA_CON_DFIX;
+				dma_con |= DMA_CON_WSIZE_1BYTE;
 			}
 
-			/*setup domain_cfg */
-			if (config->domain){
-				pr_notice("1:Domain_cfg:%x\n",readl(DMA_GDMA_SEC_EN));
-				mt_reg_sync_writel(((config->domain << 1) | readl(DMA_GDMA_SEC_EN)), DMA_GDMA_SEC_EN);
-				pr_notice("2:Domain_cfg:%x\n",readl(DMA_GDMA_SEC_EN));
-			} else {
-				pr_notice("1:Domain_cfg:%x\n",readl(DMA_GDMA_SEC_EN));
-				mt_reg_sync_writel((0x1 & readl(DMA_GDMA_SEC_EN)), DMA_GDMA_SEC_EN);
-				pr_notice("2:Domain_cfg:%x\n",readl(DMA_GDMA_SEC_EN));
+			if (config->sfix) {
+				dma_con |= DMA_CON_SFIX;
+				dma_con |= DMA_CON_RSIZE_1BYTE;
 			}
+			/* fixed src/dst mode only supports burst type SINGLE */
+			dma_con |= DMA_CON_BURST_SINGLE;
+		}
 
-			if (config->wpen) {
-				dma_con |= DMA_CON_WPEN;
-			}
+		if (config->limiter) {
+			limiter = (config->limiter) & DMA_CON_SLOW_MAX_MASK;
+			dma_con |= limiter << DMA_CON_SLOW_OFFSET;
+			dma_con |= DMA_CON_SLOW_EN;
+		}
 
-			if (config->wpsd) {
-				dma_con |= DMA_CON_WPSD;
-			}
+		mt_reg_sync_writel(dma_con, DMA_CON(channel));
+		break;
 
-			if (config->iten) {
-				dma_ctrl[channel].isr_cb = config->isr_cb;
-				dma_ctrl[channel].data = config->data;
-				mt_reg_sync_writel(DMA_INT_EN_BIT, DMA_INT_EN);
-			} else {
-				dma_ctrl[channel].isr_cb = NULL;
-				dma_ctrl[channel].data = NULL;
-				mt_reg_sync_writel(DMA_INT_EN_CLR_BIT, DMA_INT_EN);
-			}
+	case SRC:
+		mt_reg_sync_writel((u32) config->src, DMA_SRC(channel));
+		break;
 
-			if (!(config->dfix) && !(config->sfix)) {
-				dma_con |= (config->burst & DMA_CON_BURST_MASK);
-			} else {
-				if (config->dfix) {
-					dma_con |= DMA_CON_DFIX;
-					dma_con |= DMA_CON_WSIZE_1BYTE;
-				}
+	case DST:
+		mt_reg_sync_writel((u32) config->dst, DMA_DST(channel));
+		break;
 
-				if (config->sfix) {
-					dma_con |= DMA_CON_SFIX;
-					dma_con |= DMA_CON_RSIZE_1BYTE;
-				}
+	case SRC_AND_DST:
+		mt_reg_sync_writel((u32) config->src, DMA_SRC(channel));
+		mt_reg_sync_writel((u32) config->dst, DMA_DST(channel));
+		break;
 
-				// fixed src/dst mode only supports burst type SINGLE
-				dma_con |= DMA_CON_BURST_SINGLE;
-			}
-
-			if (config->limiter) {
-				limiter = (config->limiter) & DMA_CON_SLOW_MAX_MASK;
-				dma_con |= limiter << DMA_CON_SLOW_OFFSET;
-				dma_con |= DMA_CON_SLOW_EN;
-			}
-
-			mt_reg_sync_writel(dma_con, DMA_CON);
-			break;
-
-		case SRC:
-			mt_reg_sync_writel((u32)config->src, DMA_SRC);
-			break;
-
-		case DST:
-			mt_reg_sync_writel((u32)config->dst, DMA_DST);
-			break;
-
-		case SRC_AND_DST:
-			mt_reg_sync_writel((u32)config->src, DMA_SRC);
-			mt_reg_sync_writel((u32)config->dst, DMA_DST);
-			break;
-
-		default:
-			break;
+	default:
+		break;
 	}
 
 	/* use the data synchronization barrier to ensure that all writes are completed */
@@ -413,17 +440,14 @@ EXPORT_SYMBOL(mt_config_gdma);
  */
 int mt_free_gdma(int channel)
 {
-	if (channel < GDMA_START) {
+	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (channel >= (GDMA_START + env_info.nr_channel)) {
+	if (channel >= (GDMA_START + nr_cqdma_channel))
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (dma_ctrl[channel].in_use == 0) {
+	if (dma_ctrl[channel].in_use == 0)
 		return -DMA_ERR_CH_FREE;
-	}
 
 	mt_stop_gdma(channel);
 
@@ -443,10 +467,10 @@ EXPORT_SYMBOL(mt_free_gdma);
 int mt_dump_gdma(int channel)
 {
 	unsigned int i;
-	pr_notice("Channel 0x%x\n",channel);
-	for (i = 0; i < 96; i++) {
-		pr_notice("addr:%p, value:%x\n", env_info.base + i * 4, readl(env_info.base + i * 4));
-	}
+	pr_debug("Channel 0x%x\n", channel);
+	for (i = 0; i < 96; i++)
+		pr_debug("addr:%p, value:%x\n", env_info[channel].base + i * 4,
+			  readl(env_info[channel].base + i * 4));
 
 	return 0;
 }
@@ -459,23 +483,19 @@ EXPORT_SYMBOL(mt_dump_gdma);
  */
 int mt_warm_reset_gdma(int channel)
 {
-	if (channel < GDMA_START) {
+	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (channel >= (GDMA_START + env_info.nr_channel)) {
+	if (channel >= (GDMA_START + nr_cqdma_channel))
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (dma_ctrl[channel].in_use == 0) {
+	if (dma_ctrl[channel].in_use == 0)
 		return -DMA_ERR_CH_FREE;
-	}
 
-	mt_reg_sync_writel(DMA_WARM_RST_BIT, DMA_RESET);
+	mt_reg_sync_writel(DMA_WARM_RST_BIT, DMA_RESET(channel));
 
-	if (mt_polling_gdma(channel, GDMA_WARM_RST_TIMEOUT) != 0) {
+	if (mt_polling_gdma(channel, GDMA_WARM_RST_TIMEOUT) != 0)
 		return 1;
-	}
 
 	return 0;
 }
@@ -488,22 +508,19 @@ EXPORT_SYMBOL(mt_warm_reset_gdma);
  */
 int mt_hard_reset_gdma(int channel)
 {
-	if (channel < GDMA_START) {
+	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (channel >= (GDMA_START + env_info.nr_channel)) {
+	if (channel >= (GDMA_START + nr_cqdma_channel))
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (dma_ctrl[channel].in_use == 0) {
+	if (dma_ctrl[channel].in_use == 0)
 		return -DMA_ERR_CH_FREE;
-	}
 
-	pr_notice("GDMA_%d Hard Reset !!\n", channel);
+	pr_debug("GDMA_%d Hard Reset !!\n", channel);
 
-	mt_reg_sync_writel(DMA_HARD_RST_BIT, DMA_RESET);
-	mt_reg_sync_writel(DMA_HARD_RST_CLR_BIT, DMA_RESET);
+	mt_reg_sync_writel(DMA_HARD_RST_BIT, DMA_RESET(channel));
+	mt_reg_sync_writel(DMA_HARD_RST_CLR_BIT, DMA_RESET(channel));
 
 	return 0;
 }
@@ -516,21 +533,17 @@ EXPORT_SYMBOL(mt_hard_reset_gdma);
  */
 int mt_reset_gdma(int channel)
 {
-	if (channel < GDMA_START) {
+	if (channel < GDMA_START)
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (channel >= (GDMA_START + env_info.nr_channel)) {
+	if (channel >= (GDMA_START + nr_cqdma_channel))
 		return -DMA_ERR_INVALID_CH;
-	}
 
-	if (dma_ctrl[channel].in_use == 0) {
+	if (dma_ctrl[channel].in_use == 0)
 		return -DMA_ERR_CH_FREE;
-	}
 
-	if (mt_warm_reset_gdma(channel) != 0) {
+	if (mt_warm_reset_gdma(channel) != 0)
 		mt_hard_reset_gdma(channel);
-	}
 
 	return 0;
 }
@@ -544,14 +557,25 @@ EXPORT_SYMBOL(mt_reset_gdma);
  */
 static irqreturn_t gdma1_irq_handler(int irq, void *dev_id)
 {
-	volatile unsigned glbsta = readl(DMA_INT_FLAG);
+	volatile unsigned glbsta;
+	unsigned int i;
 
-	if (glbsta & 0x1){
-		if (dma_ctrl[G_DMA_1].isr_cb) {
-			dma_ctrl[G_DMA_1].isr_cb(dma_ctrl[G_DMA_1].data);
-		}
+	for (i = 0; i < nr_cqdma_channel; i++)
+		if (env_info[i].irq == irq)
+			break;
 
-		mt_reg_sync_writel(DMA_INT_FLAG_CLR_BIT, DMA_INT_FLAG);
+	if (i == nr_cqdma_channel) {
+		pr_debug("[CQDMA]irq:%d over nr_cqdma_channel!\n", irq);
+		return IRQ_NONE;
+	}
+
+	glbsta = readl(DMA_INT_FLAG(i));
+
+	if (glbsta & 0x1) {
+		if (dma_ctrl[i].isr_cb)
+			dma_ctrl[i].isr_cb(dma_ctrl[i].data);
+
+		mt_reg_sync_writel(DMA_INT_FLAG_CLR_BIT, DMA_INT_FLAG(i));
 	} else {
 		pr_debug("[CQDMA] discard interrupt\n");
 		return IRQ_NONE;
@@ -570,11 +594,8 @@ void mt_reset_gdma_conf(const unsigned int channel)
 
 	memset(&conf, 0, sizeof(struct mt_gdma_conf));
 
-	if (mt_config_gdma(channel, &conf, ALL) != 0){
+	if (mt_config_gdma(channel, &conf, ALL) != 0)
 		return;
-	}
-
-	return;
 }
 
 #if defined(LDVT)
@@ -587,21 +608,21 @@ dma_addr_t dma_src_array_p;
 #define TEST_LEN 4000
 #define LEN (TEST_LEN / sizeof(int))
 
-static void irq_dma_handler(void * data)
+static void irq_dma_handler(void *data)
 {
 	long channel = (long)data;
 	int i = 0;
 
-	for(i = 0; i < LEN; i++) {
-		if(dma_dst_array_v[i] != dma_src_array_v[i]) {
-			pr_err("DMA failed, src = %d, dst = %d, i = %d\n", dma_src_array_v[i], dma_dst_array_v[i], i);
+	for (i = 0; i < LEN; i++) {
+		if (dma_dst_array_v[i] != dma_src_array_v[i]) {
+			pr_err("DMA failed, src = %d, dst = %d, i = %d\n", dma_src_array_v[i],
+			       dma_dst_array_v[i], i);
 			break;
 		}
 	}
-	DMA_INT_DONE=1;
-	if (i == LEN) {
-		pr_notice("DMA verified ok\n");
-	}
+	DMA_INT_DONE = 1;
+	if (i == LEN)
+		pr_debug("DMA verified ok\n");
 	mt_free_gdma(channel);
 }
 
@@ -611,257 +632,276 @@ static struct device apdma_test_dev = {
 	.coherent_dma_mask = 0xffffffff
 };
 
-static void APDMA_test_transfer(int testcase)
+static int APDMA_test_transfer(int testcase, DMA_CHAN chan)
 {
-	int i = 0;
+	int i = 0, ret = 0;
 	long channel = 0;
 	int start_dma = 0;
 	struct mt_gdma_conf dma_conf;
 
-	channel = mt_req_gdma(GDMA_ANY);
+	channel = mt_req_gdma(chan);
 
-	pr_notice("GDMA channel:%ld\n",channel);
-	if(channel < 0 ){
+	pr_debug("GDMA channel:%ld\n", channel);
+	if (channel < 0) {
 		pr_err("[CQDMA] ERROR Register DMA\n");
-		return;
+		return -DMA_ERR_INVALID_CH;
 	}
 
 	mt_reset_gdma_conf(channel);
-  
-	dma_dst_array_v = dma_alloc_coherent(&apdma_test_dev, TEST_LEN, &dma_dst_array_p, GFP_KERNEL ); // 25 unsinged int
+
+	/* 25 unsinged int */
+	dma_dst_array_v = dma_alloc_coherent(&apdma_test_dev, TEST_LEN, &dma_dst_array_p, GFP_KERNEL);
 	if (!dma_dst_array_v) {
 		pr_err("allooc dst memory failed\n");
-		return;
+		return -DMA_ERR_INVALID_CH;
 	}
 
-	dma_src_array_v = dma_alloc_coherent(&apdma_test_dev, TEST_LEN, &dma_src_array_p, GFP_KERNEL );
+	dma_src_array_v =
+	    dma_alloc_coherent(&apdma_test_dev, TEST_LEN, &dma_src_array_p, GFP_KERNEL);
 	if (!dma_src_array_v) {
 		pr_err("alloc src memory failed\n");
-		return;
+		return -DMA_ERR_INVALID_CH;
 	}
 
 	dma_conf.count = TEST_LEN;
 	dma_conf.src = dma_src_array_p;
-        dma_conf.dst = dma_dst_array_p;
-        dma_conf.iten = (testcase == 2) ? DMA_FALSE : DMA_TRUE;
-        dma_conf.isr_cb = (testcase == 2) ? NULL : irq_dma_handler;
-        dma_conf.data = (void *)channel;
-        dma_conf.burst = DMA_CON_BURST_SINGLE;
-        dma_conf.dfix = DMA_FALSE;
-        dma_conf.sfix = DMA_FALSE;
-        //.cohen = DMA_TRUE, //enable coherence bus
-        dma_conf.sec = DMA_FALSE;// non-security channel
-        dma_conf.domain = 0;
-        dma_conf.limiter = (testcase == 3 || testcase == 4) ? 0x3FF : 0;
- 
+	dma_conf.dst = dma_dst_array_p;
+	dma_conf.iten = (testcase == 2) ? DMA_FALSE : DMA_TRUE;
+	dma_conf.isr_cb = (testcase == 2) ? NULL : irq_dma_handler;
+	dma_conf.data = (void *)channel;
+	dma_conf.burst = DMA_CON_BURST_SINGLE;
+	dma_conf.dfix = DMA_FALSE;
+	dma_conf.sfix = DMA_FALSE;
+	/* .cohen = DMA_TRUE, //enable coherence bus */
+	dma_conf.sec = DMA_FALSE;	/* non-security channel */
+	dma_conf.LPAE_en = DMA_FALSE;	/* LPAE disable */
+	dma_conf.domain = 0;
+	dma_conf.limiter = (testcase == 3 || testcase == 4) ? 0x3FF : 0;
+
 	/* init src & dest buffer */
-	for(i = 0; i < LEN; i++) {
+	for (i = 0; i < LEN; i++) {
 		dma_dst_array_v[i] = 0;
 		dma_src_array_v[i] = i;
 	}
-    
+
 	if (mt_config_gdma(channel, &dma_conf, ALL) != 0) {
 		pr_err("ERROR set DMA\n");
+		ret = -1;
 		goto _exit;
 	}
-    
+
 	start_dma = mt_start_gdma(channel);
 
-	switch(testcase) {
+	switch (testcase) {
 	case 1:
-		while(!DMA_INT_DONE);
-		DMA_INT_DONE=0;
-		pr_notice("CQDMA INT mode PASS!!\n");
+		while (!DMA_INT_DONE)
+			;
+		DMA_INT_DONE = 0;
+		pr_debug("CQDMA INT mode PASS!!\n");
 		break;
 	case 2:
 		if (mt_polling_gdma(channel, GDMA_WARM_RST_TIMEOUT) != 0) {
-                	pr_err("Polling transfer failed\n");
+			pr_err("Polling transfer failed\n");
 			break;
 		}
-            
-		for(i = 0; i < LEN; i++) {
-                	if(dma_dst_array_v[i] != dma_src_array_v[i]) {
+
+		for (i = 0; i < LEN; i++) {
+			if (dma_dst_array_v[i] != dma_src_array_v[i]) {
 				pr_err("fails at %d\n", i);
 				goto _exit;
-                	}
+			}
 		}
-		pr_notice("Polling succeeded\n");
+		pr_debug("Polling succeeded\n");
 		break;
 	case 3:
 		mt_warm_reset_gdma(channel);
-		for(i = 0; i < LEN; i++) {
-			if(dma_dst_array_v[i] != dma_src_array_v[i]) {
-				pr_notice("Warm reset succeeded\n");
+		for (i = 0; i < LEN; i++) {
+			if (dma_dst_array_v[i] != dma_src_array_v[i]) {
+				pr_debug("Warm reset succeeded\n");
 				break;
 			}
 		}
 
-		if (i == LEN) {
+		if (i == LEN)
 			pr_err("Warm reset failed\n");
-		}
 		break;
-            
+
 	case 4:
 		mt_hard_reset_gdma(channel);
-		for(i = 0; i < LEN; i++) {
-			if(dma_dst_array_v[i] != dma_src_array_v[i]) {
-				pr_notice("Hard reset succeeded\n");
+		for (i = 0; i < LEN; i++) {
+			if (dma_dst_array_v[i] != dma_src_array_v[i]) {
+				pr_debug("Hard reset succeeded\n");
 				break;
 			}
 		}
 
-		if (i == LEN) {
+		if (i == LEN)
 			pr_err("Hard reset failed\n");
-		}
 		break;
-            
+
 	default:
 		break;
 	}
 	mt_free_gdma(channel);
 
 _exit:
-	if(dma_dst_array_v){
+	if (dma_dst_array_v) {
 		dma_free_coherent(&apdma_test_dev, TEST_LEN, dma_dst_array_v, dma_dst_array_p);
 		dma_dst_array_v = NULL;
 		dma_dst_array_p = 0;
 	}
 
-	if(dma_src_array_v){
+	if (dma_src_array_v) {
 		dma_free_coherent(&apdma_test_dev, TEST_LEN, dma_src_array_v, dma_src_array_p);
 		dma_src_array_v = NULL;
 		dma_src_array_p = 0;
 	}
 
-	return;
+	return ret;
 }
 
 static ssize_t cqdma_dvt_show(struct device_driver *driver, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "==CQDMA test==\n"
-                                   "1.CQDMA transfer (interrupt mode)\n"
-                                   "2.CQDMA transfer (polling mode)\n"
-                                   "3.CQDMA warm reset\n"
-                                   "4.CQDMA hard reset\n"); 
+			"1.CQDMA transfer (interrupt mode)\n"
+			"2.CQDMA transfer (polling mode)\n"
+			"3.CQDMA warm reset\n" "4.CQDMA hard reset\n");
 }
 
 static ssize_t cqdma_dvt_store(struct device_driver *driver, const char *buf, size_t count)
 {
 	char *p = (char *)buf;
-	unsigned int num;
+	unsigned long num = 0;
+	int ret = 0;
 
-	num = simple_strtoul(p, &p, 10);
-        switch(num){
-            /* Test APDMA Normal Function */
-            case 1:
-                APDMA_test_transfer(1);
-                break;
-            case 2:
-                APDMA_test_transfer(2);
-                break;
-            case 3:
-                APDMA_test_transfer(3);
-                break;
-            case 4:
-                APDMA_test_transfer(4);
-                break;
-            default:
-                break;
-        }
+	if (kstrtoul(p, 10, &num) != 0) {
+		pr_err("%s:%d: kstrtoul fail for %s\n", __func__, __LINE__, p);
+		return 0;
+	}
+
+	switch (num) {
+		/* Test APDMA Normal Function */
+	case 1:
+		ret = APDMA_test_transfer(1, G_DMA_1);
+		/*ret = APDMA_test_transfer(1, G_DMA_2);*/
+		break;
+	case 2:
+		ret = APDMA_test_transfer(2, G_DMA_1);
+		/*ret = APDMA_test_transfer(2, G_DMA_2);*/
+		break;
+	case 3:
+		ret = APDMA_test_transfer(3, G_DMA_1);
+		/*ret = APDMA_test_transfer(3, G_DMA_2);*/
+		break;
+	case 4:
+		ret = APDMA_test_transfer(4, G_DMA_1);
+		/*ret = APDMA_test_transfer(4, G_DMA_2);*/
+		break;
+	default:
+		break;
+	}
+
+	pr_err("==========================%s:[CQDMA] testcase-%lu: %s\n", __func__, num, (ret < 0) ? "FAIL" : "PASS");
 
 	return count;
 }
 
 DRIVER_ATTR(cqdma_dvt, 0664, cqdma_dvt_show, cqdma_dvt_store);
 
-#endif	//!LDVT
+#endif				/* !LDVT */
 
-struct mt_cqdma_driver{
-    struct device_driver driver;
-    const struct platform_device_id *id_table;
+struct mt_cqdma_driver {
+	struct device_driver driver;
+	const struct platform_device_id *id_table;
 };
 
 static struct mt_cqdma_driver mt_cqdma_drv = {
 	.driver = {
-		.name = "cqdma",
-		.bus = &platform_bus_type,
-		.owner = THIS_MODULE,
-	},
+		   .name = "cqdma",
+		   .bus = &platform_bus_type,
+		   .owner = THIS_MODULE,
+		   },
 };
 
 static void cqdma_reset(int nr_channel)
 {
 	int i = 0;
 
-	for (i = 0; i < nr_channel; i++) {
+	for (i = 0; i < nr_channel; i++)
 		mt_reset_gdma_conf(i);
-    	}
 }
 
 static int __init init_cqdma(void)
 {
 	int ret = 0;
-	int irq = 0;
-	unsigned int dma_info[3] = {0, 0, 0};
+	unsigned int dma_info[3] = { 0, 0, 0 }, i;
 	struct device_node *node = NULL;
-	u32 nr_channel = 0;
 
 	node = of_find_compatible_node(NULL, NULL, "mediatek,CQDMA");
 	if (!node) {
 		pr_err("find CQDMA node failed!!!\n");
 		return -ENODEV;
 	}
-    
-	env_info.base = of_iomap(node, 0);
-	if (!env_info.base) {
-		pr_warn("unable to map CQDMA base registers!!!\n");
-		return -ENODEV;
-	}
-	pr_notice("[CQDMA] vbase = 0x%p\n", env_info.base );
 
-	irq = irq_of_parse_and_map(node, 0);
-	pr_notice("[CQDMA] irq = %d\n", irq);
-
-	/* get the interrupt line behaviour */
-	if (of_property_read_u32_array(node, "interrupts", dma_info, ARRAY_SIZE(dma_info))){
-		pr_err("[CQDMA] get irq flags from DTS fail!!\n");
-		return -ENODEV;
-	}
-	pr_notice("[CQDMA] int attr = %x\n", dma_info[2]);
-
-	
-	of_property_read_u32(node, "nr_channel", &nr_channel);
-	if (!nr_channel) {
+	of_property_read_u32(node, "nr_channel", &nr_cqdma_channel);
+	if (!nr_cqdma_channel) {
 		pr_err("[CQDMA] no channel found\n");
 		return -ENODEV;
 	}
-	pr_notice("[CQDMA] DMA channel = %d\n", nr_channel);
-	cqdma_reset(nr_channel);
+	pr_debug("[CQDMA] DMA channel = %d\n", nr_cqdma_channel);
 
-	ret = request_irq(irq, gdma1_irq_handler, dma_info[2] | IRQF_SHARED, "CQDMA", &dma_ctrl);
-	if (ret > 0) {
-		pr_err("GDMA1 IRQ LINE NOT AVAILABLE,ret 0x%x!!\n",ret);
+	for (i = 0; i < nr_cqdma_channel; i++) {
+		/*if (i >= nr_cqdma_channel) {
+			pr_err("[CQDMA] over max channel!!!\n");
+			return -ENODEV;
+		}*/
+
+		env_info[i].base = of_iomap(node, i);
+		env_info[i].irq = irq_of_parse_and_map(node, i);
+
+		if ((!env_info[i].base) || (!env_info[i].irq)) {
+			pr_warn("unable to map CQDMA%d base registers!!!\n", i);
+			return -ENODEV;
+		}
+		pr_debug("[CQDMA%d] vbase = 0x%p, irq = %d\n", i, env_info[i].base, env_info[i].irq);
+	}
+
+	/* get the interrupt line behaviour */
+	if (of_property_read_u32_array(node, "interrupts", dma_info, ARRAY_SIZE(dma_info))) {
+		pr_err("[CQDMA] get irq flags from DTS fail!!\n");
+		return -ENODEV;
+	}
+	pr_debug("[CQDMA] int attr = %x\n", dma_info[2]);
+
+	cqdma_reset(nr_cqdma_channel);
+
+	for (i = 0; i < nr_cqdma_channel; i++) {
+		/*if (i >= nr_cqdma_channel) {
+			pr_err("[CQDMA] register ISR over max channel!!!\n");
+			return -ENODEV;
+		}*/
+
+		ret = request_irq(env_info[i].irq, gdma1_irq_handler, dma_info[2] | IRQF_SHARED, "CQDMA", &dma_ctrl);
+		if (ret > 0)
+			pr_err("GDMA%d IRQ LINE NOT AVAILABLE,ret 0x%x!!\n", i, ret);
 	}
 
 	ret = driver_register(&mt_cqdma_drv.driver);
-	if (ret) {
+	if (ret)
 		pr_err("CQDMA init FAIL, ret 0x%x!!!\n", ret);
-	}
 #ifdef LDVT
 	ret = driver_create_file(&mt_cqdma_drv.driver, &driver_attr_cqdma_dvt);
-    	if (ret) {
+	if (ret) {
 		pr_err("CQDMA create sysfs file init FAIL, ret 0x%x!!!\n", ret);
 		return -ENODEV;
 	}
 #endif
-  
+
 #ifdef CONFIG_ARM_LPAE
-	mt_reg_sync_writel(0x1, DMA_SRC_4G_SUPPORT);
-	mt_reg_sync_writel(0x1, DMA_DST_4G_SUPPORT);
-	mt_reg_sync_writel(0x1, DMA_JUMP_4G_SUPPORT);
+	mt_reg_sync_writel(0x1, DMA_SRC_4G_SUPPORT(0));
+	mt_reg_sync_writel(0x1, DMA_DST_4G_SUPPORT(0));
+	mt_reg_sync_writel(0x1, DMA_JUMP_4G_SUPPORT(0));
 #endif
-	env_info.irq = irq;
-	env_info.nr_channel = nr_channel;
 
 	return 0;
 }

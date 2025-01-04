@@ -8,7 +8,7 @@
  * entered into with TRUSTONIC LIMITED. This software may be subject to
  * export or import laws in certain countries.
  */
- 
+
 /*
  * @file   drError.h
  * @brief  Error id definitions
@@ -24,12 +24,12 @@
  * Driver fatal error codes.
  */
 typedef enum {
-    E_DR_OK               = 0, /**< Success */
-    E_DR_IPC              = 1, /**< IPC error */
-    E_DR_INTERNAL         = 2, /**< Internal error */
-    /* ... add more error codes when required */
+	E_DR_OK               = 0, /**< Success */
+	E_DR_IPC              = 1, /**< IPC error */
+	E_DR_INTERNAL         = 2, /**< Internal error */
+	/* ... add more error codes when required */
 } drError_t;
 
 
-#endif // __DRERROR_H__
+#endif
 

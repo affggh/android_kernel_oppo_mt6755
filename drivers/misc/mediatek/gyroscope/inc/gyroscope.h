@@ -15,13 +15,15 @@
 #include <linux/earlysuspend.h> 
 #include <linux/hwmsen_dev.h>
 #include "gyro_factory.h"
+#include <linux/hrtimer.h>
+#include <linux/time.h>
 
 
 #define GYRO_TAG					"<GYROSCOPE> "
-#define GYRO_FUN(f)				printk(GYRO_TAG"%s\n", __func__)
-#define GYRO_ERR(fmt, args...)	printk(GYRO_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
-#define GYRO_LOG(fmt, args...)	printk(GYRO_TAG fmt, ##args)
-#define GYRO_VER(fmt, args...)  printk(GYRO_TAG"%s: "fmt, __func__, ##args) //((void)0)
+#define GYRO_FUN(f)				pr_debug(GYRO_TAG"%s\n", __func__)
+#define GYRO_ERR(fmt, args...)	pr_err(GYRO_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define GYRO_LOG(fmt, args...)	pr_debug(GYRO_TAG fmt, ##args)
+#define GYRO_VER(fmt, args...)  pr_debug(GYRO_TAG"%s: "fmt, __func__, ##args) //((void)0)
 
 #define OP_GYRO_DELAY	0X01
 #define	OP_GYRO_ENABLE	0X02
@@ -34,6 +36,9 @@
 #define EVENT_TYPE_GYRO_Z          		ABS_Z
 #define EVENT_TYPE_GYRO_UPDATE               REL_X
 #define EVENT_TYPE_GYRO_STATUS     ABS_WHEEL
+#define EVENT_TYPE_GYRO_UPDATE                 REL_X
+#define EVENT_TYPE_GYRO_TIMESTAMP_HI    			REL_HWHEEL
+#define EVENT_TYPE_GYRO_TIMESTAMP_LO    			REL_DIAL
 
 
 #define GYRO_VALUE_MAX (32767)
@@ -71,7 +76,7 @@ struct gyro_data_path
 struct gyro_init_info
 {
   	char *name;
-	int (*init)(void);
+	int (*init)(struct platform_device *pdev);
 	int (*uninit)(void);
 	struct platform_driver* platform_diver_addr;
 };
@@ -97,7 +102,10 @@ struct gyro_context {
 	atomic_t            delay; /*polling period for reporting input event*/
 	atomic_t            wake;  /*user-space request to wake-up, used with stop*/
 	struct timer_list   timer;  /* polling timer */
+	struct hrtimer      hrTimer;
+	ktime_t             target_ktime;
 	atomic_t            trace;
+	struct workqueue_struct *gyro_workqueue;
 
 	struct early_suspend    early_drv;
 	atomic_t                early_suspend;
@@ -120,7 +128,7 @@ struct gyro_context {
 
 //for auto detect
 extern int gyro_driver_add(struct gyro_init_info* obj) ;
-extern int gyro_data_report(int x, int y, int z,int status);
+extern int gyro_data_report(int x, int y, int z,int status, int64_t nt);
 extern int gyro_register_control_path(struct gyro_control_path *ctl);
 extern int gyro_register_data_path(struct gyro_data_path *data);
 #endif

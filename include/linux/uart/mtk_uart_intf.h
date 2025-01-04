@@ -84,4 +84,13 @@ void reset_tx_raw_data(struct mtk_uart *uart);
 void mtk_uart_enable_dpidle(struct mtk_uart *uart);
 void mtk_uart_disable_dpidle(struct mtk_uart *uart);
 int  mtk_uart_plat_info_query(const char str[]);
+
+#if !defined(CONFIG_MTK_CLKMGR)
+	void set_uart_dma_clk(int port_id, struct clk *dma_clk);
+#endif
+
+#if !defined(CONFIG_MTK_LEGACY)
+	void set_uart_pinctrl(int idx, struct pinctrl *ppinctrl);
+#endif /* !defined(CONFIG_MTK_LEGACY) */
+
 #endif				/* MTK_UART_INTF_H */

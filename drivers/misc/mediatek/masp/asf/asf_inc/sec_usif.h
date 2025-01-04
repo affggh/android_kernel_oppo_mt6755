@@ -3,4 +3,4 @@
 
 extern int sec_usif_check(void);
 
-#endif  // USIFUTILS_H_
+#endif				/* USIF_H */

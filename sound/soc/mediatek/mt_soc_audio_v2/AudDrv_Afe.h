@@ -719,7 +719,7 @@ typedef struct
 #define AFE_ASRC_CON20  (AFE_BASE+0x0056C)
 #define AFE_ASRC_CON21  (AFE_BASE+0x00570)
 
-// K2 add
+// 6752 add
 #define AUDIO_CLK_AUDDIV_0 (AFE_BASE+0x005A0)
 #define AUDIO_CLK_AUDDIV_1 (AFE_BASE+0x005A4)
 #define AUDIO_CLK_AUDDIV_2 (AFE_BASE+0x005A8)
@@ -771,7 +771,7 @@ typedef struct
 #define AFE_ASRC3_CON13         (AFE_BASE+0x0774)
 #define AFE_ASRC3_CON14         (AFE_BASE+0x0778)
 
-// K2 add
+// 6752 add
 #define AFE_ADDA4_TOP_CON0          (AFE_BASE+0x0780)
 #define AFE_ADDA4_UL_SRC_CON0       (AFE_BASE+0x0784)
 #define AFE_ADDA4_UL_SRC_CON1       (AFE_BASE+0x0788)

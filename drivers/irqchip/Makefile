@@ -19,3 +19,8 @@ obj-$(CONFIG_VERSATILE_FPGA_IRQ)	+= irq-versatile-fpga.o
 obj-$(CONFIG_ARCH_VT8500)		+= irq-vt8500.o
 obj-$(CONFIG_MTK_GIC)                   += irq-mt-gic.o
 obj-$(CONFIG_MTK_EIC)			+= irq-mt-eic.o
+
+ifeq ($(CONFIG_MT_ENG_BUILD),y)
+CFLAGS_irq-mt-gic.o := -DDEBUG
+CFLAGS_irq-mt-eic.o := -DDEBUG
+endif

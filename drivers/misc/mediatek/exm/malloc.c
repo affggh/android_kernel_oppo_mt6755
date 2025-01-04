@@ -3838,7 +3838,9 @@ static void internal_malloc_stats(mstate m) {
 #if ONLY_MSPACES
 #ifdef KERNEL_EXTMEM_MSPACE
 static void* internal_malloc(mspace msp, size_t bytes);
+#if 0 //mask for kernel unused-function build warning
 static void internal_free(mspace msp, void* mem);
+#endif 
 #else
 #define internal_malloc(m, b) mspace_malloc(m, b)
 #define internal_free(m, mem) mspace_free(m,mem);
@@ -5600,6 +5602,7 @@ void* internal_malloc(mspace msp, size_t bytes) {
   return 0;
 }
 
+#if 0 //mask for kernel unused-function build warning
 void internal_free(mspace msp, void* mem) {
   if (mem != 0) {
     mchunkptr p  = mem2chunk(mem);
@@ -5700,6 +5703,7 @@ void internal_free(mspace msp, void* mem) {
     }
   }
 }
+#endif
 #else
 mspace create_mspace(size_t capacity, int locked) {
   mstate m = 0;
@@ -5927,10 +5931,10 @@ void mspace_free(mspace msp, void* mem) {
       check_inuse_chunk(fm, p);
       if (RTCHECK(ok_address(fm, p) && ok_inuse(p))) {
         size_t psize = chunksize(p);
-	  #ifdef KERNEL_EXTMEM_MSPACE
-		fm->mem_used -= psize;
-      #endif
         mchunkptr next = chunk_plus_offset(p, psize);
+      #ifdef KERNEL_EXTMEM_MSPACE
+        fm->mem_used -= psize;
+      #endif
         if (!pinuse(p)) {
           size_t prevsize = p->prev_foot;
           if (is_mmapped(p)) {

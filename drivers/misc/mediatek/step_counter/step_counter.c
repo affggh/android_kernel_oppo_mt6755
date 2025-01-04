@@ -7,6 +7,10 @@ static struct step_c_context *step_c_context_obj = NULL;
 static struct step_c_init_info* step_counter_init_list[MAX_CHOOSE_STEP_C_NUM]= {0}; //modified
 static void step_c_early_suspend(struct early_suspend *h);
 static void step_c_late_resume(struct early_suspend *h);
+#ifdef VENDOR_EDIT
+//zhihong.lu@Prd.BSP.sensor,2016/4/22,add to avoid reporting same value
+static int step_c_first_data = STEP_C_INVALID_VALUE;
+#endif /*VENDOR_EDIT*/
 
 static void step_c_work_func(struct work_struct *work)
 {
@@ -14,19 +18,31 @@ static void step_c_work_func(struct work_struct *work)
 	struct step_c_context *cxt = NULL;
 	int out_size;
 	//hwm_sensor_data sensor_data;
+	#ifndef VENDOR_EDIT
+	//zhihong.lu@Prd.BSP.sensor add for fixing incompatible pointer type err
 	int value,status,div;
+	#else /*VENDOR_EDIT*/
+	int status,div;
+	u64 value;
+	#endif /*VENDOR_EDIT*/
 	int64_t  nt;
 	struct timespec time; 
 	int err, idx;	
 
 	cxt  = step_c_context_obj;
-	
+
 	if(NULL == cxt->step_c_data.get_data)
 	{
 		STEP_C_LOG("step_c driver not register data path\n");
+		return;
 	}
-
-	
+	#if 0
+	//zhihong.lu@Prd.BSP.sensor add for fixing err reading in suspend
+	if(atomic_read(&(cxt->suspend)) == 1){
+		STEP_C_ERR("step_c suspend!!\n" );
+		return;
+	}
+	#endif //VENDOR_EDIT
 	time.tv_sec = time.tv_nsec = 0;    
 	time = get_monotonic_coarse(); 
 	nt = time.tv_sec*1000000000LL+time.tv_nsec;
@@ -58,9 +74,26 @@ static void step_c_work_func(struct work_struct *work)
 	       	goto step_c_loop;
 			
 	    }
+		#ifdef VENDOR_EDIT
+		//zhihong.lu@Prd.BSP.sensor,2016/4/18,add to report the first step num after enable
+		STEP_C_LOG("step_c first data[%d]  \n" ,cxt->drv_data.step_c_data.values[0]);
+		step_c_first_data = cxt->drv_data.step_c_data.values[0];
+		step_c_data_report_rel(cxt->idev,
+			cxt->drv_data.step_c_data.values[0],
+			cxt->drv_data.step_c_data.status);
+		goto step_c_loop;
+		#endif /*VENDOR_EDIT*/
 	}
 	//report data to input device
 	//printk("new step_c work run....\n");
+	#ifdef VENDOR_EDIT
+	//zhihong.lu@Prd.BSP.sensor,2016/4/22,add to avoid reporting same value
+	if(step_c_first_data == cxt->drv_data.step_c_data.values[0]){
+		goto step_c_loop;
+	}else{
+		step_c_first_data = STEP_C_INVALID_VALUE;
+	}
+	#endif /*VENDOR_EDIT*/
 	STEP_C_LOG("step_c data[%d]  \n" ,cxt->drv_data.step_c_data.values[0]);
 
 	step_c_data_report(cxt->idev,
@@ -117,11 +150,16 @@ int  step_notify(STEP_NOTIFY_TYPE type)
 	int value=0;
 	struct step_c_context *cxt = NULL;
   	cxt = step_c_context_obj;
+	#ifndef VENDOR_EDIT
+	//zhihong.lu@Prd.BSP.sensor remove too much log
 	STEP_C_LOG("step_notify++++\n");
-	
+	#endif
 	if(type == TYPE_STEP_DETECTOR)
 	{
+		#ifndef VENDOR_EDIT
+		//zhihong.lu@Prd.BSP.sensor remove too much log
 		STEP_C_LOG("fwq TYPE_STEP_DETECTOR notify\n");
+		#endif
 		//cxt->step_c_data.get_data_step_d(&value);
 		//step_c_data_report(cxt->idev,value,3);
 		value =1;
@@ -168,7 +206,7 @@ static int step_d_real_enable(int enable)
   if(0==enable)
   {
     
-     err = cxt->step_c_ctl.enable_nodata(0);
+     err = cxt->step_c_ctl.enable_step_detect(0);
      if(err)
      { 
         	STEP_C_ERR("step_d enable(%d) err = %d\n", enable, err);
@@ -624,13 +662,11 @@ static int step_c_real_driver_init(void)
     int i =0;
 	int err=0;
 	STEP_C_LOG(" step_c_real_driver_init +\n");
-	printk("lct1, %s, %d \n", __func__, __LINE__);
 	for(i = 0; i < MAX_CHOOSE_STEP_C_NUM; i++)
 	{
 	  STEP_C_LOG(" i=%d\n",i);
 	  if(0 != step_counter_init_list[i])
 	  {
-	printk("lct1, %s, %d \n", __func__, __LINE__);
 	    STEP_C_LOG(" step_c try to init driver %s\n", step_counter_init_list[i]->name);
 	    err = step_counter_init_list[i]->init();
 		if(0 == err)
@@ -669,7 +705,6 @@ static int step_c_real_driver_init(void)
 		
 	    if(NULL == step_counter_init_list[i])
 	    {
-	printk("lct1, %s, %d i=%d \n", __func__, __LINE__, i);
 	      obj->platform_diver_addr = &step_counter_driver;
 	      step_counter_init_list[i] = obj;
 		  break;
@@ -723,6 +758,14 @@ static int step_c_input_init(struct step_c_context *cxt)
 	input_set_capability(dev, EV_ABS, EVENT_TYPE_STEP_C_VALUE);
 	input_set_capability(dev, EV_ABS, EVENT_TYPE_STEP_C_STATUS);
 	
+#ifdef VENDOR_EDIT
+	//zhihong.lu@Prd.BSP.sensor,2016/4/18,add to report the first step num after enable
+	input_set_capability(dev, EV_REL, EVENT_TYPE_STEP_C_VALUE_REL);
+	input_set_capability(dev, EV_REL, EVENT_TYPE_STEP_C_STATUS_REL);
+	input_set_abs_params(dev, EVENT_TYPE_STEP_C_VALUE_REL, STEP_C_VALUE_MIN, STEP_C_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, EVENT_TYPE_STEP_C_STATUS_REL, STEP_C_STATUS_MIN, STEP_C_STATUS_MAX, 0, 0);
+#endif /*VENDOR_EDIT*/
+
 	input_set_abs_params(dev, EVENT_TYPE_STEP_C_VALUE, STEP_C_VALUE_MIN, STEP_C_VALUE_MAX, 0, 0);
 	input_set_abs_params(dev, EVENT_TYPE_STEP_C_STATUS, STEP_C_STATUS_MIN, STEP_C_STATUS_MAX, 0, 0);
 	input_set_drvdata(dev, cxt);
@@ -737,22 +780,12 @@ static int step_c_input_init(struct step_c_context *cxt)
 	return 0;
 }
 
-#if 0
 DEVICE_ATTR(step_cenablenodata,     	S_IWUSR | S_IRUGO, step_c_show_enable_nodata, step_c_store_enable_nodata);
 DEVICE_ATTR(step_cactive,     		S_IWUSR | S_IRUGO, step_c_show_active, step_c_store_active);
 DEVICE_ATTR(step_cdelay,      		S_IWUSR | S_IRUGO, step_c_show_delay,  step_c_store_delay);
 DEVICE_ATTR(step_cbatch,      		S_IWUSR | S_IRUGO, step_c_show_batch,  step_c_store_batch);
 DEVICE_ATTR(step_cflush,      			S_IWUSR | S_IRUGO, step_c_show_flush,  step_c_store_flush);
 DEVICE_ATTR(step_cdevnum,      			S_IWUSR | S_IRUGO, step_c_show_devnum,  NULL);
-#endif
-
-///////////////////////////////////
-DEVICE_ATTR(step_cenablenodata, S_IRUGO|S_IWUSR|S_IWGRP  | S_IWOTH, step_c_show_enable_nodata, step_c_store_enable_nodata);
-DEVICE_ATTR(step_cactive, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH, step_c_show_active, step_c_store_active);
-DEVICE_ATTR(step_cdelay,S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH, step_c_show_delay,  step_c_store_delay);
-DEVICE_ATTR(step_cbatch, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH, step_c_show_batch,  step_c_store_batch);
-DEVICE_ATTR(step_cflush, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH, step_c_show_flush,  step_c_store_flush);
-DEVICE_ATTR(step_cdevnum, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH, step_c_show_devnum,  NULL);
 
 
 static struct attribute *step_c_attributes[] = {
@@ -840,24 +873,33 @@ int step_c_data_report(struct input_dev *dev, int value, int status)
 	input_sync(dev); 
 }
 
+#ifdef VENDOR_EDIT
+//zhihong.lu@Prd.BSP.sensor,2016/4/18,add to report the first step num after enable
+int step_c_data_report_rel(struct input_dev *dev, int value, int status)
+{
+	//STEP_C_LOG("+step_c_data_report! %d, %d, %d, %d\n",x,y,z,status);
+	input_report_rel(dev, EVENT_TYPE_STEP_C_VALUE_REL, value);
+	input_report_rel(dev, EVENT_TYPE_STEP_C_STATUS_REL, status);
+	input_sync(dev);
+	return 0;
+}
+#endif /*VENDOR_EDIT*/
+
 static int step_c_probe(struct platform_device *pdev) 
 {
 
 	int err;
 	STEP_C_LOG("+++++++++++++step_c_probe!!\n");
 
-	printk("lct1, %s, %d \n", __func__, __LINE__);
 	step_c_context_obj = step_c_context_alloc_object();
 	if (!step_c_context_obj)
 	{
 		err = -ENOMEM;
-	printk("lct1, %s, %d \n", __func__, __LINE__);
 		STEP_C_ERR("unable to allocate devobj!\n");
 		goto exit_alloc_data_failed;
 	}
 
 	//init real step_c driver
-	printk("lct1, %s, %d \n", __func__, __LINE__);
     	err = step_c_real_driver_init();
 	if(err)
 	{
@@ -866,7 +908,6 @@ static int step_c_probe(struct platform_device *pdev)
 	}
 
 	//init input dev
-	printk("lct1, %s, %d \n", __func__, __LINE__);
 	err = step_c_input_init(step_c_context_obj);
 	if(err)
 	{
@@ -927,25 +968,76 @@ static int step_c_remove(struct platform_device *pdev)
 
 static void step_c_early_suspend(struct early_suspend *h) 
 {
-   atomic_set(&(step_c_context_obj->early_suspend), 1);
-   STEP_C_LOG(" step_c_early_suspend ok------->hwm_obj->early_suspend=%d \n",atomic_read(&(step_c_context_obj->early_suspend)));
-   return ;
+   	struct step_c_context *cxt = NULL;
+	cxt = step_c_context_obj;
+	#if 0
+	//zhihong.lu@Prd.BSP.sensor add for fixing err reading in suspend
+	if(NULL != cxt)
+	{
+		if(cxt->is_polling_run == true){
+			del_timer_sync(&cxt->timer);
+			cancel_work_sync(&cxt->report);
+			STEP_C_LOG(" stop timer for step_c_early_suspend\n");
+		}
+	}
+	#endif //VENDOR_EDIT
+	
+	atomic_set(&(step_c_context_obj->early_suspend), 1);
+	STEP_C_LOG(" step_c_early_suspend ok------->hwm_obj->early_suspend=%d \n",atomic_read(&(step_c_context_obj->early_suspend)));
+	return ;
 }
 /*----------------------------------------------------------------------------*/
 static void step_c_late_resume(struct early_suspend *h)
 {
-   atomic_set(&(step_c_context_obj->early_suspend), 0);
-   STEP_C_LOG(" step_c_late_resume ok------->hwm_obj->early_suspend=%d \n",atomic_read(&(step_c_context_obj->early_suspend)));
-   return ;
+    struct step_c_context *cxt = NULL;
+	cxt = step_c_context_obj;
+	#if 0
+	//zhihong.lu@Prd.BSP.sensor add for fixing err reading in suspend
+	if(NULL != cxt)
+	{
+		if(cxt->is_polling_run == true){
+			mod_timer(&cxt->timer, jiffies + atomic_read(&cxt->delay)/(1000/HZ));
+			STEP_C_LOG(" start timer for step_c_late_resume\n");
+		}
+	}
+	#endif //VENDOR_EDIT
+	atomic_set(&(step_c_context_obj->early_suspend), 0);
+	STEP_C_LOG(" step_c_late_resume ok------->hwm_obj->early_suspend=%d \n",atomic_read(&(step_c_context_obj->early_suspend)));
+	return ;
 }
 
 static int step_c_suspend(struct platform_device *dev, pm_message_t state) 
 {
+   	struct step_c_context *cxt = NULL;
+	cxt = step_c_context_obj;
+	#ifdef VENDOR_EDIT
+	//zhihong.lu@Prd.BSP.sensor add for fixing err reading in suspend
+	if(NULL != cxt)
+	{
+		if(cxt->is_polling_run == true){
+			del_timer_sync(&cxt->timer);
+			cancel_work_sync(&cxt->report);
+			STEP_C_LOG(" stop timer for step_c_suspend\n");
+		}
+	}
+	#endif //VENDOR_EDIT
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
 static int step_c_resume(struct platform_device *dev)
 {
+    struct step_c_context *cxt = NULL;
+	cxt = step_c_context_obj;
+	#ifdef VENDOR_EDIT
+	//zhihong.lu@Prd.BSP.sensor add for fixing err reading in suspend
+	if(NULL != cxt)
+	{
+		if(cxt->is_polling_run == true){
+			mod_timer(&cxt->timer, jiffies + 200/(1000/HZ));
+			STEP_C_LOG(" start timer for step_c_resume\n");
+		}
+	}
+	#endif //VENDOR_EDIT
 	return 0;
 }
 
@@ -971,21 +1063,11 @@ static struct platform_driver step_c_driver =
 	}
 };
 
-static struct platform_device platform_device1 = {
-                 .name = STEP_C_PL_DEV_NAME,
-                 .id = 0,
-};
-
 static int __init step_c_init(void) 
 {
 	STEP_C_FUN();
 
-	if( platform_device_register(&platform_device1) != 0 ) {
-		printk("fail to register platform device. \n");
-                return -ENODEV;
-         }
-
-	if( platform_driver_register(&step_c_driver) != 0);
+	if(platform_driver_register(&step_c_driver))
 	{
 		STEP_C_ERR("failed to register step_c driver\n");
 		return -ENODEV;

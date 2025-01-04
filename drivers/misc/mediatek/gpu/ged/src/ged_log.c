@@ -5,7 +5,7 @@
 #include <linux/genalloc.h>
 #include <linux/sched.h>
 #include <linux/mutex.h>
-#include <linux/xlog.h>
+//#include <linux/xlog.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/rtc.h>
@@ -164,7 +164,7 @@ static GED_ERROR __ged_log_buf_vprint(GED_LOG_BUF *psGEDLogBuf, const char *fmt,
     if (attrs & GED_LOG_ATTR_TIME)
     {
         psGEDLogBuf->psLine[psGEDLogBuf->i32LineCurrent].tattrs = GED_LOG_ATTR_TIME;
-        psGEDLogBuf->psLine[psGEDLogBuf->i32LineCurrent].time = cpu_clock(smp_processor_id());
+        psGEDLogBuf->psLine[psGEDLogBuf->i32LineCurrent].time = ged_get_time();
     }
 
     /* record the user time */
@@ -240,15 +240,14 @@ static GED_ERROR __ged_log_buf_print(GED_LOG_BUF *psGEDLogBuf, const char *fmt, 
 static int __ged_log_buf_write(GED_LOG_BUF *psGEDLogBuf, const char __user *pszBuffer, int i32Count)
 {
     int cnt;
-    char buf[1024];
-    const int buf_len = sizeof(buf) / sizeof(char);
+    char buf[256];
 
     if (!psGEDLogBuf)
     {
         return 0;
     }
 
-    cnt = (i32Count >= buf_len) ? buf_len - 1 : i32Count;
+    cnt = (i32Count >= 256) ? 255 : i32Count;
 
     ged_copy_from_user(buf, pszBuffer, cnt);
 

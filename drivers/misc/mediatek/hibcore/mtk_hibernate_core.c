@@ -1,3 +1,5 @@
+#define pr_fmt(fmt) "[HIB/CORE] " fmt
+
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -14,6 +16,7 @@
 #include <linux/proc_fs.h>
 #include <linux/suspend.h>
 #include <linux/reboot.h>
+#include <linux/cpu.h>
 #include <linux/xlog.h>
 #include <linux/mtk_ftrace.h>
 #if !defined(CONFIG_CPU_FREQ_DEFAULT_GOV_HOTPLUG) && !defined(CONFIG_CPU_FREQ_DEFAULT_GOV_BALANCE)
@@ -21,17 +24,16 @@
 #endif
 
 #define HIB_CORE_DEBUG 0
-#define _TAG_HIB_M "HIB/CORE"
 #if (HIB_CORE_DEBUG)
 #undef hib_log
-#define hib_log(fmt, ...)	xlog_printk(ANDROID_LOG_WARN, _TAG_HIB_M, fmt, ##__VA_ARGS__);
+#define hib_log(fmt, ...)	pr_warn(fmt, ##__VA_ARGS__);
 #else
 #define hib_log(fmt, ...)
 #endif
 #undef hib_warn
-#define hib_warn(fmt, ...)  xlog_printk(ANDROID_LOG_WARN, _TAG_HIB_M, fmt,  ##__VA_ARGS__);
+#define hib_warn(fmt, ...)  pr_warn(fmt,  ##__VA_ARGS__);
 #undef hib_err
-#define hib_err(fmt, ...)   xlog_printk(ANDROID_LOG_ERROR, _TAG_HIB_M, fmt,  ##__VA_ARGS__);
+#define hib_err(fmt, ...)   pr_err(fmt,  ##__VA_ARGS__);
 
 #ifdef CONFIG_PM_AUTOSLEEP
 
@@ -62,6 +64,16 @@ static inline suspend_state_t pm_autosleep_state(void)
 /* kernel/power/wakelock.c */
 extern int pm_wake_lock(const char *buf);
 extern int pm_wake_unlock(const char *buf);
+#else
+int pm_wake_lock(const char *buf)
+{
+	return 0;
+}
+
+int pm_wake_unlock(const char *buf)
+{
+	return 0;
+}
 #endif				/* !CONFIG_PM_WAKELOCKS */
 
 /* HOTPLUG */
@@ -88,15 +100,26 @@ static int hib_failed_cnt = 0;
 static void hib_unplug_cores(void)
 {
 	int i = 0;
+	int err;
+	int cpu_hotplug_disabled_local = 0;
 
 	hib_warn("unplug cores\n");
 
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_HOTPLUG
 	mutex_lock(&hp_onoff_mutex);
 #endif
+	err = cpu_up(0); /* To guarantee CPU0 up for AMP */
+	if (err < 0) {
+		hib_warn("cpu0 up failed: %d\n", err);
+		if (err == -EBUSY) {
+			cpu_hotplug_enable();
+			cpu_hotplug_disabled_local = 1;
+			err = cpu_up(0);
+			hib_warn("After retry cpu0 up: %d\n", err);
+		}
+	}
 	for (i = (num_possible_cpus() - 1); i > 0 && num_online_cpus() > HIB_MULTIIO_CORES; i--) {
 		if (cpu_online(i)) {
-			int err;
 			hib_log("cpu %d down...\n", i);
 			err = cpu_down(i);
 			if (err < 0) {
@@ -105,6 +128,10 @@ static void hib_unplug_cores(void)
 				hib_log("cpu %d down...done\n", i, err);
 			}
 		}
+	}
+	if (cpu_hotplug_disabled_local) {
+		cpu_hotplug_disable();
+		cpu_hotplug_disabled_local = 0;
 	}
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_HOTPLUG
 	mutex_unlock(&hp_onoff_mutex);

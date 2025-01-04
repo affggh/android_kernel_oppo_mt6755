@@ -200,7 +200,39 @@ int toi_start_anything(int hibernate_or_resume)
 	if (hibernate_or_resume) {
 		block_dump_save = block_dump;
 		block_dump = 0;
-		set_cpus_allowed_ptr(current, cpumask_of(cpumask_first(cpu_online_mask)));
+		if (hibernate_or_resume == SYSFS_RESUMING) {
+			int hotplug_locked = 0;
+			hib_log("cpu:%d, %ld\n", smp_processor_id(), cpumask_bits(cpu_online_mask)[0]);
+			/* We are going to ensure current process (pid:1) will be always running
+			   on CPU0 during TOI resuming flow, otherwise, there will be a disaster
+			   for memory_bitmap operations */
+			do {
+				if (hotplug_locked) {
+					hib_log("put_online_cpus\n");
+					put_online_cpus();
+					hotplug_locked = 0;
+				}
+				if (!cpu_online(0)) {
+					hib_log("Turn on CPU0\n");
+					cpu_hotplug_enable();
+					cpu_up(0);
+				}
+				if (cpu_online(0) && num_online_cpus() == 1) {
+					/* enable more cpus if only CPU0 */
+					hib_log("Turn on CPU1\n");
+					cpu_hotplug_enable();
+					cpu_up(1);
+				}
+				if (cpu_online(0) && !hotplug_locked) {
+					get_online_cpus();	/* to protect against hotplug interference */
+					hotplug_locked = 1;
+					hib_log("Finally we got CPU0 on!!! (%ld/%d)\n", cpumask_bits(cpu_online_mask)[0], num_online_cpus());
+				}
+			} while (!cpu_online(0));
+			hib_log("cpu:%d, %ld\n", smp_processor_id(), cpumask_bits(cpu_online_mask)[0]);
+			set_cpus_allowed_ptr(current, cpumask_of(0));
+		} else
+			set_cpus_allowed_ptr(current, cpumask_of(cpumask_first(cpu_online_mask)));
 	}
 
 	if (toi_initialise_modules_early(hibernate_or_resume))
@@ -218,6 +250,10 @@ int toi_start_anything(int hibernate_or_resume)
 	toi_cleanup_modules(hibernate_or_resume);
  early_init_err:
 	if (hibernate_or_resume) {
+		if (hibernate_or_resume == SYSFS_RESUMING) {
+			hib_log("put_online_cpus\n");
+			put_online_cpus();	/* to protect against hotplug interference */
+		}
 		block_dump_save = block_dump;
 		set_cpus_allowed_ptr(current, cpu_all_mask);
 	}
@@ -1014,10 +1050,34 @@ void toi_try_resume(void)
 	resume_attempted = 1;
 
 	current->flags |= PF_MEMALLOC;
-
-	get_online_cpus();	/* to protect against hotplug interference */
+#if 0
+	cpu_hotplug_enable();
+	for (;;) {
+		hib_log("ensure to run on CPU0(%d/%d)\n", smp_processor_id(), num_online_cpus());
+		if (smp_processor_id() == 0) {
+			/* enable more cpus if only CPU0 */
+			if (num_online_cpus() == 1) {
+				hib_log("Turn on CPU1~3\n");
+				for (i=1; i<2; i++)
+					cpu_up(i);
+			}
+		}
+		if (smp_processor_id() == 0) {
+			/* make sure we are on CPU0 */
+			hib_log("Finally we are on CPU0(%d/%d)\n", smp_processor_id(), num_online_cpus());
+			get_online_cpus();	/* to protect against hotplug interference */
+			break;
+		}
+		if (!cpu_online(0)) {
+			hib_log("Turn on CPU0(%d)\n", smp_processor_id());
+			cpu_up(0);		/* to ensure CPU0 is up for memory_bitmap house keeping */
+		}
+		for (i=7; i>0; i--)
+			cpu_down(i);
+	}
+#endif
 	num_threaded = toi_start_other_threads();
-	printk(KERN_ERR "[resume] Starting other threads (%d).", num_threaded);
+	hib_warn("[resume] Starting other threads (%d).\n", num_threaded);
 
 	if (do_toi_step(STEP_RESUME_CAN_RESUME) && !do_toi_step(STEP_RESUME_LOAD_PS1)) {
 		put_online_cpus();	/* to protect against hotplug interference */

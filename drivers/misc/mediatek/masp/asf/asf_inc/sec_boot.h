@@ -4,28 +4,27 @@
 /**************************************************************************
  * [S-BOOT]
  **************************************************************************/
- 
+
 /* S-BOOT Attribute */
 #define ATTR_SBOOT_DISABLE                  0x00
 #define ATTR_SBOOT_ENABLE                   0x11
 #define ATTR_SBOOT_ONLY_ENABLE_ON_SCHIP     0x22
 
 /**************************************************************************
- * [SECURE BOOT CHECK] 
+ * [SECURE BOOT CHECK]
  **************************************************************************/
- 
+
 /* Note : this structure record all the partitions
-          which should be verified by secure boot check */
+which should be verified by secure boot check */
 #define AND_SEC_BOOT_CHECK_PART_SIZE        (90)
-typedef struct 
-{
-    unsigned char                           name[9][10];
-    
+typedef struct {
+	unsigned char name[9][10];
+
 } AND_SECBOOT_CHECK_PART_T;
 
 /* Note : partition name between preloader/DA and kernel mtd table may be different
-          in order to reduce maintainence effort, secure boot update will apply
-          following transfation table to correct mtd partition name */
+in order to reduce maintainence effort, secure boot update will apply
+following transfation table to correct mtd partition name */
 #define MTD_SECCFG                     "seccnfg"
 #define MTD_UBOOT                      "uboot"
 #define MTD_LOGO                       "logo"
@@ -59,10 +58,9 @@ typedef struct
 /**************************************************************************
  * EXPORT FUNCTION
  **************************************************************************/
-extern int masp_boot_init (void);
-extern int sec_boot_enabled (void);
-extern int sec_modem_auth_enabled (void);
-extern int sec_schip_enabled (void);
+extern int masp_boot_init(void);
+extern int sec_boot_enabled(void);
+extern int sec_modem_auth_enabled(void);
+extern int sec_schip_enabled(void);
 
-#endif /* SEC_BOOT_H */
-
+#endif				/* SEC_BOOT_H */

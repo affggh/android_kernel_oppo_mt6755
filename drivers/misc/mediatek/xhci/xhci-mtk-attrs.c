@@ -16,7 +16,7 @@ static unsigned int imod;	/* attribute for Interrupt moderation register */
  */
 static ssize_t imod_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	imod = xhci_readl(mtk_xhci, (void __iomem *) &mtk_xhci->ir_set->irq_control);
+	imod = xhci_readl(mtk_xhci, (void __iomem *)&mtk_xhci->ir_set->irq_control);
 	imod &= ~0xFFFF0000;
 	return sprintf(buf, "0x%x\n", imod);
 }
@@ -29,12 +29,13 @@ static ssize_t imod_store(struct kobject *kobj, struct kobj_attribute *attr,
 {
 	u32 temp;
 
-	sscanf(buf, "%xu", &imod);
+	if (sscanf(buf, "%xu", &imod) != 1)
+		return 0;
 
-	temp = xhci_readl(mtk_xhci, (void __iomem *) &mtk_xhci->ir_set->irq_control);
+	temp = xhci_readl(mtk_xhci, (void __iomem *)&mtk_xhci->ir_set->irq_control);
 	temp &= ~0xFFFF;
 	temp |= imod;
-	xhci_writel(mtk_xhci, temp, (void __iomem *) &mtk_xhci->ir_set->irq_control);
+	xhci_writel(mtk_xhci, temp, (void __iomem *)&mtk_xhci->ir_set->irq_control);
 
 	return count;
 }
@@ -65,7 +66,8 @@ static ssize_t dburst_store(struct kobject *kobj, struct kobj_attribute *attr,
 {
 	u32 temp;
 
-	sscanf(buf, "%xu", &dburst);
+	if (sscanf(buf, "%xu", &dburst) != 1)
+		return 0;
 
 	/* This register configures the maximum burst size per DMA request to DRAM bus. */
 	temp = xhci_readl(mtk_xhci, (void __iomem *)_SSUSB_XHCI_HDMA_CFG(mtk_xhci->base_regs));

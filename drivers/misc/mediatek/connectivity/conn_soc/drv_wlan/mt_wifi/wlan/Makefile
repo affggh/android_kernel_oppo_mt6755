@@ -6,7 +6,8 @@ ccflags-y += -DLINUX -DMT6628
 ccflags-y += -DCFG_SUPPORT_AGPS_ASSIST=1
 
 ccflags-y += -DCFG_SUPPORT_TSF_USING_BOOTTIME=1
-
+ccflags-y += -DCFG_P2P_LEGACY_COEX_REVISE=1
+ccflags-y += -DARP_MONITER_ENABLE=1
 ifeq ($(CONFIG_MTK_WAPI_SUPPORT), y)
     ccflags-y += -DCFG_SUPPORT_WAPI=1
 else
@@ -14,9 +15,9 @@ else
 endif
 
 ifeq ($(CONFIG_MTK_WIFI_MCC_SUPPORT), y)
-    ccflags-y += -DCFG_SUPPORT_CHNL_CONFLICT_REVISE=0
+    ccflags-y += -DCFG_SUPPORT_MCC=1
 else
-    ccflags-y += -DCFG_SUPPORT_CHNL_CONFLICT_REVISE=1
+	ccflags-y += -DCFG_SUPPORT_MCC=0
 endif
 
 ifeq ($(CONFIG_HAVE_XLOG_FEATURE), y)
@@ -64,6 +65,28 @@ else
     ccflags-y += -DCFG_TC1_FEATURE=0
 endif
 
+MTK_SRAM_SIZE_OPTION=0
+ifeq ($(CONFIG_ARCH_MT6755), y)
+    MTK_SRAM_SIZE_OPTION=2
+endif
+ifeq ($(CONFIG_ARCH_MT6735), y)
+    MTK_SRAM_SIZE_OPTION=1
+endif
+ifeq ($(CONFIG_ARCH_MT6735M), y)
+    MTK_SRAM_SIZE_OPTION=1
+endif
+ifeq ($(CONFIG_ARCH_MT6753), y)
+    MTK_SRAM_SIZE_OPTION=1
+endif
+ifeq ($(CONFIG_ARCH_MT6580), y)
+    MTK_SRAM_SIZE_OPTION=1
+endif
+ifeq ($(CONFIG_ARCH_MT8163), y)
+    MTK_SRAM_SIZE_OPTION=1
+endif
+ccflags-y += -DCFG_SRAM_SIZE_OPTION=$(MTK_SRAM_SIZE_OPTION)
+
+
 MODULE_NAME := wlan_mt
 
 ccflags-y += -D_HIF_SDIO=1
@@ -92,6 +115,7 @@ HIF_DIR	    := os/linux/hif/ahb/
 NIC_DIR     := nic/
 MGMT_DIR    := mgmt/
 DMA_DIR     := ../../../../../../platform/$(call lc,$(MTK_PLATFORM))/kernel/drivers/wifi/
+PLAT_DIR    := os/linux/plat/$(MTK_PLATFORM)/
 #$(call lc,$(MTK_PLATFORM))
 
 
@@ -102,7 +126,8 @@ DMA_DIR     := ../../../../../../platform/$(call lc,$(MTK_PLATFORM))/kernel/driv
 COMMON_OBJS :=	$(COMMON_DIR)dump.o \
 	       		$(COMMON_DIR)wlan_lib.o \
 	       		$(COMMON_DIR)wlan_oid.o \
-	       		$(COMMON_DIR)wlan_bow.o
+	       		$(COMMON_DIR)wlan_bow.o \
+				$(COMMON_DIR)debug.o
 
 NIC_OBJS := $(NIC_DIR)nic.o \
 			$(NIC_DIR)nic_tx.o \
@@ -119,8 +144,8 @@ OS_OBJS :=	$(OS_DIR)gl_init.o \
 			$(OS_DIR)gl_wext_priv.o \
 			$(OS_DIR)gl_rst.o \
 			$(OS_DIR)gl_cfg80211.o \
-			$(OS_DIR)platform.o
-
+			$(OS_DIR)platform.o		\
+			$(OS_DIR)gl_proc.o
 MGMT_OBJS := $(MGMT_DIR)ais_fsm.o \
 			 $(MGMT_DIR)aaa_fsm.o \
 			 $(MGMT_DIR)assoc.o \
@@ -193,7 +218,10 @@ endif
 HIF_OBJS :=  $(HIF_DIR)arm.o \
              $(HIF_DIR)ahb.o \
              $(HIF_DIR)$(MTK_PLATFORM)/ahb_pdma.o
-
+ifeq ($(CONFIG_ARCH_MT6755), y)
+PLAT_OBJS := $(PLAT_DIR)plat_priv.o
+$(MODULE_NAME)-objs  += $(PLAT_OBJS)
+endif
 $(MODULE_NAME)-objs  += $(COMMON_OBJS)
 $(MODULE_NAME)-objs  += $(NIC_OBJS)
 $(MODULE_NAME)-objs  += $(OS_OBJS)

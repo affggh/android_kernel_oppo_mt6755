@@ -18,8 +18,10 @@
 #include <linux/page-isolation.h>
 #include "internal.h"
 
+#if 0
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #endif
 
 #ifdef CONFIG_COMPACTION
@@ -68,7 +70,11 @@ static void map_pages(struct list_head *list)
 
 static inline bool migrate_async_suitable(int migratetype)
 {
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP) /* SVP 16 */
 	return is_migrate_cma(migratetype) || migratetype == MIGRATE_MOVABLE;
+#else
+	return migratetype == MIGRATE_MOVABLE;
+#endif
 }
 
 #ifdef CONFIG_COMPACTION
@@ -232,6 +238,12 @@ static bool suitable_migration_target(struct page *page)
 
 	if (is_migrate_mtkpasr(migratetype))
 		return false;
+
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP) /* SVP 16 */
+	/* will take very long time to reclaim cma region if cma is sutable */
+	if (is_zone_cma(page_zone(page)) && get_forbid_cma_alloc_flag())
+		return false;
+#endif
 
 	/* If the page is a large free page, then allow migration */
 	if (PageBuddy(page) && page_order(page) >= pageblock_order)
@@ -1095,9 +1107,11 @@ unsigned long try_to_compact_pages(struct zonelist *zonelist,
 
 	count_compact_event(COMPACTSTALL);
 
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP) /* SVP 15 */
 #ifdef CONFIG_CMA
 	if (allocflags_to_migratetype(gfp_mask) == MIGRATE_MOVABLE)
 		alloc_flags |= ALLOC_CMA;
+#endif
 #endif
 	/* Compact each zone in the list */
 	for_each_zone_zonelist_nodemask(zone, z, zonelist, high_zoneidx,
@@ -1238,6 +1252,7 @@ void compaction_unregister_node(struct node *node)
 
 #endif /* CONFIG_COMPACTION */
 
+#if 0
 #ifdef CONFIG_HAS_EARLYSUSPEND
 extern void drop_pagecache(void);
 //extern void kick_lmk_from_compaction(gfp_t);
@@ -1280,15 +1295,20 @@ static struct early_suspend kick_compaction_early_suspend_desc = {
 static int __init compaction_init(void)
 {
 	printk("@@@@@@ [%s] Register early suspend callback @@@@@@\n",__FUNCTION__);
+ #ifdef CONFIG_EARLYSUSPEND
 	register_early_suspend(&kick_compaction_early_suspend_desc);
+ #endif
 	return 0;
 }
 static void __exit compaction_exit(void)
 {
 	printk("@@@@@@ [%s] Unregister early suspend callback @@@@@@\n",__FUNCTION__);
+  #ifdef CONFIG_EARLYSUSPEND
 	unregister_early_suspend(&kick_compaction_early_suspend_desc);
+  #endif
 }
 
 module_init(compaction_init);
 module_exit(compaction_exit);
+#endif
 #endif

@@ -461,7 +461,7 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
     //struct snd_pcm_runtime *runtime = substream->runtime;
     unsigned long flags;
 
-    PRINTK_AUD_UL1("mtk_capture_pcm_copy pos = %lucount = %lu \n ", pos, count);
+    PRINTK_AUD_UL1("mtk_capture_pcm_copy pos = %lu, count = %lu \n ", pos, count);
     // get total bytes to copy
     count = Align64ByteSize(audio_frame_to_bytes(substream , count));
 
@@ -492,7 +492,7 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
     spin_lock_irqsave(&auddrv_ULInCtl_lock, flags);
     if (Vul_Block->u4DataRemained >  Vul_Block->u4BufferSize)
     {
-        PRINTK_AUD_UL1("AudDrv_MEMIF_Read u4DataRemained=%x > u4BufferSize=%x" , Vul_Block->u4DataRemained, Vul_Block->u4BufferSize);
+        PRINTK_AUD_UL1("mtk_capture_pcm_copy u4DataRemained=%x > u4BufferSize=%x" , Vul_Block->u4DataRemained, Vul_Block->u4BufferSize);
         Vul_Block->u4DataRemained = 0;
         Vul_Block->u4DMAReadIdx   = Vul_Block->u4WriteIdx;
     }
@@ -508,21 +508,21 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
     DMA_Read_Ptr = Vul_Block->u4DMAReadIdx;
     spin_unlock_irqrestore(&auddrv_ULInCtl_lock, flags);
 
-    PRINTK_AUD_UL1("AudDrv_MEMIF_Read finish0, count:%lx, read_size:%lx, u4DataRemained:%x, u4DMAReadIdx:0x%x, u4WriteIdx:%x \r\n",
-                   count, read_size, Vul_Block->u4DataRemained, Vul_Block->u4DMAReadIdx, Vul_Block->u4WriteIdx);
+    PRINTK_AUD_UL1("mtk_capture_pcm_copy finish0, read_count:%lx, read_size:%lx, u4DataRemained:%x, u4DMAReadIdx:0x%x, u4WriteIdx:%x \r\n",
+                   (unsigned int)read_count, (unsigned int)read_size, Vul_Block->u4DataRemained, Vul_Block->u4DMAReadIdx, Vul_Block->u4WriteIdx);
 
     if (DMA_Read_Ptr + read_size < Vul_Block->u4BufferSize)
     {
         if (DMA_Read_Ptr != Vul_Block->u4DMAReadIdx)
         {
-            printk("AudDrv_MEMIF_Read 1, read_size:%zu, DataRemained:%x, DMA_Read_Ptr:0x%zu, DMAReadIdx:%x \r\n",
+            printk("mtk_capture_pcm_copy 1, read_size:%zu, DataRemained:%x, DMA_Read_Ptr:0x%zu, DMAReadIdx:%x \r\n",
                    read_size, Vul_Block->u4DataRemained, DMA_Read_Ptr, Vul_Block->u4DMAReadIdx);
         }
 
         if (copy_to_user((void __user *)Read_Data_Ptr, (Vul_Block->pucVirtBufAddr + DMA_Read_Ptr), read_size))
         {
 
-            printk("AudDrv_MEMIF_Read Fail 1 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x, DMA_Read_Ptr:%zu,read_size:%zu", Read_Data_Ptr, Vul_Block->pucVirtBufAddr, Vul_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
+            printk("mtk_capture_pcm_copy Fail 1 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x, DMA_Read_Ptr:%zu, read_size:%zu", Read_Data_Ptr, Vul_Block->pucVirtBufAddr, Vul_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
             return 0;
         }
 
@@ -537,7 +537,7 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
         Read_Data_Ptr += read_size;
         count -= read_size;
 
-        PRINTK_AUD_UL1("AudDrv_MEMIF_Read finish1, copy size:%lx, u4DMAReadIdx:0x%x, u4WriteIdx:%x, u4DataRemained:%x \r\n",
+        PRINTK_AUD_UL1("mtk_capture_pcm_copy finish1, copy size:%lx, u4DMAReadIdx:0x%x, u4WriteIdx:%x, u4DataRemained:%x \r\n",
                        read_size, Vul_Block->u4DMAReadIdx, Vul_Block->u4WriteIdx, Vul_Block->u4DataRemained);
     }
 
@@ -549,13 +549,13 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
         if (DMA_Read_Ptr != Vul_Block->u4DMAReadIdx)
         {
 
-            printk("AudDrv_MEMIF_Read 2, read_size1:%x, DataRemained:%x, DMA_Read_Ptr:%zu, DMAReadIdx:%x \r\n",
+            printk("mtk_capture_pcm_copy 2, read_size1:%x, DataRemained:%x, DMA_Read_Ptr:%zu, DMAReadIdx:%x \r\n",
                    size_1, Vul_Block->u4DataRemained, DMA_Read_Ptr, Vul_Block->u4DMAReadIdx);
         }
         if (copy_to_user((void __user *)Read_Data_Ptr, (Vul_Block->pucVirtBufAddr + DMA_Read_Ptr), size_1))
         {
 
-            printk("AudDrv_MEMIF_Read Fail 2 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x, DMA_Read_Ptr:%zu,read_size:%zu",
+            printk("mtk_capture_pcm_copy Fail 2 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x, DMA_Read_Ptr:%zu,read_size:%zu",
                    Read_Data_Ptr, Vul_Block->pucVirtBufAddr, Vul_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
             return 0;
         }
@@ -569,19 +569,19 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
         spin_unlock(&auddrv_ULInCtl_lock);
 
 
-        PRINTK_AUD_UL1("AudDrv_MEMIF_Read finish2, copy size_1:%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, u4DataRemained:%x \r\n",
+        PRINTK_AUD_UL1("mtk_capture_pcm_copy finish2, copy size_1:%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, u4DataRemained:%x \r\n",
                        size_1, Vul_Block->u4DMAReadIdx, Vul_Block->u4WriteIdx, Vul_Block->u4DataRemained);
 
         if (DMA_Read_Ptr != Vul_Block->u4DMAReadIdx)
         {
 
-            printk("AudDrv_AWB_Read 3, read_size2:%x, DataRemained:%x, DMA_Read_Ptr:%zu, DMAReadIdx:%x \r\n",
+            printk("mtk_capture_pcm_copy 3, read_size2:%x, DataRemained:%x, DMA_Read_Ptr:%zu, DMAReadIdx:%x \r\n",
                    size_2, Vul_Block->u4DataRemained, DMA_Read_Ptr, Vul_Block->u4DMAReadIdx);
         }
         if (copy_to_user((void __user *)(Read_Data_Ptr + size_1), (Vul_Block->pucVirtBufAddr + DMA_Read_Ptr), size_2))
         {
 
-            printk("AudDrv_MEMIF_Read Fail 3 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x , DMA_Read_Ptr:%zu, read_size:%zu", Read_Data_Ptr, Vul_Block->pucVirtBufAddr, Vul_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
+            printk("mtk_capture_pcm_copy Fail 3 copy to user Read_Data_Ptr:%p, pucVirtBufAddr:%p, u4DMAReadIdx:0x%x , DMA_Read_Ptr:%zu, read_size:%zu", Read_Data_Ptr, Vul_Block->pucVirtBufAddr, Vul_Block->u4DMAReadIdx, DMA_Read_Ptr, read_size);
             return read_count << 2;
         }
 
@@ -595,7 +595,7 @@ static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
         count -= read_size;
         Read_Data_Ptr += read_size;
 
-        PRINTK_AUD_UL1("AudDrv_MEMIF_Read finish3, copy size_2:%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x u4DataRemained:%x \r\n",
+        PRINTK_AUD_UL1("mtk_capture_pcm_copy finish3, copy size_2:%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x u4DataRemained:%x \r\n",
                        size_2, Vul_Block->u4DMAReadIdx, Vul_Block->u4WriteIdx, Vul_Block->u4DataRemained);
     }
 

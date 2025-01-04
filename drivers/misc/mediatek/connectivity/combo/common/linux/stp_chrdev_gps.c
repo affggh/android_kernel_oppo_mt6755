@@ -1,10 +1,3 @@
-/** $Log: stp_chrdev_gps.c $
- *
- * 12 13 2010 Sean.Wang
- * (1) Add GPS_DEBUG_TRACE_GPIO to disable GPIO debugging trace
- * (2) Add GPS_DEBUG_DUMP to support GPS data dump
- * (3) Add mtk_wcn_stp_is_ready() check in GPS_open()
-*/
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -43,25 +36,24 @@ static UINT32 gDbgLevel = GPS_LOG_DBG;
 
 #define GPS_DBG_FUNC(fmt, arg...)	\
 do { if (gDbgLevel >= GPS_LOG_DBG)	\
-		pr_warn(PFX "%s: "  fmt, __func__ , ##arg);	\
+		pr_debug(PFX "[D]%s: "  fmt, __func__ , ##arg);	\
 } while (0)
 #define GPS_INFO_FUNC(fmt, arg...)	\
 do { if (gDbgLevel >= GPS_LOG_INFO)	\
-		pr_warn(PFX "%s: "  fmt, __func__ , ##arg);	\
+		pr_info(PFX "[I]%s: "  fmt, __func__ , ##arg);	\
 } while (0)
 #define GPS_WARN_FUNC(fmt, arg...)	\
 do { if (gDbgLevel >= GPS_LOG_WARN)	\
-		pr_err(PFX "%s: "  fmt, __func__ , ##arg);	\
+		pr_warn(PFX "[W]%s: "  fmt, __func__ , ##arg);	\
 } while (0)
 #define GPS_ERR_FUNC(fmt, arg...)	\
 do { if (gDbgLevel >= GPS_LOG_ERR)	\
-		pr_err(PFX "%s: "  fmt, __func__ , ##arg);	\
+		pr_err(PFX "[E]%s: "  fmt, __func__ , ##arg);	\
 } while (0)
 #define GPS_TRC_FUNC(f)	\
 do { if (gDbgLevel >= GPS_LOG_DBG)	\
 		pr_info(PFX "<%s> <%d>\n", __func__, __LINE__);	\
 } while (0)
-
 
 static INT32 GPS_devs = 1;	/* device count */
 static INT32 GPS_major = GPS_DEV_MAJOR;	/* dynamic allocation */
@@ -80,6 +72,7 @@ ssize_t GPS_write(struct file *filp, const char __user *buf, size_t count, loff_
 {
 	INT32 retval = 0;
 	INT32 written = 0;
+
 	down(&wr_mtx);
 
 	/* GPS_TRC_FUNC(); */
@@ -87,6 +80,7 @@ ssize_t GPS_write(struct file *filp, const char __user *buf, size_t count, loff_
 	/*pr_warn("%s: count %d pos %lld\n", __func__, count, *f_pos); */
 	if (count > 0) {
 		INT32 copy_size = (count < MTKSTP_BUFFER_SIZE) ? count : MTKSTP_BUFFER_SIZE;
+
 		if (copy_from_user(&o_buf[0], &buf[0], copy_size)) {
 			retval = -EFAULT;
 			goto out;
@@ -104,6 +98,7 @@ ssize_t GPS_write(struct file *filp, const char __user *buf, size_t count, loff_
 		{
 			PUINT8 buf_ptr = &o_buf[0];
 			INT32 k = 0;
+
 			pr_warn("--[GPS-WRITE]--");
 			for (k = 0; k < 10; k++) {
 				if (k % 16 == 0)
@@ -122,7 +117,8 @@ ssize_t GPS_write(struct file *filp, const char __user *buf, size_t count, loff_
 		 */
 		if (0 == written) {
 			retval = -ENOSPC;
-			/*no windowspace in STP is available, native process should not call GPS_write with no delay at all */
+			/*no windowspace in STP is available,
+			native process should not call GPS_write with no delay at all */
 			GPS_ERR_FUNC
 			    ("target packet length:%zd, write success length:%d, retval = %d.\n",
 			     count, written, retval);
@@ -131,12 +127,11 @@ ssize_t GPS_write(struct file *filp, const char __user *buf, size_t count, loff_
 		}
 	} else {
 		retval = -EFAULT;
-		GPS_ERR_FUNC("target packet length:%zd is not allowed, retval = %d.\n", count,
-			     retval);
+		GPS_ERR_FUNC("target packet length:%zd is not allowed, retval = %d.\n", count, retval);
 	}
- out:
+out:
 	up(&wr_mtx);
-	return (retval);
+	return retval;
 }
 
 ssize_t GPS_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
@@ -148,9 +143,9 @@ ssize_t GPS_read(struct file *filp, char __user *buf, size_t count, loff_t *f_po
 
 /*    pr_warn("GPS_read(): count %d pos %lld\n", count, *f_pos);*/
 
-	if (count > MTKSTP_BUFFER_SIZE) {
+	if (count > MTKSTP_BUFFER_SIZE)
 		count = MTKSTP_BUFFER_SIZE;
-	}
+
 #if GPS_DEBUG_TRACE_GPIO
 	mtk_wcn_stp_debug_gpio_assert(IDX_GPS_RX, DBG_TIE_LOW);
 #endif
@@ -159,8 +154,8 @@ ssize_t GPS_read(struct file *filp, char __user *buf, size_t count, loff_t *f_po
 	mtk_wcn_stp_debug_gpio_assert(IDX_GPS_RX, DBG_TIE_HIGH);
 #endif
 
-	while (retval == 0)	/* got nothing, wait for STP's signal */
-	{
+	while (retval == 0) {
+		/* got nothing, wait for STP's signal */
 		/*wait_event(GPS_wq, flag != 0); *//* George: let signal wake up */
 		val = wait_event_interruptible(GPS_wq, flag != 0);
 		flag = 0;
@@ -176,11 +171,11 @@ ssize_t GPS_read(struct file *filp, char __user *buf, size_t count, loff_t *f_po
 #endif
 		/* if we are signaled */
 		if (val) {
-			if (-ERESTARTSYS == val) {
+			if (-ERESTARTSYS == val)
 				GPS_INFO_FUNC("signaled by -ERESTARTSYS(%d)\n ", val);
-			} else {
+			else
 				GPS_INFO_FUNC("signaled by %d\n ", val);
-			}
+
 			break;
 		}
 	}
@@ -189,6 +184,7 @@ ssize_t GPS_read(struct file *filp, char __user *buf, size_t count, loff_t *f_po
 	{
 		PUINT8 buf_ptr = &i_buf[0];
 		INT32 k = 0;
+
 		pr_warn("--[GPS-READ]--");
 		for (k = 0; k < 10; k++) {
 			if (k % 16 == 0)
@@ -212,10 +208,10 @@ ssize_t GPS_read(struct file *filp, char __user *buf, size_t count, loff_t *f_po
 		retval = val;
 	}
 
- OUT:
+OUT:
 	up(&rd_mtx);
 /*    pr_warn("GPS_read(): retval = %d\n", retval);*/
-	return (retval);
+	return retval;
 }
 
 /* int GPS_ioctl(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg) */
@@ -225,6 +221,7 @@ long GPS_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	ENUM_WMTHWVER_TYPE_T hw_ver_sym = WMTHWVER_INVALID;
 	UINT32 hw_version = 0;
 	UINT32 fw_version = 0;
+
 	pr_warn("GPS_ioctl(): cmd (%d)\n", cmd);
 
 	switch (cmd) {
@@ -250,18 +247,18 @@ long GPS_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		GPS_INFO_FUNC(KERN_INFO
 			      "GPS_ioctl(): get hw version = %d, sizeof(hw_ver_sym) = %zd\n",
 			      hw_ver_sym, sizeof(hw_ver_sym));
-		if (copy_to_user((int __user *)arg, &hw_ver_sym, sizeof(hw_ver_sym))) {
+		if (copy_to_user((int __user *)arg, &hw_ver_sym, sizeof(hw_ver_sym)))
 			retval = -EFAULT;
-		}
+
 		break;
 	case COMBO_IOC_GPS_IC_HW_VERSION:
 		/*get combo hw version from ic,  without wmt mapping */
 		hw_version = mtk_wcn_wmt_ic_info_get(WMTCHIN_HWVER);
 
 		GPS_INFO_FUNC(KERN_INFO "GPS_ioctl(): get hw version = 0x%x\n", hw_version);
-		if (copy_to_user((int __user *)arg, &hw_version, sizeof(hw_version))) {
+		if (copy_to_user((int __user *)arg, &hw_version, sizeof(hw_version)))
 			retval = -EFAULT;
-		}
+
 		break;
 
 	case COMBO_IOC_GPS_IC_FW_VERSION:
@@ -269,9 +266,9 @@ long GPS_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		fw_version = mtk_wcn_wmt_ic_info_get(WMTCHIN_FWVER);
 
 		GPS_INFO_FUNC(KERN_INFO "GPS_ioctl(): get fw version = 0x%x\n", fw_version);
-		if (copy_to_user((int __user *)arg, &fw_version, sizeof(fw_version))) {
+		if (copy_to_user((int __user *)arg, &fw_version, sizeof(fw_version)))
 			retval = -EFAULT;
-		}
+
 		break;
 	default:
 		retval = -EFAULT;
@@ -286,6 +283,7 @@ long GPS_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 long GPS_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	long ret;
+
 	pr_warn("%s: cmd (%d)\n", __func__, cmd);
 	ret = GPS_unlocked_ioctl(filp, cmd, arg);
 	pr_warn("%s: cmd (%d)\n", __func__, cmd);
@@ -293,8 +291,7 @@ long GPS_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 }
 
 static VOID gps_cdev_rst_cb(ENUM_WMTDRV_TYPE_T src,
-			    ENUM_WMTDRV_TYPE_T dst,
-			    ENUM_WMTMSG_TYPE_T type, PVOID buf, UINT32 sz)
+			    ENUM_WMTDRV_TYPE_T dst, ENUM_WMTMSG_TYPE_T type, PVOID buf, UINT32 sz)
 {
 
 	/*
@@ -304,7 +301,7 @@ static VOID gps_cdev_rst_cb(ENUM_WMTDRV_TYPE_T src,
 
 	GPS_INFO_FUNC("sizeof(ENUM_WMTRSTMSG_TYPE_T) = %zd\n", sizeof(ENUM_WMTRSTMSG_TYPE_T));
 	if (sz <= sizeof(ENUM_WMTRSTMSG_TYPE_T)) {
-		memcpy((PINT8)&rst_msg, (PINT8)buf, sz);
+		memcpy((PINT8) & rst_msg, (PINT8) buf, sz);
 		GPS_INFO_FUNC("src = %d, dst = %d, type = %d, buf = 0x%x sz = %d, max = %d\n", src,
 			      dst, type, rst_msg, sz, WMTRSTMSG_RESET_MAX);
 		if ((src == WMTDRV_TYPE_WMT) && (dst == WMTDRV_TYPE_GPS)
@@ -314,7 +311,7 @@ static VOID gps_cdev_rst_cb(ENUM_WMTDRV_TYPE_T src,
 
 				/*reset_start message handling */
 
-                    } else if((rst_msg == WMTRSTMSG_RESET_END) || (rst_msg == WMTRSTMSG_RESET_END_FAIL)){
+			} else if ((rst_msg == WMTRSTMSG_RESET_END) || (rst_msg == WMTRSTMSG_RESET_END_FAIL)) {
 				GPS_INFO_FUNC("gps restart end!\n");
 
 				/*reset_end message handling */
@@ -327,8 +324,7 @@ static VOID gps_cdev_rst_cb(ENUM_WMTDRV_TYPE_T src,
 
 static int GPS_open(struct inode *inode, struct file *file)
 {
-	pr_warn("%s: major %d minor %d (pid %d)\n", __func__,
-		imajor(inode), iminor(inode), current->pid);
+	pr_debug("%s: major %d minor %d (pid %d)\n", __func__, imajor(inode), iminor(inode), current->pid);
 	if (current->pid == 1)
 		return 0;
 
@@ -338,10 +334,11 @@ static int GPS_open(struct inode *inode, struct file *file)
 	if (MTK_WCN_BOOL_FALSE == mtk_wcn_wmt_func_on(WMTDRV_TYPE_GPS)) {
 		GPS_WARN_FUNC("WMT turn on GPS fail!\n");
 		return -ENODEV;
-	} else {
-		mtk_wcn_wmt_msgcb_reg(WMTDRV_TYPE_GPS, gps_cdev_rst_cb);
-		GPS_INFO_FUNC("WMT turn on GPS OK!\n");
 	}
+
+	mtk_wcn_wmt_msgcb_reg(WMTDRV_TYPE_GPS, gps_cdev_rst_cb);
+	GPS_INFO_FUNC("WMT turn on GPS OK!\n");
+
 #endif
 
 	if (mtk_wcn_stp_is_ready()) {
@@ -370,8 +367,7 @@ static int GPS_open(struct inode *inode, struct file *file)
 
 static int GPS_close(struct inode *inode, struct file *file)
 {
-	pr_warn("%s: major %d minor %d (pid %d)\n", __func__,
-		imajor(inode), iminor(inode), current->pid);
+	pr_debug("%s: major %d minor %d (pid %d)\n", __func__, imajor(inode), iminor(inode), current->pid);
 	if (current->pid == 1)
 		return 0;
 
@@ -381,15 +377,15 @@ static int GPS_close(struct inode *inode, struct file *file)
 
 	if (MTK_WCN_BOOL_FALSE == mtk_wcn_wmt_func_off(WMTDRV_TYPE_GPS)) {
 		GPS_WARN_FUNC("WMT turn off GPS fail!\n");
-		return -EIO;	/* mostly, native programer does not care this return vlaue, but we still return error code. */
-	} else {
-		GPS_INFO_FUNC("WMT turn off GPS OK!\n");
+		return -EIO;	/* mostly, native programer does not care this return vlaue,
+		but we still return error code. */
 	}
 
+	GPS_INFO_FUNC("WMT turn off GPS OK!\n");
 	return 0;
 }
 
-struct file_operations GPS_fops = {
+const struct file_operations GPS_fops = {
 	.open = GPS_open,
 	.release = GPS_close,
 	.read = GPS_read,
@@ -401,12 +397,10 @@ struct file_operations GPS_fops = {
 
 VOID GPS_event_cb(VOID)
 {
-/*    pr_warn("GPS_event_cb()\n");*/
+/*    pr_debug("GPS_event_cb()\n");*/
 
 	flag = 1;
 	wake_up(&GPS_wq);
-
-	return;
 }
 
 #if REMOVE_MK_NODE
@@ -444,11 +438,11 @@ static int GPS_init(void)
 	if (IS_ERR(stpgps_dev))
 		goto error;
 #endif
-	pr_warn(KERN_ALERT "%s driver(major %d) installed.\n", GPS_DRIVER_NAME, GPS_major);
+	pr_warn("%s driver(major %d) installed.\n", GPS_DRIVER_NAME, GPS_major);
 
 	return 0;
 
- error:
+error:
 
 #if REMOVE_MK_NODE
 	if (!IS_ERR(stpgps_dev))
@@ -479,9 +473,8 @@ static void GPS_exit(void)
 	cdev_del(&GPS_cdev);
 	unregister_chrdev_region(dev, GPS_devs);
 
-	pr_warn(KERN_ALERT "%s driver removed.\n", GPS_DRIVER_NAME);
+	pr_warn("%s driver removed.\n", GPS_DRIVER_NAME);
 }
-
 
 #ifdef MTK_WCN_REMOVE_KERNEL_MODULE
 
@@ -489,14 +482,12 @@ INT32 mtk_wcn_stpgps_drv_init(VOID)
 {
 	return GPS_init();
 }
+EXPORT_SYMBOL(mtk_wcn_stpgps_drv_init);
 
 VOID mtk_wcn_stpgps_drv_exit(VOID)
 {
 	return GPS_exit();
 }
-
-
-EXPORT_SYMBOL(mtk_wcn_stpgps_drv_init);
 EXPORT_SYMBOL(mtk_wcn_stpgps_drv_exit);
 #else
 

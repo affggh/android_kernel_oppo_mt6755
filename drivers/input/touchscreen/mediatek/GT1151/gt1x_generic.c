@@ -23,6 +23,8 @@
 
 #include "gt1x_tpd_custom.h"
 #include "gt1x_generic.h"
+#include "gt1x_config.h"
+#include "include/gt1x_tpd_common.h"
 
 #if GTP_PROXIMITY
 #include <linux/hwmsensor.h>
@@ -41,6 +43,7 @@ static struct workqueue_struct *gt1x_workqueue = NULL;
 u8 gt1x_config[GTP_CONFIG_MAX_LENGTH] = { 0 };
 
 u32 gt1x_cfg_length = GTP_CONFIG_MAX_LENGTH;
+bool check_flag = false;
 
 CHIP_TYPE_T gt1x_chip_type = CHIP_TYPE_GT1X;
 struct gt1x_version_info gt1x_version = {
@@ -73,7 +76,7 @@ u8 gt1x_rawdiff_mode = 0;
 
 u8 gt1x_init_failed = 0;
 
-u8 is_reseting = 0;
+static u8 is_reseting = 0;
 
 static ssize_t gt1x_debug_read_proc(struct file *, char __user *, size_t, loff_t *);
 static ssize_t gt1x_debug_write_proc(struct file *, const char __user *, size_t, loff_t *);
@@ -109,6 +112,8 @@ static ssize_t gt1x_debug_read_proc(struct file *file, char __user * page, size_
 	char *ptr = page;
 	char temp_data[GTP_CONFIG_MAX_LENGTH] = { 0 };
 	int i;
+	int ret = 0;
+	u8 buf[1];
 
 	if (*ppos) {
 		return 0;
@@ -145,6 +150,90 @@ static ssize_t gt1x_debug_read_proc(struct file *file, char __user * page, size_
 	ptr += sprintf(ptr, "SensorID: %02X\n", temp_data[10] & 0x0F);
 	ptr += sprintf(ptr, "Driver Num: %02d. Sensor Num: %02d\n", gt1x_driver_num, gt1x_sensor_num);
 
+
+	/* write 0x4180 to 0x0c */
+	do {
+		buf[0] = 0x0c;
+		ret = gt1x_i2c_write(0x4180, buf, 1);
+		if (ret < 0) {
+			ptr += sprintf(ptr, "gt1x_i2c_write error!\n");
+		}
+		buf[0] = 0x00;
+		ret = gt1x_i2c_read(0x4180, buf, 1);
+		if (ret < 0) {
+			ptr += sprintf(ptr, "gt1x_i2c_read error!\n");
+		}
+		ptr += sprintf(ptr, "0x4180 = %x\n", buf[0]);
+	} while(buf[0] != 0x0c);
+	
+	buf[0] = 0x00;
+	ret = gt1x_i2c_write(0x41ed, buf, 1);
+	if (ret < 0) {
+		ptr += sprintf(ptr, "gt1x_i2c_write error!\n");
+	}
+	msleep(10);
+	ptr += sprintf(ptr, "%3d:%d%d%d%d%d%d%d%d\n",
+		1, mt_get_gpio_mode_base(1), mt_get_gpio_pull_select_base(1),
+		mt_get_gpio_in_base(1), mt_get_gpio_out_base(1),
+		mt_get_gpio_pull_enable_base(1), mt_get_gpio_dir_base(1),
+		mt_get_gpio_ies_base(1), mt_get_gpio_smt_base(1));
+	buf[0] = 0;
+	ret = gt1x_i2c_read(0x4214, buf, 1);
+	if (ret < 0) {
+		ptr += sprintf(ptr, "gt1x_i2c_read error!\n");
+	}
+	ptr += sprintf(ptr, "Input pull-no, 0x4214 = %x\n", buf[0]);
+	
+	buf[0] = 0x01;
+	ret = gt1x_i2c_write(0x41ed, buf, 1);
+	if (ret < 0) {
+		ptr += sprintf(ptr, "gt1x_i2c_write error!\n");
+	}
+	msleep(10);
+	ptr += sprintf(ptr, "%3d:%d%d%d%d%d%d%d%d\n",
+		1, mt_get_gpio_mode_base(1), mt_get_gpio_pull_select_base(1),
+		mt_get_gpio_in_base(1), mt_get_gpio_out_base(1),
+		mt_get_gpio_pull_enable_base(1), mt_get_gpio_dir_base(1),
+		mt_get_gpio_ies_base(1), mt_get_gpio_smt_base(1));
+	buf[0] = 0;
+	ret = gt1x_i2c_read(0x4214, buf, 1);
+	if (ret < 0) {
+		ptr += sprintf(ptr, "gt1x_i2c_read error!\n");
+	}
+	ptr += sprintf(ptr, "Input pull-high, 0x4214 = %x\n", buf[0]);
+	
+	buf[0] = 0x02;
+	ret = gt1x_i2c_write(0x41ed, buf, 1);
+	if (ret < 0) {
+		ptr += sprintf(ptr, "gt1x_i2c_write error!\n");
+	}
+	msleep(10);
+	ptr += sprintf(ptr, "%3d:%d%d%d%d%d%d%d%d\n",
+		1, mt_get_gpio_mode_base(1), mt_get_gpio_pull_select_base(1),
+		mt_get_gpio_in_base(1), mt_get_gpio_out_base(1),
+		mt_get_gpio_pull_enable_base(1), mt_get_gpio_dir_base(1),
+		mt_get_gpio_ies_base(1), mt_get_gpio_smt_base(1));
+	buf[0] = 0;
+	ret = gt1x_i2c_read(0x4214, buf, 1);
+	if (ret < 0) {
+		ptr += sprintf(ptr, "gt1x_i2c_read error!\n");
+	}
+	ptr += sprintf(ptr, "Input pull-low, 0x4214 = %x\n", buf[0]);
+	
+	do {
+		buf[0] = 0x00;
+		ret = gt1x_i2c_write(0x4180, buf, 1);
+		if (ret < 0) {
+			ptr += sprintf(ptr, "gt1x_i2c_write error!\n");
+		}
+		buf[0] = 0xff;
+		ret = gt1x_i2c_read(0x4180, buf, 1);
+		if (ret < 0) {
+			ptr += sprintf(ptr, "gt1x_i2c_read error!\n");
+		}
+		ptr += sprintf(ptr, "0x4180 = %x\n", buf[0]);
+	} while(buf[0] != 0x00);
+
 	*ppos += ptr - page;
 	return (ptr - page);
 }
@@ -152,7 +241,7 @@ static ssize_t gt1x_debug_read_proc(struct file *file, char __user * page, size_
 static ssize_t gt1x_debug_write_proc(struct file *file, const char __user *buffer, size_t count, loff_t * ppos)
 {
 	s32 ret = 0;
-	u8 buf[GTP_CONFIG_MAX_LENGTH] = { 0 };
+	u8 *buf;
 	char mode_str[50] = { 0 };
 	int mode;
 	int cfg_len;
@@ -161,13 +250,20 @@ static ssize_t gt1x_debug_write_proc(struct file *file, const char __user *buffe
 
 	GTP_DEBUG("write count %ld\n", (unsigned long)count);
 
+	buf = kmalloc(GTP_CONFIG_MAX_LENGTH, GFP_KERNEL);
+	if (!buf) {
+		return -ENOMEM;
+	}
+
 	if (count > GTP_CONFIG_MAX_LENGTH) {
 		GTP_ERROR("Too much data, buffer size: %d, data:%ld", GTP_CONFIG_MAX_LENGTH, (unsigned long)count);
+		kfree(buf);
 		return -EFAULT;
 	}
 
 	if (copy_from_user(buf, buffer, count)) {
 		GTP_ERROR("copy from user fail!");
+		kfree(buf);
 		return -EFAULT;
 	}
 	// send config
@@ -175,11 +271,13 @@ static ssize_t gt1x_debug_write_proc(struct file *file, const char __user *buffe
 		memcpy(gt1x_config, buf, count);
 		ret = gt1x_send_cfg(gt1x_config, gt1x_cfg_length);
 		if (ret < 0) {
+			kfree(buf);
 			GTP_ERROR("send gt1x_config failed.");
 			return -EFAULT;
 		}
 		gt1x_abs_x_max = (gt1x_config[RESOLUTION_LOC + 1] << 8) + gt1x_config[RESOLUTION_LOC];
 		gt1x_abs_y_max = (gt1x_config[RESOLUTION_LOC + 3] << 8) + gt1x_config[RESOLUTION_LOC + 2];
+		kfree(buf);
 		return count;
 	}
 
@@ -189,16 +287,19 @@ static ssize_t gt1x_debug_write_proc(struct file *file, const char __user *buffe
 	if (strcmp(mode_str, "clear_config") == 0) {
 		GTP_INFO("Force clear gt1x_config");
 		gt1x_send_cmd(GTP_CMD_CLEAR_CFG, 0);
+		kfree(buf);
 		return count;
 	}
 	if (strcmp(mode_str, "init") == 0) {
 		GTP_INFO("Init panel");
 		gt1x_init_panel();
+		kfree(buf);
 		return count;
 	}
 	if (strcmp(mode_str, "chip") == 0) {
 		GTP_INFO("Get chip type:");
 		gt1x_get_chip_type();
+		kfree(buf);
 		return count;
 	}
 	if (strcmp(mode_str, "int") == 0) {
@@ -209,50 +310,61 @@ static ssize_t gt1x_debug_write_proc(struct file *file, const char __user *buffe
 			GTP_INFO("Enable irq.");
 			gt1x_irq_enable();
 		}
+		kfree(buf);
 		return count;
 	}
 
 	if (strcmp(mode_str, "poweron") == 0) {
 		gt1x_power_switch(1);
+		kfree(buf);
 		return count;
 	}
 
 	if (strcmp(mode_str, "poweroff") == 0) {
 		gt1x_power_switch(0);
+		kfree(buf);
 		return count;
 	}
 
 	if (strcmp(mode_str, "version") == 0) {
 		gt1x_read_version(NULL);
+		kfree(buf);
 		return count;
 	}
 
 	if (strcmp(mode_str, "reset") == 0) {
 		gt1x_reset_guitar();
+		kfree(buf);
 		return count;
 	}
 #if GTP_CHARGER_SWITCH
 	if (strcmp(mode_str, "charger") == 0) {
 		gt1x_charger_config(mode);
+		kfree(buf);
 		return count;
 	}
 #endif
 	sscanf(buf, "%s %s", (char *)&mode_str, (char *)&arg1);
 	if (strcmp(mode_str, "update") == 0) {
 		gt1x_update_firmware(arg1);
+		kfree(buf);
 		return count;
 	}
 
 	if (strcmp(mode_str, "sendconfig") == 0) {
 		cfg_len = gt1x_parse_config(arg1, temp_config);
 		if (cfg_len < 0) {
+			kfree(buf);
 			return -1;
 		}
 		gt1x_send_cfg(gt1x_config, gt1x_cfg_length);
+		kfree(buf);
 		return count;
 	}
 
-	return gt1x_debug_proc(buf, count);
+	ret = gt1x_debug_proc(buf, count);
+	kfree(buf);
+	return ret;
 }
 
 static u8 ascii2hex(u8 a)
@@ -331,11 +443,11 @@ int gt1x_parse_config(char *filename, u8 * config)
 	} else {
 		for (i = 0; i < cur_len; i++) {
 			if (i % 10 == 0) {
-				printk("\n<<GTP-DBG>>:");
+				GTP_DEBUG("\n<<GTP-DBG>>:");
 			}
-			printk("0x%02x,", config[i]);
+			GTP_DEBUG("0x%02x,", config[i]);
 		}
-		printk("\n");
+		GTP_DEBUG("\n");
 	}
 
 	kfree(buf);
@@ -551,10 +663,7 @@ s32 gt1x_init_panel(void)
 {
 	s32 ret = 0;
 	u8 cfg_len = 0;
-#if GTP_CUSTOM_CFG
-	int TPD_LCM_WIDTH = 0;
-	int TPD_LCM_HEIGHT = 0;
-#endif
+
 #if GTP_DRIVER_SEND_CFG
 	u8 sensor_id = 0;
 
@@ -621,14 +730,10 @@ s32 gt1x_init_panel(void)
 	gt1x_config[0] &= 0x7F;
 
 #if GTP_CUSTOM_CFG
-	
-	TPD_LCM_WIDTH = simple_strtoul(CONFIG_LCM_WIDTH, NULL, 0);
-	TPD_LCM_HEIGHT = simple_strtoul(CONFIG_LCM_HEIGHT, NULL, 0);
-
-	gt1x_config[RESOLUTION_LOC] = (u8) TPD_LCM_WIDTH;
-	gt1x_config[RESOLUTION_LOC + 1] = (u8) (TPD_LCM_WIDTH >> 8);
-	gt1x_config[RESOLUTION_LOC + 2] = (u8) TPD_LCM_HEIGHT;
-	gt1x_config[RESOLUTION_LOC + 3] = (u8) (TPD_LCM_HEIGHT >> 8);
+	gt1x_config[RESOLUTION_LOC] = (u8) GTP_MAX_WIDTH;
+	gt1x_config[RESOLUTION_LOC + 1] = (u8) (GTP_MAX_WIDTH >> 8);
+	gt1x_config[RESOLUTION_LOC + 2] = (u8) GTP_MAX_HEIGHT;
+	gt1x_config[RESOLUTION_LOC + 3] = (u8) (GTP_MAX_HEIGHT >> 8);
 
 	GTP_INFO("Res: %d * %d, trigger: %d", GTP_MAX_WIDTH, GTP_MAX_HEIGHT, GTP_INT_TRIGGER);
 
@@ -652,10 +757,10 @@ s32 gt1x_init_panel(void)
 	gt1x_config_charger[0] &= 0x7F;
 
 #if GTP_CUSTOM_CFG
-	gt1x_config_charger[RESOLUTION_LOC] = (u8) TPD_LCM_WIDTH;
-	gt1x_config_charger[RESOLUTION_LOC + 1] = (u8) (TPD_LCM_WIDTH >> 8);
-	gt1x_config_charger[RESOLUTION_LOC + 2] = (u8) TPD_LCM_HEIGHT;
-	gt1x_config_charger[RESOLUTION_LOC + 3] = (u8) (TPD_LCM_HEIGHT >> 8);
+	gt1x_config_charger[RESOLUTION_LOC] = (u8) GTP_MAX_WIDTH;
+	gt1x_config_charger[RESOLUTION_LOC + 1] = (u8) (GTP_MAX_WIDTH >> 8);
+	gt1x_config_charger[RESOLUTION_LOC + 2] = (u8) GTP_MAX_HEIGHT;
+	gt1x_config_charger[RESOLUTION_LOC + 3] = (u8) (GTP_MAX_HEIGHT >> 8);
 
 	if (GTP_INT_TRIGGER == 0) {	/* RISING  */
 		gt1x_config_charger[TRIGGER_LOC] &= 0xfe;
@@ -709,11 +814,19 @@ s32 gt1x_init_panel(void)
 
 void gt1x_select_addr(void)
 {
+#if defined(CONFIG_MTK_LEGACY)
 	GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);
 	msleep(2);
 	GTP_GPIO_OUTPUT(GTP_INT_PORT, gt1x_i2c_client->addr == 0x14);
 	msleep(2);
 	GTP_GPIO_OUTPUT(GTP_RST_PORT, 1);
+#else
+	tpd_gpio_output(0, 0);
+	msleep(2);
+	tpd_gpio_output(1, gt1x_i2c_client->addr == 0x14);
+	msleep(2);
+	tpd_gpio_output(0, 1);
+#endif
 }
 
 s32 gt1x_reset_guitar(void)
@@ -730,9 +843,15 @@ s32 gt1x_reset_guitar(void)
 	if (CHIP_TYPE_GT2X == gt1x_chip_type) {
 		/* for GT2X */
 	} else {
+#if defined(CONFIG_MTK_LEGACY)
 		GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
 		msleep(50);
 		GTP_GPIO_AS_INT(GTP_INT_PORT);
+#else
+		tpd_gpio_output(1, 0);
+		msleep(50);
+		tpd_gpio_as_int(1);
+#endif
 	}
 
 #if GTP_ESD_PROTECT
@@ -869,7 +988,11 @@ s32 gt1x_enter_sleep(void)
 	{
 		s32 retry = 0;
 		if (gt1x_wakeup_level == 1) {	/* high level wakeup */
+#if defined(CONFIG_MTK_LEGACY)
 			GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+			tpd_gpio_output(1, 0);
+#endif
 		}
 		msleep(5);
 
@@ -899,7 +1022,7 @@ s32 gt1x_wakeup_sleep(void)
 	s32 ret = -1;
 #endif
 	GTP_DEBUG("GTP wakeup begin.");
-	gt1x_irq_disable();
+//	gt1x_irq_disable();
 
 #if GTP_POWER_CTRL_SLEEP	/* power manager unit control the procedure */
 		gt1x_power_reset();
@@ -922,16 +1045,28 @@ s32 gt1x_wakeup_sleep(void)
 #endif
 		{
 			/* wake up through int port */
+#if defined(CONFIG_MTK_LEGACY)
 			GTP_GPIO_OUTPUT(GTP_INT_PORT, gt1x_wakeup_level);
+#else
+			tpd_gpio_output(1, gt1x_wakeup_level);
+#endif
 			msleep(5);
 
 			if (CHIP_TYPE_GT2X == gt1x_chip_type) {
 				/* for GT2X */
 			} else {
 				/* Synchronize int IO */
+#if defined(CONFIG_MTK_LEGACY)
 				GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+				tpd_gpio_output(1, 0);
+#endif
 				msleep(50);
+#if defined(CONFIG_MTK_LEGACY)
 				GTP_GPIO_AS_INT(GTP_INT_PORT);
+#else
+				tpd_gpio_as_int(1);
+#endif
 			}
 
 			/* test i2c */
@@ -1123,12 +1258,31 @@ s32 gt1x_touch_event_handler(u8 * data, struct input_dev * dev, struct input_dev
 	key_value = touch_data[1 + 8 * touch_num];
 	/* check current event */
 	if ((touch_data[0] & 0x10) && key_value) {
-#if (GTP_HAVE_STYLUS_KEY || GTP_HAVE_TOUCH_KEY)
+#if (GTP_HAVE_STYLUS_KEY)
 		/* get current key states */
 		if (key_value & 0xF0) {
 			SET_BIT(cur_event, BIT_STYLUS_KEY);
 		} else if (key_value & 0x0F) {
 			SET_BIT(cur_event, BIT_TOUCH_KEY);
+		}
+#endif
+#if defined(CONFIG_MTK_LEGACY)
+#if (GTP_HAVE_TOUCH_KEY)
+		/* get current key states */
+		if (key_value & 0xF0) {
+			SET_BIT(cur_event, BIT_STYLUS_KEY);
+		} else if (key_value & 0x0F) {
+			SET_BIT(cur_event, BIT_TOUCH_KEY);
+		}
+#endif
+#else
+		if(tpd_dts_data.use_tpd_button){
+			/* get current key states */
+			if (key_value & 0xF0) {
+				SET_BIT(cur_event, BIT_STYLUS_KEY);
+			} else if (key_value & 0x0F) {
+				SET_BIT(cur_event, BIT_TOUCH_KEY);
+			}
 		}
 #endif
 	}
@@ -1175,7 +1329,7 @@ s32 gt1x_touch_event_handler(u8 * data, struct input_dev * dev, struct input_dev
 		gt1x_pen_up(0);
 	}
 #endif
-
+#if defined(CONFIG_MTK_LEGACY)
 #if GTP_HAVE_TOUCH_KEY
 	if (CHK_BIT(cur_event, BIT_TOUCH_KEY) || CHK_BIT(pre_event, BIT_TOUCH_KEY)) {
 		for (i = 0; i < GTP_MAX_KEY_NUM; i++) {
@@ -1185,6 +1339,20 @@ s32 gt1x_touch_event_handler(u8 * data, struct input_dev * dev, struct input_dev
 			GTP_DEBUG("Key Down.");
 		} else {
 			GTP_DEBUG("Key Up.");
+		}
+	}
+#endif
+#else
+	if(tpd_dts_data.use_tpd_button){
+		if (CHK_BIT(cur_event, BIT_TOUCH_KEY) || CHK_BIT(pre_event, BIT_TOUCH_KEY)) {
+			for (i = 0; i < tpd_dts_data.tpd_key_num; i++) {
+				input_report_key(dev, tpd_dts_data.tpd_key_local[i], key_value & (0x01 << i));
+			}
+			if (CHK_BIT(cur_event, BIT_TOUCH_KEY)) {
+				GTP_DEBUG("Key Down.");
+			} else {
+				GTP_DEBUG("Key Up.");
+			}
 		}
 	}
 #endif
@@ -1706,6 +1874,9 @@ s32 gt1x_init(void)
 		if (ret != 0) {
 			GTP_ERROR("GTP reset guitar failed!");
 			continue;
+		}else{	
+			tpd_load_status = 1;
+			check_flag=true;
 		}
 
 		ret = gt1x_i2c_read_dbl_check(0x41E4, reg_val, 1);

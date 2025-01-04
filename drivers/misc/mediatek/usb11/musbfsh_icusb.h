@@ -1,35 +1,30 @@
 #ifndef _MUSBFSH_ICUSB_H
 #define _MUSBFSH_ICUSB_H
 
-enum PHY_VOLTAGE_TYPE
-{
+enum PHY_VOLTAGE_TYPE {
 	VOL_18 = 0,
 	VOL_33,
 	VOL_50,
 };
 
-enum SESSION_CONTROL_ACTION
-{
+enum SESSION_CONTROL_ACTION {
 	STOP_SESSION = 0,
 	START_SESSION,
 };
 
-enum WAIT_DISCONNECT_DONE_ACTION
-{
+enum WAIT_DISCONNECT_DONE_ACTION {
 	WAIT_DISCONNECT_DONE_DFT_ACTION = 0,
 };
 
 #define IC_USB_CMD_LEN 255
-struct IC_USB_CMD
-{
+struct IC_USB_CMD {
 	unsigned char type;
 	unsigned char length;
 	unsigned char data[IC_USB_CMD_LEN];
 };
 
 
-enum IC_USB_CMD_TYPE
-{
+enum IC_USB_CMD_TYPE {
 	USB11_SESSION_CONTROL = 0,
 	USB11_INIT_PHY_BY_VOLTAGE,
 	USB11_WAIT_DISCONNECT_DONE,
@@ -43,11 +38,11 @@ enum IC_USB_CMD_TYPE
 #define MTK_ICUSB_SKIP_MAC_INIT
 #define MTK_ICUSB_RESISTOR_CONTROL
 #define MTK_ICUSB_HW_DBG
-//#define MTK_ICUSB_SKIP_PORT_PM
+/* #define MTK_ICUSB_SKIP_PORT_PM */
 
 /* --- non sysfs controlable feature --- */
-//#define MTK_ICUSB_TAKE_WAKE_LOCK
-//#define MTK_ICUSB_BABBLE_RECOVER
+/* #define MTK_ICUSB_TAKE_WAKE_LOCK */
+/* #define MTK_ICUSB_BABBLE_RECOVER */
 
 struct my_attr {
 	struct attribute attr;
@@ -66,7 +61,7 @@ struct my_attr {
 #define IC_USB_RETRIES_POWER_NEGOTIATION 3
 #define IC_USB_CLASSB (1<<1)
 #define IC_USB_CLASSC (1<<2)
-#define IC_USB_CURRENT 100		// in 2 mA unit, 100 denotes 200 mA
+#define IC_USB_CURRENT 100	/* in 2 mA unit, 100 denotes 200 mA */
 
 
 /* resume_time neogo */
@@ -78,13 +73,13 @@ struct my_attr {
 #define IC_USB_RETRIES_RESUME_TIME_NEGOTIATION 3
 
 
-//== ===================
-//  ic_usb_status :
-//		Byte4 : wait disconnect status 
-//		Byte3 Byte2 : get interface power reqest data field
-//		Byte1 : power negotiation result
-//
-//=====================
+/* == =================== */
+/* ic_usb_status : */
+/* Byte4 : wait disconnect status */
+/* Byte3 Byte2 : get interface power reqest data field */
+/* Byte1 : power negotiation result */
+/*  */
+/* ===================== */
 
 #define PREFER_VOL_STS_SHIFT (0)
 #define PREFER_VOL_STS_MSK (0x3)

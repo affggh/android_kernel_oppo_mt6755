@@ -9,52 +9,38 @@
 #define MOD                                "ASF.DEV"
 
 /**************************************************************************
- *  EXTERNAL VARIABLES
- *************************************************************************/
-extern SECURE_INFO                         sec_info;
-
-/**************************************************************************
  *  PART NAME QUERY (MTD OR USIF)
  **************************************************************************/
-char* part2pl (char* part_name)
+char *part2pl(char *part_name)
 {
 
-    if(TRUE == sec_usif_enabled())
-    {
-        return usif2pl(part_name);
-    }
-    else
-    {
-        return mtd2pl(part_name);
-    }
+	if (TRUE == sec_usif_enabled())
+		return usif2pl(part_name);
+	else
+		return mtd2pl(part_name);
 }
 
-char* pl2part (char* part_name)
+char *pl2part(char *part_name)
 {
 
-    if(TRUE == sec_usif_enabled())
-    {
-        return pl2usif(part_name);
-    }
-    else
-    {
-        return pl2mtd(part_name);
-    }
+	if (TRUE == sec_usif_enabled())
+		return pl2usif(part_name);
+	else
+		return pl2mtd(part_name);
 }
 
 /**************************************************************************
  *  GET ANDROID NAME
  **************************************************************************/
-char* get_android_name(void)
+char *get_android_name(void)
 {
-    return pl2part(mtd2pl(MTD_ANDSYSIMG));
+	return pl2part(mtd2pl(MTD_ANDSYSIMG));
 }
 
 /**************************************************************************
  *  GET SECRO NAME
  **************************************************************************/
-char* get_secro_name(void)
+char *get_secro_name(void)
 {
-    return pl2part(mtd2pl(MTD_SECRO));
+	return pl2part(mtd2pl(MTD_SECRO));
 }
-

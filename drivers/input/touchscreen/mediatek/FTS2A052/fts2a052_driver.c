@@ -162,7 +162,7 @@ struct firmware fw_info_st =
 	.size = sizeof(st_firmware),
 	.data = &st_firmware[0],
 };
-
+static DEFINE_MUTEX(tp_wr_access);
 static struct i2c_driver tpd_i2c_driver =
 {                       
     .probe = tpd_i2c_probe,                                   
@@ -204,7 +204,7 @@ static int fts_read_reg(unsigned char *reg, int cnum,
             	.ext_flag = (((st_i2c_client->ext_flag ) & I2C_MASK_FLAG ) | I2C_WR_FLAG | I2C_RS_FLAG),
         	},
     	};	
-    	
+    	mutex_lock(&tp_wr_access); 
     	for (retry = 0; retry < I2C_RETRY_CNT; retry++) {
     		if (i2c_transfer(st_i2c_client->adapter, msgs, 1) == 1)
     			break;
@@ -213,6 +213,7 @@ static int fts_read_reg(unsigned char *reg, int cnum,
 	}
 	if (retry == I2C_RETRY_CNT) {
 		printk(KERN_ERR "fts_read_reg retry over %d\n",I2C_RETRY_CNT);
+		mutex_unlock(&tp_wr_access);
 		return -1;
 	}
 	
@@ -226,10 +227,9 @@ static int fts_read_reg(unsigned char *reg, int cnum,
         /*TPD_DMESG("READ DATA:%02x %02x %02x %02x %02x %02x %02x %02x\n",
            buf[0],buf[1],buf[2],buf[3],
            buf[4],buf[5],buf[6],buf[7]);*/
-              
+        mutex_unlock(&tp_wr_access);    
     	return 0;
 }
-
 static int fts_dma_read_reg(unsigned char *reg, int cnum,
                          unsigned char *buf,
                          int num)
@@ -250,6 +250,8 @@ static int fts_dma_read_reg(unsigned char *reg, int cnum,
             	.ext_flag = (((st_i2c_client->ext_flag ) & I2C_MASK_FLAG ) | I2C_WR_FLAG | I2C_RS_FLAG | I2C_DMA_FLAG),
         	},
     	};
+		mutex_lock(&tp_wr_access);
+		//TPD_DMESG("Line %d, ((num<<8) | cnum) = %d\n", __LINE__, ((num<<8) | cnum));
     	for (retry = 0; retry < I2C_RETRY_CNT; retry++) {
 		if (i2c_transfer(st_i2c_client->adapter, msgs, 1) == 1)
 			break;
@@ -258,6 +260,7 @@ static int fts_dma_read_reg(unsigned char *reg, int cnum,
 	}
 	if (retry == I2C_RETRY_CNT) {
 		printk(KERN_ERR "fts_dma_read_reg retry over %d\n",I2C_RETRY_CNT);
+		mutex_unlock(&tp_wr_access);
 		return -1;
 	}
     
@@ -265,7 +268,7 @@ static int fts_dma_read_reg(unsigned char *reg, int cnum,
     	/*TPD_DMESG("READ DMA DATA:%02x %02x %02x %02x %02x %02x %02x %02x\n",
            DMAbuffer_va[0],DMAbuffer_va[1],DMAbuffer_va[2],DMAbuffer_va[3],
            DMAbuffer_va[4],DMAbuffer_va[5],DMAbuffer_va[6],DMAbuffer_va[7]);*/
-           
+        mutex_unlock(&tp_wr_access);
     	return 0;
 }
 
@@ -285,6 +288,7 @@ static int fts_write_reg(unsigned char *reg,
             	.ext_flag = ((st_i2c_client->ext_flag ) & I2C_MASK_FLAG ), //msz 6572
         	}
     	};
+		mutex_lock(&tp_wr_access);
     	for (retry = 0; retry < I2C_RETRY_CNT; retry++) {
     		if (i2c_transfer(st_i2c_client->adapter, msgs, 1) == 1)
     			break;
@@ -293,9 +297,10 @@ static int fts_write_reg(unsigned char *reg,
 	}
 	if (retry == I2C_RETRY_CNT) {
 		printk(KERN_ERR "fts_write_reg error %d\n",I2C_RETRY_CNT);
+		mutex_unlock(&tp_wr_access);
 		return -1;
 	}
-    
+    mutex_unlock(&tp_wr_access);
     	return 0;
 }
 
@@ -316,6 +321,7 @@ static int fts_dma_write_reg( unsigned char *reg,
 		.ext_flag = (((st_i2c_client->ext_flag ) & I2C_MASK_FLAG ) | I2C_DMA_FLAG),
         	},
 	};
+	mutex_lock(&tp_wr_access);
 	for (retry = 0; retry < I2C_RETRY_CNT; retry++) {
 		if (i2c_transfer(st_i2c_client->adapter, msgs, 1) == 1)
 			break;
@@ -324,9 +330,10 @@ static int fts_dma_write_reg( unsigned char *reg,
 	}
 	if (retry == I2C_RETRY_CNT) {
 		printk(KERN_ERR "fts_dma_write_reg retry over %d\n",I2C_RETRY_CNT);
+		mutex_unlock(&tp_wr_access);
 		return -1;
 	}
-	
+	mutex_unlock(&tp_wr_access);
 	return 0;
 }
 
@@ -1975,16 +1982,20 @@ static int st_touch_event_handler(void *unused)
     		// rc = fts_dma_read_reg(&regAdd, 1, data, FTS_EVENT_SIZE);
     		if (rc == 0) {
     			left_events = data[7] & 0x1F;
-    			
+    			//TPD_DMESG("left_events1 = %d\n", left_events);
     			while ((left_events > 0) && (total_events < (FTS_FIFO_MAX-1))) {
     				{
 				//memset(tmp_data, 0x0, FTS_EVENT_SIZE);
 				if (left_events > READ_EVENT_SIZE) {				
 					regAdd = READ_ALL_EVENT;
+					//TPD_DMESG("total_events = %d\n", total_events);
 					rc = fts_dma_read_reg(&regAdd, sizeof(regAdd),
 						&data[total_events*FTS_EVENT_SIZE],
-						READ_EVENT_SIZE*FTS_EVENT_SIZE);
-					total_events += READ_EVENT_SIZE;	
+						2*FTS_EVENT_SIZE);
+					rc = fts_dma_read_reg(&regAdd, sizeof(regAdd),
+						&data[(total_events+2)*FTS_EVENT_SIZE],
+						2*FTS_EVENT_SIZE);
+					total_events += 4;	
 				} else {
 					regAdd = READ_ALL_EVENT;
 					rc = fts_dma_read_reg(&regAdd, sizeof(regAdd),
@@ -2015,7 +2026,6 @@ static int st_touch_event_handler(void *unused)
 				}
 				#endif       			
         		} 
-        		
     			// printk(KERN_ERR "fts total events = %d\n",total_events);
     			for (i=0; i<total_events; i++) {
     				// fts_print_event_handler(&data[i*FTS_EVENT_SIZE]);
@@ -2033,9 +2043,11 @@ static int st_touch_event_handler(void *unused)
 					fts_motion_pointer_event_handler(&data[i*FTS_EVENT_SIZE]);
 					input_mt_sync(tpd->dev);
     					break;
-    				case EVENTID_LEAVE_POINTER:    					
+    				case EVENTID_LEAVE_POINTER:
+						if(total_events == 1){
     					fts_leave_pointer_event_handler(&data[i*FTS_EVENT_SIZE]);    					
 					input_mt_sync(tpd->dev);
+							}
     					break;
     				case EVENTID_BUTTON_STATUS:
     					fts_button_status_event_handler(&data[i*FTS_EVENT_SIZE]);

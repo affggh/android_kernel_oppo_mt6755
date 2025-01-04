@@ -45,12 +45,7 @@ static struct task_struct *probe_thread = NULL;
 static bool check_flag= false;
 static int tpd_polling_time=50;
 extern u8 load_fw_process;
-/*lenovo-sw xuwen1 add 20140724 begin */
-#ifdef LENOVO_GESTURE_WAKEUP
-static int letter = 0;
-static u8 letter_char = 0x00 ;
-#endif
-/*lenovo-sw xuwen1 add 20140724 end */
+
 static DECLARE_WAIT_QUEUE_HEAD(waiter);
 DEFINE_MUTEX(i2c_access);
 DEFINE_MUTEX(tp_wr_access);
@@ -63,8 +58,8 @@ static int tpd_keys_dim_local[TPD_KEY_COUNT][4] = TPD_KEYS_DIM;
 #if GTP_HAVE_TOUCH_KEY
 const u16 touch_key_array[] = TPD_KEYS;
 #define GTP_MAX_KEY_NUM ( sizeof( touch_key_array )/sizeof( touch_key_array[0] ) )
-/*lenovo-sw xuwen1 delete 20140724 for 0d touch begin */
-#ifndef LENOVO_NEED_BUTTON_EINT
+
+#ifndef NEED_BUTTON_EINT
 struct touch_vitual_key_map_t
 {
    int point_x;
@@ -72,7 +67,7 @@ struct touch_vitual_key_map_t
 };
 static struct touch_vitual_key_map_t touch_key_point_maping_array[]=GTP_KEY_MAP_ARRAY;
 #endif
-/*lenovo-sw xuwen1 delete 20140724 for 0d touch end */
+
 #endif
 
 #ifdef CONFIG_OF_TOUCH
@@ -89,12 +84,9 @@ typedef enum
 static DOZE_T doze_status = DOZE_DISABLED;
 static s8 gtp_enter_doze(struct i2c_client *client);
 
-/*lenovo-sw xuwen1 add for button begin*/
 int  get_tpd_suspend_status(void);
 static int lpwg_flag = 0;//use for lpwg func match suspend and resume
 static int lpwg_int_flag = 0;//use for flag eint happened
-/*lenovo-sw xuwen1 add for button end*/
-
 
 #if GTP_SCP_GESTURE_WAKEUP
 typedef enum
@@ -266,7 +258,6 @@ typedef struct
 {
     u16 pid;                 //product id   //
     u16 vid;                 //version id   //
-    //lenovo-sw xuwen1 add 20140718 for read version
     u16 mid;                //sensor id 
 } st_tpd_info;
 #pragma pack()
@@ -285,14 +276,6 @@ u8 grp_cfg_version = 0;
 u8 fixed_config = 0;
 u8 pnl_init_error = 0;
 static u8 chip_gt9xxs = 0;  // true if chip type is gt9xxs,like gt915s
-
-/*lenovo-sw xuwen1 add for read fw-version begin*/
-#ifdef LENOVO_READ_FW_ID
-extern struct tpd_version_info *tpd_info_t;
-extern unsigned int have_correct_setting;
-static int get_tpd_info(void);
-#endif
-/*lenovo-sw xuwen1 add for read fw-version end*/
 
 #if GTP_COMPATIBLE_MODE
 u8 driver_num = 0;
@@ -728,7 +711,7 @@ static int gt91xx_config_write_proc(struct file *file, const char *buffer, size_
 
     return count;
 }
-/*lenovo-sw xuwen1 modify for lock begin*/
+
 #if GTP_SUPPORT_I2C_DMA
 s32 i2c_dma_read(struct i2c_client *client, u16 addr, u8 *rxbuf, s32 len)
 {
@@ -1311,61 +1294,6 @@ s32 gtp_read_version(struct i2c_client *client, u16 *version)
     return ret;
 }
 
-/*lenovo-sw xuwen1 add 20140418 for read FW & ID version begin*/
-#ifdef LENOVO_READ_FW_ID
-u32 gtp_read_ID_version(struct i2c_client *client)
-{
-   u32 ret = -1;
-    int i;
-    u8 buf[3] = {GTP_REG_SENSOR_ID >> 8, GTP_REG_SENSOR_ID & 0xff};	
-    ret = gtp_i2c_read(client, buf, sizeof(buf));	
-    if (ret < 0)
-    {
-        GTP_ERROR("GTP read ID version failed");
-        return ret;
-    }
-   tpd_info.mid = buf[2];
-   for(i = 0; i < sizeof(buf); i++)
-   {
-      printk("[TSP-xw]the [%d] is 0x%08x ...\n", i, (int)buf[i]);
-	}
-	return ret;
-}
-
-unsigned int tpd_read_fw_version(void)
-{	
-  unsigned int tp_fw_version =0x00;
-  tp_fw_version = tpd_info.vid;
-  printk("[TSP-xw]:tp_fw_version is 0x%08x\n",tp_fw_version);
-  return(tp_fw_version);
-}
-unsigned int tpd_read_id_version(void)
-{
-  unsigned int tp_id_version =0x00;
-  tp_id_version = tpd_info.mid;
-  printk("[TSP-xw]:tp_id_version is 0x%08x\n",tp_id_version);	
-  return(tp_id_version);
-}
-static int get_tpd_info(void)
-{
-char *ic_name = "goodix";
-tpd_info_t ->name = ic_name; //ic_name;
-tpd_info_t ->fw_num = tpd_read_fw_version();
-tpd_info_t ->types = tpd_read_id_version();
-
-have_correct_setting = 1;
-}
-#endif
-/*lenovo-sw xuwen1 add 20140418 for read FW & ID version end*/
-/*lenovo-sw xuwen1 add 20140418 for read gesture version begin*/
-#ifdef LENOVO_GESTURE_WAKEUP
-int get_array_flag(void)
-{
-    return letter;
-}
-EXPORT_SYMBOL(get_array_flag);
-#endif
-/*lenovo-sw xuwen1 add 20140418 for read gesture version end*/
 #if GTP_DRIVER_SEND_CFG
 /*******************************************************
 Function:
@@ -1548,7 +1476,7 @@ static s32 gtp_init_panel(struct i2c_client *client)
             GTP_DEBUG("CFG_CONFIG_GROUP%d Config Version: %d, 0x%02X; IC Config Version: %d, 0x%02X", sensor_id+1, 
                         send_cfg_buf[sensor_id][0], send_cfg_buf[sensor_id][0], opr_buf[0], opr_buf[0]);
             
-            if (opr_buf[0] < 90)//lenovo-sw xuwen1 modify 20140807 for protect solidified cfg
+            if (opr_buf[0] < 90)
             {
                 grp_cfg_version = send_cfg_buf[sensor_id][0];       // backup group config version
                 send_cfg_buf[sensor_id][0] = 0x00;
@@ -2288,7 +2216,7 @@ static int tpd_registration(void *client)
 	
 		if (ret < 0)
 		{
-		      return -1;//lenovo-sw xuwen1 add for test
+		      return -1;
 			GTP_ERROR("after_tpd_power_on I2C communication ERROR!");
 		}
 		
@@ -2331,17 +2259,6 @@ static int tpd_registration(void *client)
 		{
 			GTP_ERROR("create_proc_entry %s failed\n", GT91XX_CONFIG_PROC_FILE);
 		}
-	
-/*lenovo-sw xuwen1 add 20140718 for read fw&id begin*/
-#ifdef LENOVO_READ_FW_ID
- ret = gtp_read_ID_version(client);
-    if (ret < 0)	
-    {
-        GTP_ERROR("Read id version failed.");
-    } 
- get_tpd_info();
-#endif
-/*lenovo-sw xuwen1 add 20140718 for read fw&id end*/
 	
 #if GTP_CREATE_WR_NODE
 		init_wr_node(i2c_client_point);
@@ -2432,7 +2349,7 @@ static int tpd_registration(void *client)
 		gtp_esd_switch(i2c_client_point, SWITCH_ON);
 #endif
 	   GTP_ERROR("tpd registration done.");
-	    tpd_load_status = 1;//lenovo-sw xuwen1 20140730
+	    tpd_load_status = 1;
 		return 0;
 }
 static s32 tpd_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
@@ -2440,10 +2357,7 @@ static s32 tpd_i2c_probe(struct i2c_client *client, const struct i2c_device_id *
 	int err = 0;
 	int count = 0;
 	GTP_INFO("[wj]tpd_i2c_probe start.");
-/*lenovo-sw xuwen1 delete 20140812 for recovery mode begin, wangxf14 porting for recovery touch*/
-  /* if (RECOVERY_BOOT == get_boot_mode())
-        return 0;*/
-/*lenovo-sw xuwen1 delete 20140812 for recovery mode end, wangxf14 porting for recovery touch*/   
+
 	probe_thread =kthread_run(tpd_registration, client, "tpd_probe");
 	if (IS_ERR(probe_thread))
 	{
@@ -2899,33 +2813,6 @@ static void gtp_charger_switch(s32 dir_update)
     }
 }
 #endif
-/*lenovo-xuwen1 add code for tp button feature 2014-08-19, wangxf14 porting at 20140915 */
-#ifdef LENOVO_POWEROFF_CHARGING_UI
-extern struct input_dev *kpd_input_dev;
-extern  int ipo_flag;
-int tp_button_flag = 0;
-extern int g_tp_poweron;
-
-#ifdef LENOVO_POWEROFF_CHARGING_UI_FHD
-//fhd
-#define LENOVO_CHARGING_DRAW_LEFT                 (540-144) // percent number_left + 2*number_width
-#define LENOVO_CHARGING_DRAW_RIGHT                (LENOVO_CHARGING_DRAW_LEFT+288)
-#define LENOVO_CHARGING_DRAW_BOTTOM               (1920-40)
-#define LENOVO_CHARGING_DRAW_TOP                  (LENOVO_CHARGING_DRAW_BOTTOM-108)
-#elif LENOVO_POWEROFF_CHARGING_UI_HD
-#define LENOVO_CHARGING_DRAW_LEFT                 (191) // percent number_left + 2*number_width
-#define LENOVO_CHARGING_DRAW_RIGHT                (191+337)
-#define LENOVO_CHARGING_DRAW_TOP                  (1280-80)
-#define LENOVO_CHARGING_DRAW_BOTTOM               (1280)
-#else
-#define LENOVO_CHARGING_DRAW_LEFT                 (191) // percent number_left + 2*number_width
-#define LENOVO_CHARGING_DRAW_RIGHT                (191+337)
-#define LENOVO_CHARGING_DRAW_TOP                  (1280-80)
-#define LENOVO_CHARGING_DRAW_BOTTOM               (1280)
-#endif
-
-#endif
-/*lenovo-xuwen1 add code for tp button feature end 2014-08-19, wangxf14 porting at 20140915 */
 
 static int touch_event_handler(void *unused)
 {
@@ -2967,7 +2854,7 @@ static int touch_event_handler(void *unused)
 
 #if GTP_SLIDE_WAKEUP
     u8 doze_buf[3] = {0x81, 0x4B};
-     u8 doze_buf_double[3] = {0x81,0x4D};//lenovo-sw add for double clic
+     u8 doze_buf_double[3] = {0x81,0x4D};
 #endif
 #if 0 //G_DEBUG
     u8 g_buffer[3] = {0x30, 0x14};
@@ -3018,8 +2905,7 @@ static int touch_event_handler(void *unused)
             ret = gtp_i2c_read(i2c_client_point, doze_buf, 3);
             GTP_DEBUG("0x814B = 0x%02X", doze_buf[2]);
             if (ret > 0)
-            {  
-            /*lenovo-sw xuwen1 modify 20140718 for gesture begin*/
+            {
                 if((0xCC == doze_buf[2])&&(lpwg_int_flag == 1))             
                  {
                      ret = gtp_i2c_read(i2c_client_point, doze_buf_double, 3);
@@ -3028,12 +2914,6 @@ static int touch_event_handler(void *unused)
                       {
                        if((doze_buf_double[2]!=0x01)&&(doze_buf_double[2]!=0x04)&&(doze_buf_double[2]!=0x08))//key
                        	{
-                       	#if defined(LENOVO_GESTURE_WAKEUP)
-				 if(doze_buf_double[2]==0x02)
-				     letter = 0x50;//double home
-				 else
-				     letter = 0x24; //double VA
-				 #endif
 			 doze_status = DOZE_WAKEUP;
                     input_report_key(tpd->dev, KEY_SLIDE, 1);
                     input_sync(tpd->dev);
@@ -3316,8 +3196,8 @@ static int touch_event_handler(void *unused)
         {
             for (i = 0; i < TPD_KEY_COUNT; i++)
             {
-              /*lenovo-sw xuwen1 delete 20140724 for 0d touch begin */
-#ifndef LENOVO_NEED_BUTTON_EINT
+
+#ifndef NEED_BUTTON_EINT
                // input_report_key(tpd->dev, touch_key_array[i], key_value & (0x01 << i));
 		if( key_value&(0x01<<i) ) //key=1 menu ;key=2 home; key =4 back;
 		{
@@ -3332,13 +3212,13 @@ static int touch_event_handler(void *unused)
 #endif
             }
 
-#ifndef LENOVO_NEED_BUTTON_EINT			
+#ifndef NEED_BUTTON_EINT			
 	    if((pre_key!=0)&&(key_value ==0))
 	    {
 		        tpd_up( 0, 0, 0);
 	    }
 #endif
-/*lenovo-sw xuwen1 delete 20140724 for 0d touch end */
+
             touch_num = 0;
             pre_touch = 0;
         }
@@ -3374,20 +3254,7 @@ static int touch_event_handler(void *unused)
             #endif
                 GTP_DEBUG(" %d)(%d, %d)[%d]", id, input_x, input_y, input_w);
                 tpd_down(input_x, input_y, input_w, id);
-/*lenovo-xw xuwen1 add code for tp button begin 2014-08-19, wangxf14 porting at 20140915 */
-		   #ifdef LENOVO_POWEROFF_CHARGING_UI
-		   if(((input_x>LENOVO_CHARGING_DRAW_LEFT)&&(input_x<LENOVO_CHARGING_DRAW_RIGHT)) &&((input_y>LENOVO_CHARGING_DRAW_TOP) &&(input_y<LENOVO_CHARGING_DRAW_BOTTOM)) &&(ipo_flag ==0x1) &&(g_tp_poweron !=0x1))
-		   {
-		        g_tp_poweron = 0x1;
-			tp_button_flag = 0x1;   
-		   	input_report_key(kpd_input_dev, KEY_HOME, 1);
-			input_sync(kpd_input_dev);
-			input_report_key(kpd_input_dev, KEY_HOME, 0);
-			input_sync(kpd_input_dev);	        
-                      
-		   }		   
-           #endif
-/*lenovo-xw xuwen1 add code for tp button end 2014-08-19, wangxf14 porting at 20140915 */
+
             }
         }
         else if (pre_touch)
@@ -3719,10 +3586,10 @@ static s8 gtp_wakeup_sleep(struct i2c_client *client)
                 return ret;
             }
             force_reset_guitar();  
-		/*lenovo-sw xuwen1 add 20140730 begin*/
+
             retry =0; 
             break;
-		/*lenovo-sw xuwen1 add 20140730 end*/
+
         }
         if (retry >= 10)
         {
@@ -3760,14 +3627,13 @@ static s8 gtp_wakeup_sleep(struct i2c_client *client)
         {
             GTP_DEBUG("slide(double click) wakeup, no reset guitar");
             doze_status = DOZE_DISABLED;
-	   /*lenovo-sw xuwen1 add 20140730 begin*/
+
             mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
             gtp_reset_guitar(client, 20);
             mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
  /*       #if GTP_ESD_PROTECT
             gtp_init_ext_watchdog(client);
-        #endif   */
- /*lenovo-sw xuwen1 add 20140730 end*/
+
         }
     #else
 //        if (chip_gt9xxs == 1) 
@@ -3792,7 +3658,7 @@ static s8 gtp_wakeup_sleep(struct i2c_client *client)
         {
             GTP_INFO("GTP wakeup sleep.");
         #if (!GTP_SLIDE_WAKEUP)
-           // if (chip_gt9xxs == 0) //lenovo-sw xuwen1 20140730
+           // if (chip_gt9xxs == 0)
             {
                 gtp_int_sync(25);
             #if GTP_ESD_PROTECT
@@ -3918,7 +3784,7 @@ static void tpd_suspend(struct early_suspend *h)
 
 #if GTP_ESD_PROTECT
     cancel_delayed_work_sync(&gtp_esd_check_work);
-     //lenovo-sw xuwen1 add 20140723 for abandon enter in ESD in HotKnot thread
+
      gtp_esd_switch(i2c_client_point,SWITCH_OFF);
 #endif
 
@@ -3933,7 +3799,7 @@ static void tpd_suspend(struct early_suspend *h)
 	tpd_enter_doze();
 #elif GTP_SLIDE_WAKEUP
 printk("[TSP-xw]enter in slide mode\n");
-/*lenovo-sw xuwen1 modify 20140718 for gesture begin */
+
 if(get_tpd_suspend_status())
  {
      gtp_enter_doze(i2c_client_point);
@@ -3953,7 +3819,7 @@ else
         GTP_ERROR("GTP early suspend failed.");
     }	
    }
-/*lenovo-sw xuwen1 modify 20140718 for gesture end */
+
 #else
 
 #ifdef CONFIG_OF_TOUCH
@@ -4073,7 +3939,7 @@ static void tpd_resume(struct early_suspend *h)
 
 #else
 
-    mutex_lock(&i2c_access);
+    //mutex_lock(&i2c_access);
     tpd_halt = 0;
     //set again for IPO-H resume
    
@@ -4090,7 +3956,7 @@ static void tpd_resume(struct early_suspend *h)
 
 #if GTP_ESD_PROTECT
     queue_delayed_work(gtp_esd_check_workqueue, &gtp_esd_check_work, clk_tick_cnt);
-   //lenovo-sw xuwen1 add 20140723 for abandon enter in ESD in HotKnot thread
+
      gtp_esd_switch(i2c_client_point,SWITCH_ON);
 #endif
 
@@ -4099,7 +3965,7 @@ static void tpd_resume(struct early_suspend *h)
 #endif
     printk("mtk-tpd: %s end\n", __FUNCTION__);
 }
-/*Lenovo-sw xuwen1 modify 20140804 end */
+
 static struct tpd_driver_t tpd_device_driver =
 {
     .tpd_device_name = "gt9xx",

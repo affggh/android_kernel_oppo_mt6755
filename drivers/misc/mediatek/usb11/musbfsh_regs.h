@@ -310,7 +310,7 @@ static inline void musbfsh_write_rxfifosz(void __iomem *mbase, u8 c_size)
 	musbfsh_writeb(mbase, MUSBFSH_RXFIFOSZ, c_size);
 }
 
-static inline void  musbfsh_write_rxfifoadd(void __iomem *mbase, u16 c_off)
+static inline void musbfsh_write_rxfifoadd(void __iomem *mbase, u16 c_off)
 {
 	musbfsh_writew(mbase, MUSBFSH_RXFIFOADD, c_off);
 }
@@ -330,7 +330,7 @@ static inline u8 musbfsh_read_rxfifosz(void __iomem *mbase)
 	return musbfsh_readb(mbase, MUSBFSH_RXFIFOSZ);
 }
 
-static inline u16  musbfsh_read_rxfifoadd(void __iomem *mbase)
+static inline u16 musbfsh_read_rxfifoadd(void __iomem *mbase)
 {
 	return musbfsh_readw(mbase, MUSBFSH_RXFIFOADD);
 }
@@ -346,54 +346,48 @@ static inline void __iomem *musbfsh_read_target_reg_base(u8 i, void __iomem *mba
 	return (MUSBFSH_BUSCTL_OFFSET(i, 0) + mbase);
 }
 
-static inline void musbfsh_write_rxfunaddr(void __iomem *mbase, u8 epnum,
-		u8 qh_addr_reg)
+static inline void musbfsh_write_rxfunaddr(void __iomem *mbase, u8 epnum, u8 qh_addr_reg)
 {
-	musbfsh_writew(mbase, MUSBFSH_RXFUNCADDR+8*epnum, qh_addr_reg);
+	musbfsh_writew(mbase, MUSBFSH_RXFUNCADDR + 8 * epnum, qh_addr_reg);
 }
 
-static inline void musbfsh_write_rxhubaddr(void __iomem *mbase, u8 epnum,
-		u8 qh_h_addr_reg)
+static inline void musbfsh_write_rxhubaddr(void __iomem *mbase, u8 epnum, u8 qh_h_addr_reg)
 {
-    u16 rx_hub_port_addr = musbfsh_readw(mbase,MUSBFSH_RXHUBADDR+8*epnum);
-    rx_hub_port_addr &= 0xff00;
-    rx_hub_port_addr |= qh_h_addr_reg;
-	musbfsh_writew(mbase, MUSBFSH_RXHUBADDR+8*epnum, rx_hub_port_addr);
+	u16 rx_hub_port_addr = musbfsh_readw(mbase, MUSBFSH_RXHUBADDR + 8 * epnum);
+	rx_hub_port_addr &= 0xff00;
+	rx_hub_port_addr |= qh_h_addr_reg;
+	musbfsh_writew(mbase, MUSBFSH_RXHUBADDR + 8 * epnum, rx_hub_port_addr);
 }
 
-static inline void musbfsh_write_rxhubport(void __iomem *mbase, u8 epnum,
-		u8 qh_h_port_reg)
+static inline void musbfsh_write_rxhubport(void __iomem *mbase, u8 epnum, u8 qh_h_port_reg)
 {
-	u16 rx_hub_port_addr = musbfsh_readw(mbase,MUSBFSH_RXHUBADDR+8*epnum);
-    u16 rx_port_addr = (u16)qh_h_port_reg;
-    rx_hub_port_addr &= 0x00ff;
-    rx_hub_port_addr |= (rx_port_addr<<8);
-	musbfsh_writew(mbase, MUSBFSH_RXHUBADDR+8*epnum, rx_hub_port_addr);
+	u16 rx_hub_port_addr = musbfsh_readw(mbase, MUSBFSH_RXHUBADDR + 8 * epnum);
+	u16 rx_port_addr = (u16) qh_h_port_reg;
+	rx_hub_port_addr &= 0x00ff;
+	rx_hub_port_addr |= (rx_port_addr << 8);
+	musbfsh_writew(mbase, MUSBFSH_RXHUBADDR + 8 * epnum, rx_hub_port_addr);
 }
 
-static inline void  musbfsh_write_txfunaddr(void __iomem *mbase, u8 epnum,
-		u8 qh_addr_reg)
+static inline void musbfsh_write_txfunaddr(void __iomem *mbase, u8 epnum, u8 qh_addr_reg)
 {
-	musbfsh_writew(mbase, MUSBFSH_TXFUNCADDR+8*epnum, qh_addr_reg);
+	musbfsh_writew(mbase, MUSBFSH_TXFUNCADDR + 8 * epnum, qh_addr_reg);
 }
 
-static inline void  musbfsh_write_txhubaddr(void __iomem *mbase, u8 epnum,
-		u8 qh_h_addr_reg)
+static inline void musbfsh_write_txhubaddr(void __iomem *mbase, u8 epnum, u8 qh_h_addr_reg)
 {
-	u16 tx_hub_port_addr = musbfsh_readw(mbase,MUSBFSH_TXHUBADDR+8*epnum);
-    tx_hub_port_addr &= 0xff00;
-    tx_hub_port_addr |= qh_h_addr_reg;
-	musbfsh_writew(mbase, MUSBFSH_TXHUBADDR+8*epnum, tx_hub_port_addr);
+	u16 tx_hub_port_addr = musbfsh_readw(mbase, MUSBFSH_TXHUBADDR + 8 * epnum);
+	tx_hub_port_addr &= 0xff00;
+	tx_hub_port_addr |= qh_h_addr_reg;
+	musbfsh_writew(mbase, MUSBFSH_TXHUBADDR + 8 * epnum, tx_hub_port_addr);
 }
 
-static inline void  musbfsh_write_txhubport(void __iomem *mbase, u8 epnum,
-		u8 qh_h_port_reg)
+static inline void musbfsh_write_txhubport(void __iomem *mbase, u8 epnum, u8 qh_h_port_reg)
 {
-	u16 tx_hub_port_addr = musbfsh_readw(mbase,MUSBFSH_TXHUBADDR+8*epnum);
-    u16 tx_port_addr = (u16)qh_h_port_reg;
-    tx_hub_port_addr &= 0x00ff;
-    tx_hub_port_addr |= (tx_port_addr<<8);
-	musbfsh_writew(mbase, MUSBFSH_TXHUBADDR+8*epnum, tx_hub_port_addr);
+	u16 tx_hub_port_addr = musbfsh_readw(mbase, MUSBFSH_TXHUBADDR + 8 * epnum);
+	u16 tx_port_addr = (u16) qh_h_port_reg;
+	tx_hub_port_addr &= 0x00ff;
+	tx_hub_port_addr |= (tx_port_addr << 8);
+	musbfsh_writew(mbase, MUSBFSH_TXHUBADDR + 8 * epnum, tx_hub_port_addr);
 }
 
-#endif	/* __MUSBFSH_REGS_H__ */
+#endif				/* __MUSBFSH_REGS_H__ */

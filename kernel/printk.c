@@ -47,18 +47,55 @@
 #include <linux/poll.h>
 #include <linux/irq_work.h>
 #include <linux/utsname.h>
-#include <linux/mt_sched_mon.h>
+#include "mt_sched_mon.h"
 #include <linux/aee.h>
+#include <linux/types.h>
+#include <linux/proc_fs.h>
+#include <linux/log_store_kernel.h>
 
+#include <asm/memory.h>
 #include <asm/uaccess.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
+int printk_too_much_enable = 0;
+#define DETECT_COUNT_MIN 100
 /* Some options {*/
-#define LOG_TOO_MUCH_WARNING
-#ifdef LOG_TOO_MUCH_WARNING
+#ifdef CONFIG_MT_ENG_BUILD
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+int detect_count = CONFIG_LOG_TOO_MUCH_DETECT_COUNT; /*Default max lines in 1 second*/
+#define DETECT_TIME 1000000000 /* 1s = 1000000000ns */
+#define DELAY_TIME	(CONFIG_LOG_TOO_MUCH_DETECT_GAP*60)	/* 30 min */
 static int log_in_resume;
+static char *log_much;
+static int log_count;
+#define MARK_STRING_1	"[name:"
+#define MARK_STRING_2	"&]"
+inline void set_detect_count(int count)
+{
+	detect_count = count;
+}
+
+inline int get_detect_count(void)
+{
+	return detect_count;
+}
+
+inline void set_logtoomuch_enable(int value)
+{
+	printk_too_much_enable = value;
+}
+
+inline int get_logtoomuch_enable(void)
+{
+	return printk_too_much_enable;
+}
+#else
+int detect_count = 300; /*Default max lines in 1 second*/
+#endif
+#else
+int detect_count = 300; /*Default max lines in 1 second*/
 #endif
 /* Some options }*/
 #ifdef CONFIG_EARLY_PRINTK_DIRECT
@@ -124,7 +161,12 @@ static struct console *exclusive_console;
  */
 struct console_cmdline
 {
-	char	name[8];			/* Name of the driver	    */
+#ifndef VENDOR_EDIT 
+// wenxian.zhen@Phone.Bsp.Driver, 2016/01/26  modified console name size mismatch
+	char	name[8];			/* Name of the driver	    */ 
+#else
+	char	name[16];			/* Name of the driver	    */
+#endif /*CONFIG_VENDOR_EDIT*/
 	int	index;				/* Minor dev. to use	    */
 	char	*options;			/* Options for the driver   */
 #ifdef CONFIG_A11Y_BRAILLE_CONSOLE
@@ -275,7 +317,7 @@ static u32 log_buf_len = __LOG_BUF_LEN;
 #ifdef CONFIG_MT_PRINTK_UART_CONSOLE
 
 extern int mt_need_uart_console;
-inline void mt_disable_uart()
+void mt_disable_uart(void)
 {
     if (mt_need_uart_console == 0) {
         printk("<< printk console disable >>\n");
@@ -284,7 +326,7 @@ inline void mt_disable_uart()
         printk("<< printk console can't be disabled >>\n");
     }
 }
-inline void mt_enable_uart()
+void mt_enable_uart(void)
 {
     if (mt_need_uart_console == 1) {
         if (printk_disable_uart == 0)
@@ -297,6 +339,22 @@ inline void mt_enable_uart()
 }
 
 #endif
+
+#ifdef CONFIG_MTK_DRAM_LOG_STORE
+inline void get_logbuf_info(phys_addr_t *add, int *size)
+{
+	*size = __LOG_BUF_LEN;
+	*add = virt_to_phys(__log_buf);
+}
+#endif
+
+bool is_logbuf_lock(raw_spinlock_t *lock)
+{
+	if(lock == &logbuf_lock)
+		return true;
+	return false;
+}
+
 /* cpu currently holding logbuf_lock */
 static volatile unsigned int logbuf_cpu = UINT_MAX;
 
@@ -354,16 +412,18 @@ static void log_store(int facility, int level,
 	u32 size, pad_len;
     int this_cpu = smp_processor_id();
     char state = __raw_get_cpu_var(printk_state);
+	/*printk prefix {*/
+    char tbuf[50];
+    unsigned tlen;
+
     if (state == 0) {
     	__raw_get_cpu_var(printk_state) = ' ';
     	state = ' ';
     }
-    /*printk prefix {*/
-    char tbuf[50];
-    unsigned tlen;
+
     if (console_suspended == 0) {
        tlen = snprintf(tbuf, sizeof(tbuf), "%c(%x)[%d:%s]",
-               state, this_cpu, current->pid, current->comm); 
+		       state, this_cpu, current->pid, current->comm);
     } else {
         tlen = snprintf(tbuf, sizeof(tbuf), "%c%x)", state, this_cpu);
     }
@@ -403,6 +463,9 @@ static void log_store(int facility, int level,
 	msg = (struct log *)(log_buf + log_next_idx);
 	//memcpy(log_text(msg), text, text_len);
     memcpy(log_text(msg), tbuf, tlen);
+	if (tlen + text_len > LOG_LINE_MAX) {
+		text_len = LOG_LINE_MAX - tlen;
+	}
 	memcpy(log_text(msg) + tlen, text, text_len);
     text_len += tlen;
 	msg->text_len = text_len;
@@ -965,6 +1028,17 @@ static size_t print_prefix(const struct log *msg, bool syslog, char *buf)
 	}
 
 	len += print_time(msg->ts_nsec, buf ? buf + len : NULL);
+#ifdef CONFIG_MT_ENG_BUILD
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+	if(printk_too_much_enable == 1){
+		if(buf){
+			len += sprintf(buf+len, "<%d>", smp_processor_id());
+		} else {
+			len += snprintf(NULL, 0, "<%d>", smp_processor_id());
+		}
+	}
+#endif
+#endif
 	return len;
 }
 
@@ -1598,6 +1672,23 @@ asmlinkage int vprintk_emit(int facility, int level,
 		zap_locks();
 	}
 
+#ifdef CONFIG_DEBUG_SPINLOCK
+		if (logbuf_lock.owner!= NULL && logbuf_lock.owner == current) {
+			/*
+			 * If a crash is occurring during printk() on this CPU,
+			 * then try to get the crash message out but make sure
+			 * we can't deadlock. Otherwise just return to avoid the
+			 * recursion and return - but flag the recursion so that
+			 * it can be printed at the next appropriate moment:
+			 */
+			if (!oops_in_progress && !lockdep_recursing(current)) {
+				recursion_bug = 1;
+				goto out_restore_irqs;
+			}
+			zap_locks();
+		}
+#endif
+
 	lockdep_off();
 	raw_spin_lock(&logbuf_lock);
 	logbuf_cpu = this_cpu;
@@ -1654,7 +1745,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 
 	if (dict)
 		lflags |= LOG_PREFIX|LOG_NEWLINE;
-        
+
 #ifdef CONFIG_PRINTK_PROCESS_INFO
     if (in_irq_disable)
         __raw_get_cpu_var(printk_state) = '-';
@@ -1665,7 +1756,7 @@ asmlinkage int vprintk_emit(int facility, int level,
     else
         __raw_get_cpu_var(printk_state) = ' ';
 #endif
-	
+
 	if (!(lflags & LOG_NEWLINE)) {
 		/*
 		 * Flush the conflicting buffer. An earlier newline was missing,
@@ -1992,15 +2083,7 @@ void resume_console(void)
 	down(&console_sem);
 	mutex_acquire(&console_lock_dep_map, 0, 0, _RET_IP_);
 	console_suspended = 0;
-#ifdef LOG_TOO_MUCH_WARNING
-//    __raw_get_cpu_var(MT_trace_in_resume_console) = 1;
-//    log_in_resume = 1;
-    console_unlock();
-//    log_in_resume = 0;
-//    __raw_get_cpu_var(MT_trace_in_resume_console) = 0;
-#else
-    console_unlock();
-#endif
+	console_unlock();
 }
 EXPORT_SYMBOL_GPL(resume_console);
 
@@ -2077,7 +2160,81 @@ int is_console_locked(void)
 {
 	return console_locked;
 }
+#ifdef CONFIG_MT_ENG_BUILD
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+static int store_log_file(unsigned long long now_time)
+{
+	char buff[LOG_LINE_MAX + PREFIX_MAX];
+	u32 log_index;
+	u64 log_seq;
+	size_t count = 0;
+	int line_count = 0;
+	int mark_count = 0;
+	char *ptr1 = NULL, *ptr2 = NULL;
+	struct log *msg;
+	enum log_flags prev = 0;
+	unsigned int prefix;
 
+	if(log_much == NULL)
+		return 1;
+	if (detect_count < DETECT_COUNT_MIN) {
+		detect_count = DETECT_COUNT_MIN;
+		return 1;
+	}
+	log_count = 0;
+	raw_spin_lock(&logbuf_lock);
+	log_index = log_first_idx;
+	log_seq = log_first_seq;
+	while(log_seq < console_seq) {
+		msg = log_from_idx(log_index);
+		if (msg->ts_nsec > now_time) {
+			count = msg_print_text(msg, prev, true, buff, sizeof(buff));
+			prev = msg->flags;
+			prefix = (msg->facility << 3) | msg->level;
+			memcpy(log_much + log_count, buff, count);
+			log_count += count;
+			line_count++;
+			ptr1 = strstr(buff, MARK_STRING_1);
+			ptr2 = strstr(buff, MARK_STRING_2);
+			if (ptr1 != NULL && ptr2 != NULL)
+				mark_count++;
+			else if (prefix > 7)
+				mark_count++;
+		}
+		log_index = log_next(log_index);
+		log_seq++;
+	}
+	raw_spin_unlock(&logbuf_lock);
+	if (line_count > detect_count/2 && mark_count > detect_count/10)
+		return 0;
+	return 1;
+}
+
+static int log_much_show(struct seq_file *m, void *v)
+{
+	if(log_much == NULL) {
+		seq_printf(m,"log buff is null.\n");
+		return 0;
+	}
+	seq_write(m, log_much, log_count);
+	return 0;
+}
+
+static int log_much_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, log_much_show, inode->i_private);
+}
+
+static const struct file_operations log_much_ops = {
+	.owner = THIS_MODULE,
+	.open = log_much_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+#endif
+#endif
 static void console_cont_flush(char *text, size_t size)
 {
 	unsigned long flags;
@@ -2121,10 +2278,6 @@ out:
  *
  * console_unlock(); may be called from any context.
  */
-#ifdef LOG_TOO_MUCH_WARNING
-static int console_log_max = 400000;
-static int already_skip_log;
-#endif
 void console_unlock(void)
 {
 	static char text[LOG_LINE_MAX + PREFIX_MAX];
@@ -2132,13 +2285,16 @@ void console_unlock(void)
 	unsigned long flags;
 	bool wake_klogd = false;
 	bool retry;
-#ifdef LOG_TOO_MUCH_WARNING
-    unsigned long total_log_size = 0;
-    unsigned long long t1 = 0, t2 = 0;
-    char aee_str[512];
-    int org_loglevel = console_loglevel;
+#ifdef CONFIG_MT_ENG_BUILD
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+	unsigned long long t1 = 0;
+	char aee_str[512];
+	int org_loglevel = console_loglevel;
+	static u64 time_count;
+	static int line_count, size_count;
+	int ret = 0;
 #endif
-
+#endif
 	if (console_suspended) {
 		up(&console_sem);
 		return;
@@ -2155,12 +2311,13 @@ again:
 		int level;
 
 		raw_spin_lock_irqsave(&logbuf_lock, flags);
-#ifdef LOG_TOO_MUCH_WARNING /*For Resume log too much*/
+/*
+#ifdef LOG_TOO_MUCH_WARNING
         if (log_in_resume) {
             t1 = sched_clock();
         }
 #endif
-
+*/
 		if (seen_seq != log_next_seq) {
 			wake_klogd = true;
 			seen_seq = log_next_seq;
@@ -2203,40 +2360,56 @@ skip:
 		raw_spin_unlock(&logbuf_lock);
 
 		stop_critical_timings();	/* don't trace print latency */
-#ifdef LOG_TOO_MUCH_WARNING
-        /*
-           For uart console, 10us/per chars
-           400,000 chars = need to wait 4.0 sec
-                normal case: 4sec
-         */
-        if (log_in_resume) {
-            org_loglevel = console_loglevel;
-            console_loglevel = 4;
-        }
-        total_log_size += len;
-        if (total_log_size < console_log_max)
-		    call_console_drivers(level, text, len);
-        else if (!already_skip_log) {
-            sprintf(aee_str, "PRINTK too much:%lu", total_log_size);
-            aee_kernel_warning(aee_str, "Need to shrink kernel log");
-            already_skip_log = 1;
-        }
-        /**/
-        start_critical_timings();
-        /* For Resume log too much*/
-        if (log_in_resume) {
-            t2 = sched_clock();
-            console_loglevel = org_loglevel;
-            if (t2 - t1 > 100000000) {
-                sprintf( aee_str,"[RESUME CONSOLE too long:%lluns>100ms] s:%lluns, e:%lluns\n", t2 - t1, t1, t2);
-                aee_kernel_warning(aee_str, "Need to shrink kernel log");
-            }
-        }
+#ifdef CONFIG_MT_ENG_BUILD
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+		if(printk_too_much_enable == 1 ) {
+			if (log_in_resume) {
+				org_loglevel = console_loglevel;
+				console_loglevel = 4;
+			}
 
-        /**/
-#else
+			t1 = sched_clock();
+			if (time_count > t1) {
+				call_console_drivers(level, text, len);
+			} else if (t1 - time_count > DETECT_TIME) {
+				line_count = 1;
+				size_count = len;
+				time_count = t1;
+				do_div(time_count, 1000000000);
+				time_count = time_count * 1000000000;
+				call_console_drivers(level, text, len);
+			} else if (line_count > detect_count && size_count > detect_count * 100) {
+		/* detect log too much, store log buff to file */
+				ret = store_log_file(time_count);
+				do_div(time_count, 1000000000);
+				if (ret == 0) {
+					sprintf(aee_str, "PRINTK too much:%d, size: %d, time: %llu, %llu.\n", line_count, size_count, time_count, t1);
+	/*				aee_kernel_exception(aee_str, "Need to shrink kernel log"); */
+					aee_kernel_exception_api(__FILE__, __LINE__,  DB_OPT_PRINTK_TOO_MUCH, aee_str, "Need to shrink kernel log");
+	/*				aee_kernel_warning(aee_str, "Need to shrink kernel log");*/
+				}
+				line_count = 0;
+				size_count = 0;
+				time_count = time_count + DELAY_TIME;
+				time_count = time_count * 1000000000;
+/*				printk_too_much_enable = 0;*/
+			} else {
+				line_count++;
+				size_count += len;
+				call_console_drivers(level, text, len);
+			}
+		} else {
+			call_console_drivers(level, text, len);
+		}
+
         start_critical_timings();
-        call_console_drivers(level, text, len);
+#else
+		start_critical_timings();
+		call_console_drivers(level, text, len);
+#endif
+#else
+		start_critical_timings();
+		call_console_drivers(level, text, len);
 #endif
 		local_irq_restore(flags);
 	}
@@ -2433,6 +2606,12 @@ void register_console(struct console *newcon)
 	 */
 	for (i = 0; i < MAX_CMDLINECONSOLES && console_cmdline[i].name[0];
 			i++) {
+#ifdef VENDOR_EDIT 
+// wenxian.zhen@Phone.Bsp.Driver, 2016/01/26  added for console name size mismatch
+		BUILD_BUG_ON(sizeof(console_cmdline[i].name) !=
+ 				    		 sizeof(newcon->name)); 
+#endif /*CONFIG_VENDOR_EDIT*/
+				
 		if (strcmp(console_cmdline[i].name, newcon->name) != 0)
 			continue;
 		if (newcon->index >= 0 &&
@@ -2575,7 +2754,11 @@ EXPORT_SYMBOL(unregister_console);
 static int __init printk_late_init(void)
 {
 	struct console *con;
-
+#ifdef CONFIG_MT_ENG_BUILD
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+	struct proc_dir_entry *entry;
+#endif
+#endif
 	for_each_console(con) {
 		if (!keep_bootcon && con->flags & CON_BOOT) {
 			printk(KERN_INFO "turn off boot console %s%d\n",
@@ -2584,6 +2767,16 @@ static int __init printk_late_init(void)
 		}
 	}
 	hotcpu_notifier(console_cpu_notify, 0);
+#ifdef CONFIG_MT_ENG_BUILD
+#ifdef CONFIG_LOG_TOO_MUCH_WARNING
+	entry = proc_create("log_much", 0444, NULL, &log_much_ops);
+	if (!entry) {
+		pr_err("printk: failed to create proc log much entry\n");
+		return 1;
+	}
+	log_much = kmalloc(__LOG_BUF_LEN, GFP_KERNEL);
+#endif
+#endif
 	return 0;
 }
 late_initcall(printk_late_init);

@@ -17,7 +17,7 @@ typedef struct _GED_DEBUGFS_PRIV_DATA_
 	void*                   pvData;
 } GED_DEBUGFS_PRIV_DATA;
 //-----------------------------------------------------------------------------
-static GED_ERROR ged_debugFS_open(struct inode *psINode, struct file *psFile)
+static int ged_debugFS_open(struct inode *psINode, struct file *psFile)
 {
 	GED_DEBUGFS_PRIV_DATA *psPrivData = (GED_DEBUGFS_PRIV_DATA *)psINode->i_private;
 	int iResult;

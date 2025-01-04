@@ -32,9 +32,6 @@
  *   Chipeng Chang (mtk02308)
  *
  *------------------------------------------------------------------------------
- * $Revision: #1 $
- * $Modtime:$
- * $Log:$
  *
  *
  *******************************************************************************/
@@ -67,11 +64,18 @@
 /*****************************************************************************
  *                 FUNCTION       D E F I N I T I O N
  *****************************************************************************/
+#ifndef CONFIG_MTK_CLKMGR
+#include <linux/clk.h>
 
+extern void AudDrv_Clk_probe(void *dev);
+extern void AudDrv_Clk_Deinit(void *dev);
+void AudDrv_AUDINTBUS_Sel(int parentidx);
+
+#endif
 
 void AudDrv_Clk_AllOn(void);
 
-void Auddrv_Bus_Init( void);
+void Auddrv_Bus_Init(void);
 
 void AudDrv_Clk_Power_On(void);
 void AudDrv_Clk_Power_Off(void);
@@ -116,4 +120,3 @@ void AudDrv_Emi_Clk_Off(void);
 
 
 #endif
-

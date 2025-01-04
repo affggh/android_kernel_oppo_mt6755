@@ -1,7 +1,6 @@
 #ifndef __CONN_MD_EXP_H_
 #define __CONN_MD_EXP_H_
 
-
 #if defined(CONFIG_MTK_ECCCI_DRIVER) || defined(CONFIG_MTK_ECCCI_DRIVER_MODULE)
 #include "port_ipc.h"		/*data structure is defined here, mediatek/kernel/drivers/eccci */
 #include "ccci_ipc_task_ID.h"	/*IPC task id is defined here, mediatek/kernel/drivers/eccci */
@@ -27,7 +26,6 @@ typedef enum {
 	CONN_MD_ERR_OTHERS = -4,
 
 } CONN_MD_ERR_CODE;
-
 
 /*For IDC test*/
 typedef int (*CONN_MD_MSG_RX_CB) (ipc_ilm_t *ilm);

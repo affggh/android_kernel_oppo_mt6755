@@ -125,7 +125,6 @@ static struct i2c_driver tps65132_iic_driver = {
     .id_table	= tps65132_id,
     .probe		= tps65132_probe,
     .remove		= tps65132_remove,
-    //.detect		= mt6605_detect,
     .driver		= {
     .owner	= THIS_MODULE,
     .name	= "tps65132",
@@ -680,7 +679,6 @@ static unsigned int lcm_compare_id(void)
 
 	unsigned char buffer[5];
 	unsigned int array[16];  
-	int i;
 	unsigned int lcd_id = 0;
 	SET_RESET_PIN(1);
     MDELAY(10);

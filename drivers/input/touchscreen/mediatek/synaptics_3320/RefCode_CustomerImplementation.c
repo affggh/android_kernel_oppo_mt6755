@@ -56,7 +56,7 @@ int Read8BitRegisters(unsigned short regAddr, unsigned char *data, int length)
 	int rst = 0;
 	if( ds4_i2c_client == NULL)
 	{
-		printk("s3528 ds4_i2c_client is null");
+		pr_debug("s3528 ds4_i2c_client is null");
 		return -1;
 	}
 	
@@ -78,7 +78,7 @@ int ReadF54BitRegisters(unsigned short regAddr, unsigned char *data, int length)
 	int rst = 0;
 	if( ds4_i2c_client == NULL)
 	{
-		printk("s3528 ds4_i2c_client is null");
+		pr_debug("s3528 ds4_i2c_client is null");
 		return -1;
 	}
 	
@@ -98,7 +98,7 @@ int Write8BitRegisters(unsigned short regAddr, unsigned char *data, int length)
 	int rst = 0;
 	if(ds4_i2c_client == NULL)
 		{
-			printk("s3528 ds4_i2c_client is null");
+			pr_debug("s3528 ds4_i2c_client is null");
 			return -1;
 		}
 
@@ -124,7 +124,7 @@ int write_file(char *filename, char *data)
 
 	fd = sys_open(filename, O_WRONLY|O_CREAT|O_APPEND, 0666);
 	if (fd < 0) {
-		printk("[s3528_write_file] :  Open file error [ %d ]\n", fd);
+		pr_debug("[s3528_write_file] :  Open file error [ %d ]\n", fd);
 		return fd;
 	} else {
 		sys_write(fd, data, strlen(data));
@@ -147,21 +147,21 @@ int write_log_DS5(char *filename, char *data)
 		set_fs(KERNEL_DS);
 		if(filename == NULL){
 			fd = sys_open(fname, O_WRONLY|O_CREAT|O_APPEND, 0666);
-			printk("write log in /mnt/sdcard/touch_self_test.txt\n");
+			pr_debug("write log in /mnt/sdcard/touch_self_test.txt\n");
 		} else{
 			fd = sys_open(filename, O_WRONLY|O_CREAT, 0666);
-			printk("write log in /sns/touch/cap_diff_test.txt\n");
+			pr_debug("write log in /sns/touch/cap_diff_test.txt\n");
 		}
 
-		printk("[s3528-write_log]write file open %s, fd : %d\n", (fd >= 0)? "success": "fail", fd);
+		pr_debug("[s3528-write_log]write file open %s, fd : %d\n", (fd >= 0)? "success": "fail", fd);
 
 		if(fd >= 0) {
 			/*because of erro, this code is blocked.*/
 			/*if(sys_newstat((char __user *) fname, (struct stat *)&fstat) < 0) {
-			  printk("[Touch] cannot read %s stat info\n", fname);
+			  pr_debug("[Touch] cannot read %s stat info\n", fname);
 			  } else {
 			  if(fstat.st_size > 5 * 1024 * 1024) {
-			  printk("[Touch] delete %s\n", fname);
+			  pr_debug("[Touch] delete %s\n", fname);
 			  sys_unlink(fname);
 			  sys_close(fd);
 
@@ -204,13 +204,13 @@ void read_log(char *filename, const struct touch_platform_data *pdata)
 	fd = sys_open(filename, O_RDONLY, 0);
 	buf = kzalloc(1024, GFP_KERNEL);
 
-	printk("[s3528-read_log]read file open %s, fd : %d\n", (fd >= 0)? "success": "fail", fd);
+	pr_debug("[s3528-read_log]read file open %s, fd : %d\n", (fd >= 0)? "success": "fail", fd);
 
 	if (fd >= 0) {
-		printk("[s3528-read_log]open read_log funcion in /sns/touch/cap_diff_test.txt\n",__FUNCTION__);
+		pr_debug("[s3528-read_log]open read_log funcion in /sns/touch/cap_diff_test.txt\n",__FUNCTION__);
 		while(sys_read(fd, buf, 1024)) {
 
-			printk("[s3528-read_log]sys_read success\n");
+			pr_debug("[s3528-read_log]sys_read success\n");
 
 			for(rx_num = 0; rx_num < (ppdata->rx_ch_count) - 1; rx_num++)
 			{
@@ -224,8 +224,8 @@ void read_log(char *filename, const struct touch_platform_data *pdata)
 				data_pos += offset;
 			}
 
-			printk("[s3528-read_log]rx_num = %d, tx_num = %d\n", rx_num, tx_num);
-			printk("[s3528-read_log]rx_ch_count = %d, tx_ch_count = %d\n", ppdata->rx_ch_count, ppdata->tx_ch_count);
+			pr_debug("[s3528-read_log]rx_num = %d, tx_num = %d\n", rx_num, tx_num);
+			pr_debug("[s3528-read_log]rx_ch_count = %d, tx_ch_count = %d\n", ppdata->rx_ch_count, ppdata->tx_ch_count);
 
 			if((rx_num == (ppdata->rx_ch_count) -1) && (tx_num == (ppdata->tx_ch_count) -1))
 				break;
@@ -254,17 +254,17 @@ int get_limit(unsigned char Tx, unsigned char Rx, struct i2c_client client, cons
 	int tx_num = 0;
 	const struct firmware *fwlimit = NULL;
 
-	printk("[s3528-get_limit] Tx=[%d], Rx=[%d]\n", (int)Tx, (int)Rx);
-	printk("[s3528-get_limit] breakpoint = [%s]\n", breakpoint);
+	pr_debug("[s3528-get_limit] Tx=[%d], Rx=[%d]\n", (int)Tx, (int)Rx);
+	pr_debug("[s3528-get_limit] breakpoint = [%s]\n", breakpoint);
 
 	if (pdata->panel_spec == NULL) {
-		printk("panel_spec_file name is null\n");
+		pr_debug("panel_spec_file name is null\n");
 		ret =  -1;
 		goto exit;
 	}
 
 	if(request_firmware(&fwlimit, pdata->panel_spec, &client.dev) < 0) {
-		printk(" request ihex is failed\n");
+		pr_debug(" request ihex is failed\n");
 		ret =  -1;
 		goto exit;
 	}
@@ -274,7 +274,7 @@ int get_limit(unsigned char Tx, unsigned char Rx, struct i2c_client client, cons
 	q = strstr(line, breakpoint) - line;
 
 	if (q < 0) {
-		printk("failed to find breakpoint. The panel_spec_file is wrong");
+		pr_debug("failed to find breakpoint. The panel_spec_file is wrong");
 		ret =  -1;
 		goto exit;
 	}
@@ -286,12 +286,12 @@ int get_limit(unsigned char Tx, unsigned char Rx, struct i2c_client client, cons
 			cipher = 1;
 			for (p = 1; (line[q - p] >= '0') && (line[q - p] <= '9'); p++) {
 				limit_data[tx_num][rx_num] += ((line[q - p] - '0') * cipher);
-				//printk("[r = %d]limit_data[%d][%d] = %d\n", r, tx_num, rx_num, limit_data[tx_num][rx_num]);
+				//pr_debug("[r = %d]limit_data[%d][%d] = %d\n", r, tx_num, rx_num, limit_data[tx_num][rx_num]);
 				cipher *= 10;
 			}
 			if(line[q - p] == '-') {
 				limit_data[tx_num][rx_num] = (-1) * (limit_data[tx_num][rx_num]);
-				//printk("[r = %d]limit_data[%d][%d] = %d\n", r, tx_num, rx_num, limit_data[tx_num][rx_num]);
+				//pr_debug("[r = %d]limit_data[%d][%d] = %d\n", r, tx_num, rx_num, limit_data[tx_num][rx_num]);
 			}
 			r++;
 
@@ -305,7 +305,7 @@ int get_limit(unsigned char Tx, unsigned char Rx, struct i2c_client client, cons
 		q++;
 
 		if (r == (int)Tx * (int)Rx) {
-			printk("panel_spec_file scanning is success\n");
+			pr_debug("panel_spec_file scanning is success\n");
 			break;
 		}
 	}

@@ -23,21 +23,20 @@
 #include <linux/batch.h>
 
 #include <mach/mt_typedefs.h>
-#include <mach/mt_gpio.h>
 #include <mach/mt_pm_ldo.h>
 
 #include <alsps.h>
 
 extern struct alsps_context *alsps_context_obj;
 
-#define SETCALI 1
-#define CLRCALI 2
-#define GETCALI 3
+#define SETCALI			1
+#define CLRCALI			2
+#define GETCALI			3
 
-#define GET_TH_HIGH 	1
+#define GET_TH_HIGH		1
 #define GET_TH_LOW		2
 #define SET_TH			3
-#define GET_TH_RESULT 	4
+#define GET_TH_RESULT	4
 
 int alsps_factory_device_init(void);
 

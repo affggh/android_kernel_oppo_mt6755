@@ -115,8 +115,11 @@ static int nCPU_loading_sum;
 static unsigned long long g_check_cpu_info_flag = 0x0;
 static unsigned long long g_check_batt_info_flag = 0x0;
 static unsigned long long g_check_wifi_info_flag = 0x0;
+static unsigned long long g_check_mobile_info_flag = 0x0;
 
 static int nWifi_throughput;
+static int nMobile_throughput;
+
 /* static int nModem_TxPower = -127;  ///< Indicate invalid value */
 
 /* For enabling time based thermal protection under phone call+AP suspend scenario. */
@@ -133,13 +136,16 @@ static struct delayed_work _mtm_sysinfo_poll_queue;
 /* ************************************ */
 /* Macro */
 /* ************************************ */
+#ifdef CONFIG_MTK_MT_LOGGER
 #define THRML_STORAGE_LOG(msg_id, func_name, ...) \
     do { \
 	if (unlikely(is_dump_mthermal()) && enable_ThermalMonitor) { \
 	    AddThrmlTrace(msg_id, func_name, __VA_ARGS__); \
 	} \
     } while (0)
-
+#else
+#define THRML_STORAGE_LOG(msg_id, func_name, ...)
+#endif
 
 #define THRML_LOG(fmt, args...) \
     do { \
@@ -865,7 +871,16 @@ static int mtk_sysinfo_get_info(unsigned int mask)
 	/* Wifi Index */
 	/* ****************** */
 	if (mask & (THERMAL_SYS_INFO_WIFI | THERMAL_SYS_INFO_MD)) {
-		if (mtk_thermal_get_extra_info(&noextraattr, &attrnames, &attrvalues, &attrunits));	/* TODO: print error log */
+		if (mtk_thermal_get_extra_info(&noextraattr, &attrnames, &attrvalues, &attrunits))
+			/* TODO: print error log */;
+		else {
+				/* THRML_LOG("%s  %d, %d, %d, %d, %d, %d, %d, %d\n",
+				__func__,*(attrvalues +0), *(attrvalues +1), *(attrvalues +2),
+				*(attrvalues +3), *(attrvalues +4), *(attrvalues +5),
+				*(attrvalues +6), *(attrvalues +7)); */
+			nMobile_throughput = *(attrvalues + 7);
+			THRML_LOG("%s Mobile_throughput=%d \n", __func__, nMobile_throughput);
+		}
 	}
 
 	mutex_unlock(&MTM_SYSINFO_LOCK);
@@ -916,6 +931,7 @@ static void _mtm_update_sysinfo(struct work_struct *work)
 		mask |= (g_check_cpu_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_CPU;
 		mask |= (g_check_batt_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_BATT;
 		mask |= (g_check_wifi_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_WIFI;
+		mask |= (g_check_mobile_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_MD;
 
 		mtk_sysinfo_get_info(mask);
 	}
@@ -938,6 +954,7 @@ static void _mtm_decide_new_delay(void)
 		mask |= (g_check_cpu_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_CPU;
 		mask |= (g_check_batt_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_BATT;
 		mask |= (g_check_wifi_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_WIFI;
+		mask |= (g_check_mobile_info_flag == 0ULL) ? 0 : THERMAL_SYS_INFO_MD;
 
 		if (mask != 0x0)
 			new_interval = 1000;
@@ -1061,15 +1078,27 @@ static int _mtkthermal_check_cooler_conditions(struct mtk_thermal_cooler_data *c
 		int i = 0;
 		for (; i < MTK_THERMAL_MONITOR_COOLER_MAX_EXTRA_CONDITIONS; i++) {
 			if (NULL == cldata->condition_last_value[i]) {
-				if (0x0 == cldata->conditions[i][0] ) {
+				if (0x0 == cldata->conditions[i][0]) {
 					ret++;
 				} else if (0 == strncmp(cldata->conditions[i], "EXIT", 4)) {
 					ret++;
 				}
 			} else {
+#if 1 /* [FIX ME] Special case for "condifion of MOBILE"  */
+				if (0 == strncmp(cldata->conditions[i], "MOBILE", 5))  {
+					if	(*cldata->condition_last_value[i] < cldata->threshold[i]) {
+						THRML_LOG("%s MOBILE Condition=%s, last_value=%d, threshold=%d \n",
+							__func__, cldata->conditions[i],
+							(*cldata->condition_last_value[i]), cldata->threshold[i]);
+						ret++;
+					}
+				} else if (*cldata->condition_last_value[i] > cldata->threshold[i])
+					ret++;
+#else
 				if (*cldata->condition_last_value[i] > cldata->threshold[i]) {
 					ret++;
 				}
+#endif
 			}
 		}
 		mb();
@@ -1092,6 +1121,7 @@ static void _mtkthermal_clear_cooler_conditions(struct mtk_thermal_cooler_data *
 	g_check_cpu_info_flag &= (~(1ULL << cldata->id));
 	g_check_batt_info_flag &= (~(1ULL << cldata->id));
 	g_check_wifi_info_flag &= (~(1ULL << cldata->id));
+	g_check_mobile_info_flag &= (~(1ULL << cldata->id));
 
 	_mtm_decide_new_delay();
 }
@@ -1197,6 +1227,11 @@ static ssize_t _mtkthermal_cooler_write(struct file *file, const char __user *bu
 				g_check_wifi_info_flag |= (1ULL << mcdata->id);
 				THRML_LOG("%s wifi flag: %016llx, id=%d\n", __func__,
 					  g_check_wifi_info_flag, mcdata->id);
+			} else if (0 == strncmp(mcdata->conditions[i], "MOBILE", 5)) {
+				mcdata->condition_last_value[i] = &nMobile_throughput;
+				g_check_mobile_info_flag |= (1ULL << mcdata->id);
+				THRML_LOG("%s mobile flag: %016llx, id=%d\n", __func__,
+					  g_check_mobile_info_flag, mcdata->id);
 			} else {
 				/* normal thermal zones */
 				mcdata->condition_last_value[i] = NULL;

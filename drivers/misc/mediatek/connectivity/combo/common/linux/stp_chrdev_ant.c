@@ -443,9 +443,7 @@ static INT32 ANT_DownLoad_RAM_Code(unsigned long ver)
 
 	if ((IS_ERR(pPatchExtFile))) {
 		ANT_ERR_FUNC("failed to open  %s\r\n", ANT_BUILT_IN_PATCH_FILE_NAME);
-		filp_close(pPatchExtFile, NULL);
-		set_fs(old_fs);
-		return 0;
+		return -1;
 	} else {
 		ANT_INFO_FUNC("Open %s\r\n", ANT_BUILT_IN_PATCH_FILE_NAME);
 
@@ -462,7 +460,7 @@ static INT32 ANT_DownLoad_RAM_Code(unsigned long ver)
 		if (lFileLen < 0) {
 			ANT_ERR_FUNC("Patch ext error len %d\n", lFileLen);
 			filp_close(pPatchExtFile, NULL);
-			return 0;
+			return -2;
 		} else {
 			ANT_DBG_FUNC("Patch ext file size %d\n", lFileLen);
 			/* rewind(pPatchExtFile); */
@@ -488,19 +486,14 @@ static INT32 ANT_DownLoad_RAM_Code(unsigned long ver)
 						ANT_ERR_FUNC
 						    ("fread ant rom code file fails errno\n");
 						filp_close(pPatchExtFile, NULL);
-						return 0;
+						return -3;
 						break;
 					} else {
 						ANT_DBG_FUNC("The %d second read file\n", i);
 					}
-				}
-
-				else {
-
+				} else {
 					ANT_DBG_FUNC("The ram code file location is %llx\n",
 						      pPatchExtFile->f_pos);
-
-
 					if ((pPatchExtFile->f_op->
 					     read(pPatchExtFile, pbPatchExtBin,
 						  (lFileLen - (i * read_ram_code_length)),
@@ -508,7 +501,7 @@ static INT32 ANT_DownLoad_RAM_Code(unsigned long ver)
 						ANT_ERR_FUNC
 						    ("fread ant rom code file fails errno\n");
 						filp_close(pPatchExtFile, NULL);
-						return 0;
+						return -4;
 						break;
 					} else {
 						ANT_DBG_FUNC("The last read file\n");
@@ -516,7 +509,6 @@ static INT32 ANT_DownLoad_RAM_Code(unsigned long ver)
 				}
 
 				/* set lengnth and status */
-
 				if (0 == i) {
 					download_status = WMT_ANT_RAM_START_PKT;
 					transport_length = read_ram_code_length;
@@ -533,7 +525,7 @@ static INT32 ANT_DownLoad_RAM_Code(unsigned long ver)
 							     transport_length, download_status)) {
 					ANT_ERR_FUNC("Download ant rom code file fails\n");
 					filp_close(pPatchExtFile, NULL);
-					return 0;
+					return -5;
 					break;
 				}
 				i++;
@@ -541,7 +533,6 @@ static INT32 ANT_DownLoad_RAM_Code(unsigned long ver)
 			}
 
 			/*
-
 			   pbPatchExtBin = (unsigned char*)malloc(lFileLen);
 			   if(pbPatchExtBin){
 
@@ -549,7 +540,6 @@ static INT32 ANT_DownLoad_RAM_Code(unsigned long ver)
 			   dwPatchExtLen = szReadLen;
 
 			   }
-
 			 */
 		}
 

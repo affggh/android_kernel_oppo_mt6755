@@ -62,22 +62,29 @@
 static char *decode_ep0stage(u8 stage)
 {
 	switch (stage) {
-	case MUSB_EP0_STAGE_IDLE:	return "idle";
-	case MUSB_EP0_STAGE_SETUP:	return "setup";
-	case MUSB_EP0_STAGE_TX:		return "in";
-	case MUSB_EP0_STAGE_RX:		return "out";
-	case MUSB_EP0_STAGE_ACKWAIT:	return "wait";
-	case MUSB_EP0_STAGE_STATUSIN:	return "in/status";
-	case MUSB_EP0_STAGE_STATUSOUT:	return "out/status";
-	default:			return "?";
+	case MUSB_EP0_STAGE_IDLE:
+		return "idle";
+	case MUSB_EP0_STAGE_SETUP:
+		return "setup";
+	case MUSB_EP0_STAGE_TX:
+		return "in";
+	case MUSB_EP0_STAGE_RX:
+		return "out";
+	case MUSB_EP0_STAGE_ACKWAIT:
+		return "wait";
+	case MUSB_EP0_STAGE_STATUSIN:
+		return "in/status";
+	case MUSB_EP0_STAGE_STATUSOUT:
+		return "out/status";
+	default:
+		return "?";
 	}
 }
 
 
 static int
 forward_to_driver(struct musb *musb, const struct usb_ctrlrequest *ctrlrequest)
-__releases(musb->lock)
-__acquires(musb->lock)
+__releases(musb->lock) __acquires(musb->lock)
 {
 	int usb_state = 0;
 	int retval;
@@ -89,12 +96,12 @@ __acquires(musb->lock)
 	retval = musb->gadget_driver->setup(&musb->g, ctrlrequest);
 	os_printk(K_DEBUG, "%s retval=%d\n", __func__, retval);
 
-	if(ctrlrequest->bRequest == USB_REQ_SET_CONFIGURATION){
-        if (ctrlrequest->wValue & 0xff)
-	        usb_state = USB_CONFIGURED;
-        else
-	        usb_state = USB_UNCONFIGURED;
-	    musb_sync_with_bat(musb,usb_state); /* annonce to the battery */
+	if (ctrlrequest->bRequest == USB_REQ_SET_CONFIGURATION) {
+		if (ctrlrequest->wValue & 0xff)
+			usb_state = USB_CONFIGURED;
+		else
+			usb_state = USB_UNCONFIGURED;
+		musb_sync_with_bat(musb, usb_state);	/* annonce to the battery */
 	}
 	spin_lock(&musb->lock);
 	return retval;
@@ -104,9 +111,7 @@ __acquires(musb->lock)
 /* handle a standard GET_STATUS request
  * Context:  caller holds controller lock
  */
-static int service_tx_status_request(
-	struct musb *musb,
-	const struct usb_ctrlrequest *ctrlrequest)
+static int service_tx_status_request(struct musb *musb, const struct usb_ctrlrequest *ctrlrequest)
 {
 	int handled = 1, maxp;
 	u8 result[2], epnum = 0;
@@ -120,64 +125,61 @@ static int service_tx_status_request(
 	case USB_RECIP_DEVICE:
 		result[0] = musb->is_self_powered << USB_DEVICE_SELF_POWERED;
 		result[0] |= musb->may_wakeup << USB_DEVICE_REMOTE_WAKEUP;
-		//superspeed only
-		if (musb->g.speed == USB_SPEED_SUPER)
-		{
+		/* superspeed only */
+		if (musb->g.speed == USB_SPEED_SUPER) {
 			result[0] |= musb->g.pwr_params.bU1Enabled << USB_DEV_STAT_U1_ENABLED;
 			result[0] |= musb->g.pwr_params.bU2Enabled << USB_DEV_STAT_U2_ENABLED;
 		}
 
 		if (musb->g.is_otg) {
-			result[0] |= musb->g.b_hnp_enable
-				<< USB_DEVICE_B_HNP_ENABLE;
-			result[0] |= musb->g.a_alt_hnp_support
-				<< USB_DEVICE_A_ALT_HNP_SUPPORT;
-			result[0] |= musb->g.a_hnp_support
-				<< USB_DEVICE_A_HNP_SUPPORT;
+			result[0] |= musb->g.b_hnp_enable << USB_DEVICE_B_HNP_ENABLE;
+			result[0] |= musb->g.a_alt_hnp_support << USB_DEVICE_A_ALT_HNP_SUPPORT;
+			result[0] |= musb->g.a_hnp_support << USB_DEVICE_A_HNP_SUPPORT;
 		}
-		os_printk(K_DEBUG, "%s result=%x, U1=%x, U2=%x\n", __func__, result[0], musb->g.pwr_params.bU1Enabled, musb->g.pwr_params.bU2Enabled);
+		os_printk(K_DEBUG, "%s result=%x, U1=%x, U2=%x\n", __func__, result[0],
+			  musb->g.pwr_params.bU1Enabled, musb->g.pwr_params.bU2Enabled);
 		break;
 
 	case USB_RECIP_INTERFACE:
 		result[0] = 0;
 		break;
 
-	case USB_RECIP_ENDPOINT: {
-		int		is_in;
-		struct musb_ep	*ep;
-		u32		tmp;
+	case USB_RECIP_ENDPOINT:{
+			int is_in;
+			struct musb_ep *ep;
+			u32 tmp;
 
-		epnum = (u8) ctrlrequest->wIndex;
-		if (!epnum) {
-			result[0] = 0;
-			break;
-		}
+			epnum = (u8) ctrlrequest->wIndex;
+			if (!epnum) {
+				result[0] = 0;
+				break;
+			}
 
-		is_in = epnum & USB_DIR_IN;
-		if (is_in) {
-			epnum &= 0x0f;
-			ep = &musb->endpoints[epnum].ep_in;
-		} else {
-			ep = &musb->endpoints[epnum].ep_out;
-		}
+			is_in = epnum & USB_DIR_IN;
+			if (is_in) {
+				epnum &= 0x0f;
+				ep = &musb->endpoints[epnum].ep_in;
+			} else {
+				ep = &musb->endpoints[epnum].ep_out;
+			}
 
-		if (epnum >= MUSB_C_NUM_EPS || !ep->desc) {
-			handled = -EINVAL;
-			break;
-		}
+			if (epnum >= MUSB_C_NUM_EPS || !ep->desc) {
+				handled = -EINVAL;
+				break;
+			}
 
-		if (is_in)
-		{
-            tmp = (USB_ReadCsr32(U3D_TX1CSR0, epnum) & TX_SENDSTALL) || (USB_ReadCsr32(U3D_TX1CSR0, epnum) & TX_SENTSTALL);
-            //tmp = USB_ReadCsr16(U3D_TX1CSR0, epnum) & TX_SENDSTALL;
-		}
-		else
-		{
-			tmp = (USB_ReadCsr32(U3D_RX1CSR0, epnum) & RX_SENDSTALL) || (USB_ReadCsr32(U3D_RX1CSR0, epnum) & RX_SENTSTALL);
-		}
+			if (is_in) {
+				tmp = (USB_ReadCsr32(U3D_TX1CSR0, epnum) & TX_SENDSTALL)
+				    || (USB_ReadCsr32(U3D_TX1CSR0, epnum) & TX_SENTSTALL);
+				/* tmp = USB_ReadCsr16(U3D_TX1CSR0, epnum) & TX_SENDSTALL; */
+			} else {
+				tmp = (USB_ReadCsr32(U3D_RX1CSR0, epnum) & RX_SENDSTALL)
+				    || (USB_ReadCsr32(U3D_RX1CSR0, epnum) & RX_SENTSTALL);
+			}
 
-		result[0] = tmp ? 1 : 0;
-		} break;
+			result[0] = tmp ? 1 : 0;
+		}
+		break;
 
 	default:
 		/* class, vendor, etc ... delegate */
@@ -187,12 +189,12 @@ static int service_tx_status_request(
 
 	/* fill up the fifo; caller updates csr0 */
 	if (handled > 0) {
-		u16	len = le16_to_cpu(ctrlrequest->wLength);
+		u16 len = le16_to_cpu(ctrlrequest->wLength);
 
 		if (len > 2)
 			len = 2;
 		maxp = musb->endpoints->max_packet_sz_tx;
-		mu3d_hal_write_fifo( 0,len,result, maxp);
+		mu3d_hal_write_fifo(0, len, result, maxp);
 	}
 
 	return handled;
@@ -209,23 +211,21 @@ static int service_tx_status_request(
  *
  * Context:  caller holds controller lock
  */
-static int
-service_in_request(struct musb *musb, const struct usb_ctrlrequest *ctrlrequest)
+static int service_in_request(struct musb *musb, const struct usb_ctrlrequest *ctrlrequest)
 {
 	int handled = 0;	/* not handled */
 
 	os_printk(K_DEBUG, "%s\n", __func__);
 
 	if ((ctrlrequest->bRequestType & USB_TYPE_MASK)
-			== USB_TYPE_STANDARD) {
+	    == USB_TYPE_STANDARD) {
 		switch (ctrlrequest->bRequest) {
 		case USB_REQ_GET_STATUS:
 			os_printk(K_DEBUG, "USB_REQ_GET_STATUS\n");
-			handled = service_tx_status_request(musb,
-					ctrlrequest);
+			handled = service_tx_status_request(musb, ctrlrequest);
 			break;
 
-		/* case USB_REQ_SYNC_FRAME: */
+			/* case USB_REQ_SYNC_FRAME: */
 
 		default:
 			break;
@@ -249,11 +249,11 @@ static void musb_g_ep0_giveback(struct musb *musb, struct usb_request *req)
  */
 static inline void musb_try_b_hnp_enable(struct musb *musb)
 {
-	u32		devctl;
+	u32 devctl;
 
 	dev_dbg(musb->controller, "HNP: Setting HR\n");
 	devctl = os_readl(U3D_DEVICE_CONTROL);
-	//os_writeb(mbase + MAC_DEVICE_CONTROL, devctl | USB_DEVCTL_HOSTREQUEST); //We temporarily disable this because the bitfile doesn't support yet.
+	/* os_writeb(mbase + MAC_DEVICE_CONTROL, devctl | USB_DEVCTL_HOSTREQUEST); //We temporarily disable this because the bitfile doesn't support yet. */
 }
 
 /*
@@ -268,9 +268,8 @@ static inline void musb_try_b_hnp_enable(struct musb *musb)
  */
 static int
 service_zero_data_request(struct musb *musb,
-		struct usb_ctrlrequest *ctrlrequest)
-__releases(musb->lock)
-__acquires(musb->lock)
+			  struct usb_ctrlrequest *ctrlrequest)
+__releases(musb->lock) __acquires(musb->lock)
 {
 	int handled = -EINVAL;
 	const u8 recip = ctrlrequest->bRequestType & USB_RECIP_MASK;
@@ -282,7 +281,7 @@ __acquires(musb->lock)
 
 	/* the gadget driver handles everything except what we MUST handle */
 	if ((ctrlrequest->bRequestType & USB_TYPE_MASK)
-			== USB_TYPE_STANDARD) {
+	    == USB_TYPE_STANDARD) {
 		switch (ctrlrequest->bRequest) {
 		case USB_REQ_SET_ISOCH_DELAY:
 			handled = 1;
@@ -297,132 +296,150 @@ __acquires(musb->lock)
 		case USB_REQ_CLEAR_FEATURE:
 			switch (recip) {
 			case USB_RECIP_DEVICE:
-				switch (ctrlrequest->wValue)
-				{
-					case USB_DEVICE_REMOTE_WAKEUP:
-						musb->may_wakeup = 0;
-						handled = 1;
-						break;
-					case USB_DEVICE_U1_ENABLE:
-					case USB_DEVICE_U2_ENABLE:
-						//superspeed only
-						if (musb->g.speed == USB_SPEED_SUPER) {
-							//forward the request because of device state check
-							handled = forward_to_driver(musb, ctrlrequest);
+				switch (ctrlrequest->wValue) {
+				case USB_DEVICE_REMOTE_WAKEUP:
+					musb->may_wakeup = 0;
+					handled = 1;
+					break;
+				case USB_DEVICE_U1_ENABLE:
+				case USB_DEVICE_U2_ENABLE:
+					/* superspeed only */
+					if (musb->g.speed == USB_SPEED_SUPER) {
+						/* forward the request because of device state check */
+						handled = forward_to_driver(musb, ctrlrequest);
 
 #ifdef CONFIG_USBIF_COMPLIANCE
-							if (handled >= 0) {
-								tmp = (ctrlrequest->wValue == USB_DEVICE_U1_ENABLE) ?
-								SW_U1_ACCEPT_ENABLE : SW_U2_ACCEPT_ENABLE;
+						if (handled >= 0) {
+							tmp =
+							    (ctrlrequest->wValue ==
+							     USB_DEVICE_U1_ENABLE) ?
+							    SW_U1_ACCEPT_ENABLE :
+							    SW_U2_ACCEPT_ENABLE;
 
-								os_printk(K_INFO, "%s CLEAR_FEATURE reg=%x, tmp=%x\n",
-									__func__, os_readl(U3D_LINK_POWER_CONTROL), tmp);
+							os_printk(K_INFO,
+								  "%s CLEAR_FEATURE reg=%x, tmp=%x\n",
+								  __func__,
+								  os_readl(U3D_LINK_POWER_CONTROL),
+								  tmp);
 
-								os_clrmsk(U3D_LINK_POWER_CONTROL, tmp);
+							os_clrmsk(U3D_LINK_POWER_CONTROL, tmp);
 
-								os_printk(K_INFO, "%s CLEAR_FEATURE reg=%x\n",
-									__func__, os_readl(U3D_LINK_POWER_CONTROL));
+							os_printk(K_INFO,
+								  "%s CLEAR_FEATURE reg=%x\n",
+								  __func__,
+								  os_readl(U3D_LINK_POWER_CONTROL));
 
-								if (ctrlrequest->wValue == USB_DEVICE_U1_ENABLE)
-									musb->g.pwr_params.bU1Enabled = 0;
-								else
-									musb->g.pwr_params.bU2Enabled = 0;
-							} else {
-								os_printk(K_ERR, "[COM] composite driver can not handle this control request!\n");
-							}
-#else
-							/*
-							 * DO NOT SUPPORT U1/U2 for IOT. Return STALL.
-							 * Under TUSB7340 + Lenovo MT-M5852-B88, IOT test failed.
-							 */
-							handled = -EINVAL;
-
-#endif /* NEVER */
+							if (ctrlrequest->wValue ==
+							    USB_DEVICE_U1_ENABLE)
+								musb->g.pwr_params.bU1Enabled = 0;
+							else
+								musb->g.pwr_params.bU2Enabled = 0;
+						} else {
+							os_printk(K_ERR,
+								  "[COM] composite driver can not handle this control request!\n");
 						}
-						break;
-					default:
+#else
+						/*
+						 * DO NOT SUPPORT U1/U2 for IOT. Return STALL.
+						 * Under TUSB7340 + Lenovo MT-M5852-B88, IOT test failed.
+						 */
 						handled = -EINVAL;
-						break;
+
+#endif				/* NEVER */
+					}
+					break;
+				default:
+					handled = -EINVAL;
+					break;
 				}
 				break;
 			case USB_RECIP_INTERFACE:
-				//superspeed only
+				/* superspeed only */
 				if ((ctrlrequest->wValue == USB_INTRF_FUNC_SUSPEND)
-					&& (musb->g.speed == USB_SPEED_SUPER))
-					//forward the request because of device state check
+				    && (musb->g.speed == USB_SPEED_SUPER))
+					/* forward the request because of device state check */
 					handled = forward_to_driver(musb, ctrlrequest);
 				break;
 			case USB_RECIP_ENDPOINT:{
-				const u8		epnum =
-					ctrlrequest->wIndex & 0x0f;
-				struct musb_ep		*musb_ep;
-				struct musb_hw_ep	*ep;
-				struct musb_request	*request;
-				int			is_in;
-				u32			csr;
+					const u8 epnum = ctrlrequest->wIndex & 0x0f;
+					struct musb_ep *musb_ep;
+					struct musb_hw_ep *ep;
+					struct musb_request *request;
+					int is_in;
+					u32 csr;
 
-				if (epnum == 0 || epnum >= MUSB_C_NUM_EPS ||
-				    ctrlrequest->wValue != USB_ENDPOINT_HALT)
-					break;
+					if (epnum == 0 || epnum >= MUSB_C_NUM_EPS ||
+					    ctrlrequest->wValue != USB_ENDPOINT_HALT)
+						break;
 
-				ep = musb->endpoints + epnum;
-				is_in = ctrlrequest->wIndex & USB_DIR_IN;
-				if (is_in)
-					musb_ep = &ep->ep_in;
-				else
-					musb_ep = &ep->ep_out;
-				if (!musb_ep->desc)
-					break;
+					ep = musb->endpoints + epnum;
+					is_in = ctrlrequest->wIndex & USB_DIR_IN;
+					if (is_in)
+						musb_ep = &ep->ep_in;
+					else
+						musb_ep = &ep->ep_out;
+					if (!musb_ep->desc)
+						break;
 
-				handled = 1;
-				/* Ignore request if endpoint is wedged */
-				if (musb_ep->wedged)
-					break;
+					handled = 1;
+					/* Ignore request if endpoint is wedged */
+					if (musb_ep->wedged)
+						break;
 
-				if (is_in) {//TX
-					csr = USB_ReadCsr32(U3D_TX1CSR0, epnum) & TX_W1C_BITS;
-					csr = (csr & (~TX_SENDSTALL)) | TX_SENTSTALL;
-					//csr = csr & (~TX_SENDSTALL);
+					if (is_in) {	/* TX */
+						csr =
+						    USB_ReadCsr32(U3D_TX1CSR0, epnum) & TX_W1C_BITS;
+						csr = (csr & (~TX_SENDSTALL)) | TX_SENTSTALL;
+						/* csr = csr & (~TX_SENDSTALL); */
 
-					USB_WriteCsr32(U3D_TX1CSR0, epnum, csr);
+						USB_WriteCsr32(U3D_TX1CSR0, epnum, csr);
 
-					os_printk(K_DEBUG, "&&&&&&&&&&&&&&&&&&&&&&&&&& clear tx stall --> write csr[%d] 0x%04x. new CSR is: 0x%04x\n", epnum, csr, USB_ReadCsr32(U3D_TX1CSR0, epnum));
+						os_printk(K_DEBUG,
+							  "&&&&&&&&&&&&&&&&&&&&&&&&&& clear tx stall --> write csr[%d] 0x%04x. new CSR is: 0x%04x\n",
+							  epnum, csr, USB_ReadCsr32(U3D_TX1CSR0,
+										    epnum));
 
-					os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) | (BIT16<<epnum));//reset TX EP
-					os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) & ~(BIT16<<epnum));//reset reset TX EP
-					os_printk(K_DEBUG, "RST TX%d\n", epnum);
+						os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) | (BIT16 << epnum));	/* reset TX EP */
+						os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) & ~(BIT16 << epnum));	/* reset reset TX EP */
+						os_printk(K_DEBUG, "RST TX%d\n", epnum);
 
-					/* We cannot flush QMU now, because the MSC gadget will not re-submit the CBW request after clear halt. */
+						/* We cannot flush QMU now, because the MSC gadget will not re-submit the CBW request after clear halt. */
 
-					//_ex_mu3d_hal_flush_qmu(epnum, USB_TX);
-					//mu3d_hal_restart_qmu(epnum, USB_TX);
+						/* _ex_mu3d_hal_flush_qmu(epnum, USB_TX); */
+						/* mu3d_hal_restart_qmu(epnum, USB_TX); */
 
-				} else {
-					csr = USB_ReadCsr32(U3D_RX1CSR0, epnum) & RX_W1C_BITS;
-					csr = (csr & (~RX_SENDSTALL)) | RX_SENTSTALL;
+					} else {
+						csr =
+						    USB_ReadCsr32(U3D_RX1CSR0, epnum) & RX_W1C_BITS;
+						csr = (csr & (~RX_SENDSTALL)) | RX_SENTSTALL;
 
-					USB_WriteCsr32(U3D_RX1CSR0, epnum, csr);
+						USB_WriteCsr32(U3D_RX1CSR0, epnum, csr);
 
-					os_printk(K_DEBUG, "&&&&&&&&&&&&&&&&&&&&&&&&&& clear rx stall --> write csr[%d] 0x%04x. new CSR is: 0x%04x\n", epnum, csr, USB_ReadCsr32(U3D_RX1CSR0, epnum) );
+						os_printk(K_DEBUG,
+							  "&&&&&&&&&&&&&&&&&&&&&&&&&& clear rx stall --> write csr[%d] 0x%04x. new CSR is: 0x%04x\n",
+							  epnum, csr, USB_ReadCsr32(U3D_RX1CSR0,
+										    epnum));
 
-					os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) | (1 << epnum));//reset RX EP
-					os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) & (~(1 << epnum)));//reset reset RX EP
-					os_printk(K_DEBUG, "RST RX%d\n", epnum);
-					/* We cannot flush QMU now, because the MSC gadget will not re-submit the CBW request after clear halt. */
+						os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) | (1 << epnum));	/* reset RX EP */
+						os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) & (~(1 << epnum)));	/* reset reset RX EP */
+						os_printk(K_DEBUG, "RST RX%d\n", epnum);
+						/* We cannot flush QMU now, because the MSC gadget will not re-submit the CBW request after clear halt. */
 
-					//_ex_mu3d_hal_flush_qmu(epnum, USB_RX);
-					//mu3d_hal_restart_qmu(epnum, USB_RX);
+						/* _ex_mu3d_hal_flush_qmu(epnum, USB_RX); */
+						/* mu3d_hal_restart_qmu(epnum, USB_RX); */
+					}
+
+					/* Maybe start the first request in the queue */
+					request = next_request(musb_ep);
+					if (!musb_ep->busy && request) {
+						dev_dbg(musb->controller,
+							"restarting the request\n");
+						musb_ep_restart(musb, request);
+					}
+
+					/* select ep0 again */
 				}
-
-				/* Maybe start the first request in the queue */
-				request = next_request(musb_ep);
-				if (!musb_ep->busy && request) {
-					dev_dbg(musb->controller, "restarting the request\n");
-					musb_ep_restart(musb, request);
-				}
-
-				/* select ep0 again */
-				} break;
+				break;
 			default:
 				/* class, vendor, etc ... delegate */
 				handled = 0;
@@ -448,51 +465,43 @@ __acquires(musb->lock)
 					case 1:
 						pr_debug("TEST_J\n");
 						/* TEST_J */
-						musb->test_mode_nr =
-							TEST_J_MODE;
+						musb->test_mode_nr = TEST_J_MODE;
 						break;
 					case 2:
 						/* TEST_K */
 						pr_debug("TEST_K\n");
-						musb->test_mode_nr =
-							TEST_K_MODE;
+						musb->test_mode_nr = TEST_K_MODE;
 						break;
 					case 3:
 						/* TEST_SE0_NAK */
 						pr_debug("TEST_SE0_NAK\n");
-						musb->test_mode_nr =
-							TEST_SE0_NAK_MODE;
+						musb->test_mode_nr = TEST_SE0_NAK_MODE;
 						break;
 					case 4:
 						/* TEST_PACKET */
 						pr_debug("TEST_PACKET\n");
-						musb->test_mode_nr =
-							TEST_PACKET_MODE;
+						musb->test_mode_nr = TEST_PACKET_MODE;
 						break;
 
 					case 0xc0:
 						/* TEST_FORCE_HS */
 						pr_debug("TEST_FORCE_HS\n");
-						musb->test_mode_nr =
-							FORCE_HS;
+						musb->test_mode_nr = FORCE_HS;
 						break;
 					case 0xc1:
 						/* TEST_FORCE_FS */
 						pr_debug("TEST_FORCE_FS\n");
-						musb->test_mode_nr =
-							FORCE_FS;
+						musb->test_mode_nr = FORCE_FS;
 						break;
 					case 0xc2:
 						/* TEST_FIFO_ACCESS */
 						pr_debug("TEST_FIFO_ACCESS\n");
-						musb->test_mode_nr =
-							FIFO_ACCESS;
+						musb->test_mode_nr = FIFO_ACCESS;
 						break;
 					case 0xc3:
 						/* TEST_FORCE_HOST */
 						pr_debug("TEST_FORCE_HOST\n");
-						musb->test_mode_nr =
-							FORCE_HOST;
+						musb->test_mode_nr = FORCE_HOST;
 						break;
 					default:
 						goto stall;
@@ -520,35 +529,41 @@ __acquires(musb->lock)
 					break;
 				case USB_DEVICE_U1_ENABLE:
 				case USB_DEVICE_U2_ENABLE:
-					//superspeed only
-					if (musb->g.speed == USB_SPEED_SUPER)
-					{
-						//forward the request because of device state check
+					/* superspeed only */
+					if (musb->g.speed == USB_SPEED_SUPER) {
+						/* forward the request because of device state check */
 						handled = forward_to_driver(musb, ctrlrequest);
 
 #ifdef CONFIG_USBIF_COMPLIANCE
 						if (handled >= 0) {
 
-							tmp = (ctrlrequest->wValue == USB_DEVICE_U1_ENABLE) ?
-								(SW_U1_ACCEPT_ENABLE) :
-								(SW_U2_ACCEPT_ENABLE);
+							tmp =
+							    (ctrlrequest->wValue ==
+							     USB_DEVICE_U1_ENABLE)
+							    ? (SW_U1_ACCEPT_ENABLE)
+							    : (SW_U2_ACCEPT_ENABLE);
 
-							os_printk(K_INFO, "%s SET_FEATURE %s handled=%d val=%x\n",
-								__func__,
-								(ctrlrequest->wValue == USB_DEVICE_U1_ENABLE)?"U1":"U2",
-								handled, tmp);
+							os_printk(K_INFO,
+								  "%s SET_FEATURE %s handled=%d val=%x\n",
+								  __func__,
+								  (ctrlrequest->wValue ==
+								   USB_DEVICE_U1_ENABLE) ? "U1" :
+								  "U2", handled, tmp);
 
 							os_setmsk(U3D_LINK_POWER_CONTROL, tmp);
 
 							os_printk(K_INFO, "%s SET_FEATURE reg=%x\n",
-  								__func__, os_readl(U3D_LINK_POWER_CONTROL));
+								  __func__,
+								  os_readl(U3D_LINK_POWER_CONTROL));
 
-							if (ctrlrequest->wValue == USB_DEVICE_U1_ENABLE)
+							if (ctrlrequest->wValue ==
+							    USB_DEVICE_U1_ENABLE)
 								musb->g.pwr_params.bU1Enabled = 1;
 							else
 								musb->g.pwr_params.bU2Enabled = 1;
 						} else {
-							os_printk(K_ERR, "[COM] composite driver can not handle this control request!\n");
+							os_printk(K_ERR,
+								  "[COM] composite driver can not handle this control request!\n");
 						}
 #else
 						/*
@@ -557,7 +572,7 @@ __acquires(musb->lock)
 						 */
 						handled = -EINVAL;
 
-#endif /* NEVER */
+#endif				/* NEVER */
 					}
 					break;
 				case USB_DEVICE_DEBUG_MODE:
@@ -571,91 +586,94 @@ stall:
 				break;
 
 			case USB_RECIP_INTERFACE:
-				//superspeed only
+				/* superspeed only */
 				if ((ctrlrequest->wValue == USB_INTRF_FUNC_SUSPEND)
-					&& (musb->g.speed == USB_SPEED_SUPER)) {
-					//forward the request because of device state check
-					//handled = forward_to_driver(musb, ctrlrequest);
+				    && (musb->g.speed == USB_SPEED_SUPER)) {
+					/* forward the request because of device state check */
+					/* handled = forward_to_driver(musb, ctrlrequest); */
 
 					os_printk(K_DEBUG, "wIndex=%x\n", ctrlrequest->wIndex);
 
-					if(ctrlrequest->wIndex & USB_INTRF_FUNC_SUSPEND_LP)
+					if (ctrlrequest->wIndex & USB_INTRF_FUNC_SUSPEND_LP)
 						os_printk(K_DEBUG, "USB_INTRF_FUNC_SUSPEND_LP\n");
-					else if(ctrlrequest->wIndex & USB_INTRF_FUNC_SUSPEND_RW)
+					else if (ctrlrequest->wIndex & USB_INTRF_FUNC_SUSPEND_RW)
 						os_printk(K_DEBUG, "USB_INTRF_FUNC_SUSPEND_RW\n");
 				}
 				os_printk(K_DEBUG, "USB_RECIP_INTERFACE handled=%d\n", handled);
 
-				/* Just pretend that the gadget driver can fully handle this control request*/
+				/* Just pretend that the gadget driver can fully handle this control request */
 				handled = 1;
 
 				break;
 
 			case USB_RECIP_ENDPOINT:{
-				const u8		epnum =
-					ctrlrequest->wIndex & 0x0f;
-				struct musb_ep		*musb_ep;
-				struct musb_hw_ep	*ep;
-				int			is_in;
-				u32			csr;
+					const u8 epnum = ctrlrequest->wIndex & 0x0f;
+					struct musb_ep *musb_ep;
+					struct musb_hw_ep *ep;
+					int is_in;
+					u32 csr;
 
-				if (epnum == 0 || epnum >= MUSB_C_NUM_EPS ||
-				    ctrlrequest->wValue	!= USB_ENDPOINT_HALT)
-					break;
+					if (epnum == 0 || epnum >= MUSB_C_NUM_EPS ||
+					    ctrlrequest->wValue != USB_ENDPOINT_HALT)
+						break;
 
-				ep = musb->endpoints + epnum;
-				is_in = ctrlrequest->wIndex & USB_DIR_IN;
-				if (is_in)
-					musb_ep = &ep->ep_in;
-				else
-					musb_ep = &ep->ep_out;
-				if (!musb_ep->desc)
-					break;
+					ep = musb->endpoints + epnum;
+					is_in = ctrlrequest->wIndex & USB_DIR_IN;
+					if (is_in)
+						musb_ep = &ep->ep_in;
+					else
+						musb_ep = &ep->ep_out;
+					if (!musb_ep->desc)
+						break;
 
-				if (is_in) {//tx
-					csr = USB_ReadCsr32(U3D_TX1CSR0, epnum);
+					if (is_in) {	/* tx */
+						csr = USB_ReadCsr32(U3D_TX1CSR0, epnum);
 
-					if (!(csr & TX_FIFOEMPTY))
-					{
-						/*
+						if (!(csr & TX_FIFOEMPTY)) {
+							/*
 
-						csr &= TX_W1C_BITS; //don't clear W1C bits
-						csr |= USB_TXCSR_FLUSHFIFO;
-						//os_printk(K_DEBUG, "EP%d USB_TXCSR_FLUSHFIFO\n", epnum);
-						SSUSB_WriteCsr16(U3D_TX1CSR0, epnum, csr ); //flush fifo before sendstall. Follow ssusb programming guide.
-						while(USB_ReadCsr16(U3D_TX1CSR0, epnum) & USB_TXCSR_FLUSHFIFO)
-						{
-							cpu_relax();
+							   csr &= TX_W1C_BITS; //don't clear W1C bits
+							   csr |= USB_TXCSR_FLUSHFIFO;
+							   //os_printk(K_DEBUG, "EP%d USB_TXCSR_FLUSHFIFO\n", epnum);
+							   SSUSB_WriteCsr16(U3D_TX1CSR0, epnum, csr ); //flush fifo before sendstall. Follow ssusb programming guide.
+							   while(USB_ReadCsr16(U3D_TX1CSR0, epnum) & USB_TXCSR_FLUSHFIFO)
+							   {
+							   cpu_relax();
+							   }
+
+							 */
+
+							os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) | (BIT16 << epnum));	/* reset TX EP */
+							os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) & ~(BIT16 << epnum));	/* reset reset TX EP */
+
 						}
 
-						*/
 
-						os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) | (BIT16<<epnum));//reset TX EP
-						os_writel(U3D_EP_RST, os_readl(U3D_EP_RST) & ~(BIT16<<epnum));//reset reset TX EP
+						csr &= TX_W1C_BITS;
+						csr |= TX_SENDSTALL;
+						os_printk(K_DEBUG,
+							  "@@@@@@@@@@@@@@@@@ EP%d(IN/TX) SEND_STALL\n",
+							  epnum);
 
+						/* ssusb: need further check. is WZC_BITS needed? */
+
+						USB_WriteCsr32(U3D_TX1CSR0, epnum, csr);
+					} else {
+						csr = USB_ReadCsr32(U3D_RX1CSR0, epnum);
+						csr &= RX_W1C_BITS;
+						csr |= RX_SENDSTALL;
+
+						os_printk(K_DEBUG,
+							  "@@@@@@@@@@@@@@@@@ EP%d(OUT/RX) SEND_STALL\n",
+							  epnum);
+						/* musb_writew(regs, MUSB_RXCSR, csr); */
+						USB_WriteCsr32(U3D_RX1CSR0, epnum, csr);
 					}
 
-
-					csr &= TX_W1C_BITS;
-					csr |= TX_SENDSTALL;
-					os_printk(K_DEBUG, "@@@@@@@@@@@@@@@@@ EP%d(IN/TX) SEND_STALL\n", epnum);
-
-					//ssusb: need further check. is WZC_BITS needed?
-
-					USB_WriteCsr32(U3D_TX1CSR0, epnum, csr);
-				} else {
-					csr = USB_ReadCsr32(U3D_RX1CSR0, epnum);
-					csr &= RX_W1C_BITS;
-					csr |= RX_SENDSTALL;
-
-					os_printk(K_DEBUG, "@@@@@@@@@@@@@@@@@ EP%d(OUT/RX) SEND_STALL\n", epnum);
-					//musb_writew(regs, MUSB_RXCSR, csr);
-					USB_WriteCsr32(U3D_RX1CSR0, epnum, csr);
+					/* select ep0 again */
+					handled = 1;
 				}
-
-				/* select ep0 again */
-				handled = 1;
-				} break;
+				break;
 
 			default:
 				/* class, vendor, etc ... delegate */
@@ -677,8 +695,8 @@ stall:
  */
 static void ep0_rxstate(struct musb *musb)
 {
-	struct musb_request	*request;
-	struct usb_request	*req;
+	struct musb_request *request;
+	struct usb_request *req;
 	u32 csr;
 	u16 count = 0;
 
@@ -695,11 +713,11 @@ static void ep0_rxstate(struct musb *musb)
 	 */
 	if (req) {
 		void *buf = req->buf + req->actual;
-		unsigned	len = req->length - req->actual;
+		unsigned len = req->length - req->actual;
 
 #ifdef AUTOCLEAR
-		if(!(os_readl(U3D_EP0CSR) & EP0_AUTOCLEAR)){
-			os_writel(U3D_EP0CSR, os_readl(U3D_EP0CSR)|EP0_AUTOCLEAR);
+		if (!(os_readl(U3D_EP0CSR) & EP0_AUTOCLEAR)) {
+			os_writel(U3D_EP0CSR, os_readl(U3D_EP0CSR) | EP0_AUTOCLEAR);
 		}
 #endif
 		/* read the buffer */
@@ -711,11 +729,12 @@ static void ep0_rxstate(struct musb *musb)
 		musb_read_fifo(&musb->endpoints[0], count, buf);
 		req->actual += count;
 		csr |= EP0_RXPKTRDY;
-		/*REVISIT-J: 64 is usb20 ep0 maxp, but usb30 ep0 maxp is 512. Do we need the modification?*/
+		/*REVISIT-J: 64 is usb20 ep0 maxp, but usb30 ep0 maxp is 512. Do we need the modification? */
 		if (count < 64 || req->actual == req->length) {
-			//musb->ep0_state = MUSB_EP0_STAGE_STATUSIN;
-			musb->ep0_state = MUSB_EP0_IDLE; //in ssusb, there is no interrupt to transit to idle phase.
-			os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_STATUSIN then MUSB_EP0_IDLE\n");
+			/* musb->ep0_state = MUSB_EP0_STAGE_STATUSIN; */
+			musb->ep0_state = MUSB_EP0_IDLE;	/* in ssusb, there is no interrupt to transit to idle phase. */
+			os_printk(K_DEBUG,
+				  "----- ep0 state: MUSB_EP0_STAGE_STATUSIN then MUSB_EP0_IDLE\n");
 
 			csr |= EP0_DATAEND;
 		} else
@@ -746,19 +765,19 @@ static void ep0_rxstate(struct musb *musb)
  */
 static void ep0_txstate(struct musb *musb)
 {
-	struct musb_request	*req = next_ep0_request(musb);
-	struct usb_request	*request;
+	struct musb_request *req = next_ep0_request(musb);
+	struct usb_request *request;
 
-	u32			csr = EP0_TXPKTRDY;
-	u8			*fifo_src;
-	u16			fifo_count;
-	u32 		maxp;
+	u32 csr = EP0_TXPKTRDY;
+	u8 *fifo_src;
+	u16 fifo_count;
+	u32 maxp;
 
 	os_printk(K_DEBUG, "%s\n", __func__);
 
 	if (!req) {
 		/* WARN_ON(1); */
-		//dev_dbg(musb->controller, "odd; csr0 %04x\n", musb_readw(regs, MUSB_CSR0));
+		/* dev_dbg(musb->controller, "odd; csr0 %04x\n", musb_readw(regs, MUSB_CSR0)); */
 		return;
 	}
 
@@ -768,12 +787,11 @@ static void ep0_txstate(struct musb *musb)
 
 	/* load the data */
 	fifo_src = (u8 *) request->buf + request->actual;
-	fifo_count = min((unsigned) maxp,
-		request->length - request->actual);
+	fifo_count = min((unsigned)maxp, request->length - request->actual);
 	musb_write_fifo(&musb->endpoints[0], fifo_count, fifo_src);
 
-	os_printk(K_DEBUG, "%s act=%d, len=%d, cnt=%d, maxp=%d zero=%d\n", \
-		__func__, request->actual, request->length, fifo_count, maxp, request->zero);
+	os_printk(K_DEBUG, "%s act=%d, len=%d, cnt=%d, maxp=%d zero=%d\n",
+		  __func__, request->actual, request->length, fifo_count, maxp, request->zero);
 
 	/*
 	 * The flow is difference between MTU3D and original musb.
@@ -787,7 +805,7 @@ static void ep0_txstate(struct musb *musb)
 	 *  Interrupt #2 : set DATAEND
 	 */
 	/* update the flags */
-	if(request->actual == request->length) {
+	if (request->actual == request->length) {
 		if (request->zero && (request->length % maxp == 0) && (request->length / maxp > 0)) {
 			/*
 			 * Send a ZLP without DATAEND. Because the length host requires
@@ -803,7 +821,7 @@ static void ep0_txstate(struct musb *musb)
 			csr |= EP0_DATAEND;
 		}
 	} else {
-		/* Add the amount of the data written into fifo to "actual" first.*/
+		/* Add the amount of the data written into fifo to "actual" first. */
 		request->actual += fifo_count;
 		request = NULL;
 	}
@@ -833,30 +851,27 @@ static void ep0_txstate(struct musb *musb)
  *
  * Context:  caller holds controller lock.
  */
-static void
-musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
+static void musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 {
-	struct musb_request	*r;
+	struct musb_request *r;
 	u32 csr = 0;
 
 	os_printk(K_DEBUG, "%s\n", __func__);
 
-	csr = os_readl(U3D_EP0CSR) & EP0_W1C_BITS; //Don't W1C
-	if(!(os_readl(U3D_EP0CSR) & EP0_AUTOCLEAR)){
-		os_writel(U3D_EP0CSR, os_readl(U3D_EP0CSR)|EP0_AUTOCLEAR);
+	csr = os_readl(U3D_EP0CSR) & EP0_W1C_BITS;	/* Don't W1C */
+	if (!(os_readl(U3D_EP0CSR) & EP0_AUTOCLEAR)) {
+		os_writel(U3D_EP0CSR, os_readl(U3D_EP0CSR) | EP0_AUTOCLEAR);
 	}
-	mu3d_hal_read_fifo(0,(u8 *)req);
+	mu3d_hal_read_fifo(0, (u8 *) req);
 
 	/* NOTE:  earlier 2.6 versions changed setup packets to host
 	 * order, but now USB packets always stay in USB byte order.
 	 */
-	//dev_dbg(musb->controller, "SETUP req%02x.%02x v%04x i%04x l%d\n",
+	/* dev_dbg(musb->controller, "SETUP req%02x.%02x v%04x i%04x l%d\n", */
 	os_printk(K_DEBUG, "SETUP req%02x.%02x v%04x i%04x l%d\n",
-		req->bRequestType,
-		req->bRequest,
-		le16_to_cpu(req->wValue),
-		le16_to_cpu(req->wIndex),
-		le16_to_cpu(req->wLength));
+		  req->bRequestType,
+		  req->bRequest,
+		  le16_to_cpu(req->wValue), le16_to_cpu(req->wIndex), le16_to_cpu(req->wLength));
 
 	/* clean up any leftover transfers */
 	r = next_ep0_request(musb);
@@ -881,7 +896,7 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
 		os_writel(U3D_EP0CSR, csr | EP0_SETUPPKTRDY | EP0_DPHTX);
 		musb->ackpend = 0;
 	} else {
-		os_writel(U3D_EP0CSR, (csr | EP0_SETUPPKTRDY) & (~EP0_DPHTX)); //Set CSR0.SetupPktRdy(W1C) & CSR0.DPHTX=0
+		os_writel(U3D_EP0CSR, (csr | EP0_SETUPPKTRDY) & (~EP0_DPHTX));	/* Set CSR0.SetupPktRdy(W1C) & CSR0.DPHTX=0 */
 		musb->ackpend = 0;
 		musb->ep0_state = MUSB_EP0_STAGE_RX;
 		os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_RX\n");
@@ -896,58 +911,58 @@ musb_read_setup(struct musb *musb, struct usb_ctrlrequest *req)
  */
 irqreturn_t musb_g_ep0_irq(struct musb *musb)
 {
-	u32		csr;
-	u16		len;
-	irqreturn_t	retval = IRQ_NONE;
+	u32 csr;
+	u16 len;
+	irqreturn_t retval = IRQ_NONE;
 
 	csr = os_readl(U3D_EP0CSR);
-	len = (u16)os_readl(U3D_RXCOUNT0);
+	len = (u16) os_readl(U3D_RXCOUNT0);
 
 	os_printk(K_DEBUG, "%s csr=0x%X\n", __func__, csr);
 
-	//dev_dbg(musb->controller, "csr %04x, count %d, myaddr %d, ep0stage %s\n",
-	//		csr, len,
-	//		musb_readb(mbase, MUSB_FADDR),
-	//		decode_ep0stage(musb->ep0_state));
+	/* dev_dbg(musb->controller, "csr %04x, count %d, myaddr %d, ep0stage %s\n",
+			csr, len,
+			musb_readb(mbase, MUSB_FADDR),
+			decode_ep0stage(musb->ep0_state));
+			*/
 
-	//if (csr & MUSB_CSR0_P_DATAEND) {
-	//	/*
-	//	 * If DATAEND is set we should not call the callback,
-	//	 * hence the status stage is not complete.
-	//	 */
-	//	return IRQ_HANDLED;
-	//}
+	/* if (csr & MUSB_CSR0_P_DATAEND) {*/
+		/*
+		 * If DATAEND is set we should not call the callback,
+		 * hence the status stage is not complete.
+		 */
+	/*	return IRQ_HANDLED;
+	}*/
 
 	/* I sent a stall.. need to acknowledge it now.. */
 	if (csr & EP0_SENTSTALL) {
-		os_writel(U3D_EP0CSR, (csr & EP0_W1C_BITS) | EP0_SENTSTALL); //EP0_SENTSTALL is W1C
+		os_writel(U3D_EP0CSR, (csr & EP0_W1C_BITS) | EP0_SENTSTALL);	/* EP0_SENTSTALL is W1C */
 
-		if (os_readl(U3D_EP0CSR) & EP0_TXPKTRDY) //try to flushfifo after clear sentstall
-		{
-			#if 0
+		if (os_readl(U3D_EP0CSR) & EP0_TXPKTRDY) {	/* try to flushfifo after clear sentstall */
+#if 0
 			u32 csr0 = 0;
 
 			csr0 = os_readl(U3D_EP0CSR);
-			csr0 &= EP0_W1C_BITS; //don't clear W1C bits
+			csr0 &= EP0_W1C_BITS;	/* don't clear W1C bits */
 			csr0 |= CSR0_FLUSHFIFO;
 			os_writel(U3D_EP0CSR, csr0);
 
 			os_printk(K_DEBUG, "waiting for flushfifo.....");
-			while(os_readl(U3D_EP0CSR) & CSR0_FLUSHFIFO) //proceed before it clears
-			{
+			while (os_readl(U3D_EP0CSR) & CSR0_FLUSHFIFO) {	/* proceed before it clears */
 				cpu_relax();
 			}
 			os_printk(K_DEBUG, "done.\n");
-			#else
-			//toggle EP0_RST
+#else
+			/* toggle EP0_RST */
 			os_setmsk(U3D_EP_RST, EP0_RST);
 			os_clrmsk(U3D_EP_RST, EP0_RST);
-			#endif
+#endif
 		}
 		retval = IRQ_HANDLED;
 		musb->ep0_state = MUSB_EP0_STAGE_IDLE;
 		csr = os_readl(U3D_EP0CSR);
-		os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_IDLE. now csr is 0x%04x\n", csr);
+		os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_IDLE. now csr is 0x%04x\n",
+			  csr);
 	}
 
 /* SSUSB does not support this bit. So comment it.*/
@@ -964,16 +979,16 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 			break;
 		case MUSB_EP0_STAGE_RX:
 			musb->ep0_state = MUSB_EP0_STAGE_STATUSIN;
-			os_printk(K_DEBUG, 	"----- ep0 state: MUSB_EP0_STAGE_STATUSIN\n");
+			os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_STATUSIN\n");
 			break;
 		default:
 			ERR("SetupEnd came in a wrong ep0stage %s\n",
-			decode_ep0stage(musb->ep0_state));
+			    decode_ep0stage(musb->ep0_state));
 		}
 		csr = os_readl(U3D_EP0CSR);
 		/* NOTE:  request may need completion */
 	}
-#endif /* NEVER */
+#endif				/* NEVER */
 
 	os_printk(K_DEBUG, "ep0_state=%d\n", musb->ep0_state);
 
@@ -1001,7 +1016,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		break;
 
 	case MUSB_EP0_STAGE_STATUSIN:
-/* Because ssusb doesn't have interrupt 	after In status, we actually don't have STATUSIN stage. It has been moved to MUSB_EP0_STAGE_SETUP.		*/
+/* Because ssusb doesn't have interrupt	after In status, we actually don't have STATUSIN stage. It has been moved to MUSB_EP0_STAGE_SETUP.		*/
 #if 0
 		/* end of sequence #2 (OUT/RX state) or #3 (no data) */
 
@@ -1012,7 +1027,8 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		 */
 		if (musb->set_address) {
 			musb->set_address = false;
-			os_writel(U3D_DEVICE_CONF, os_readl(U3D_DEVICE_CONF) | (musb->address << DEV_ADDR_OFST));
+			os_writel(U3D_DEVICE_CONF,
+				  os_readl(U3D_DEVICE_CONF) | (musb->address << DEV_ADDR_OFST));
 		}
 
 		/* enter test mode if needed (exit by reset) */
@@ -1032,7 +1048,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 	case MUSB_EP0_STAGE_STATUSOUT:
 		/* end of sequence #1: write to host (TX state) */
 		{
-			struct musb_request	*req;
+			struct musb_request *req;
 
 			req = next_ep0_request(musb);
 			if (req)
@@ -1043,7 +1059,7 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		 * In case when several interrupts can get coalesced,
 		 * check to see if we've already received a SETUP packet...
 		 */
-		if (csr & EP0_SETUPPKTRDY) //in ssusb, we check SETUPPKTRDY for setup packet.
+		if (csr & EP0_SETUPPKTRDY)	/* in ssusb, we check SETUPPKTRDY for setup packet. */
 			goto setup;
 
 		retval = IRQ_HANDLED;
@@ -1060,24 +1076,23 @@ irqreturn_t musb_g_ep0_irq(struct musb *musb)
 		 */
 		retval = IRQ_HANDLED;
 
-		/* REVISIT-J: No need, Cuz the following sequence does not effect.*/
-		// added for ssusb:
-		if (!(csr & EP0_SETUPPKTRDY))
-		{
-		    os_printk(K_DEBUG, "break from MUSB_EP0_STAGE_IDLE\n");
-			break; //Don't process, keep idle. a.
+		/* REVISIT-J: No need, Cuz the following sequence does not effect. */
+		/* added for ssusb: */
+		if (!(csr & EP0_SETUPPKTRDY)) {
+			os_printk(K_DEBUG, "break from MUSB_EP0_STAGE_IDLE\n");
+			break;	/* Don't process, keep idle. a. */
 		}
-		//added for ssusb.
+		/* added for ssusb. */
 
 		musb->ep0_state = MUSB_EP0_STAGE_SETUP;
-                os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_SETUP\n");
+		os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_SETUP\n");
 		/* FALLTHROUGH */
 
 	case MUSB_EP0_STAGE_SETUP:
 setup:
 		if (csr & EP0_SETUPPKTRDY) {
-			struct usb_ctrlrequest	setup;
-			int			handled = 0;
+			struct usb_ctrlrequest setup;
+			int handled = 0;
 
 			if (len != 8) {
 				ERR("SETUP packet len %d != 8 ?\n", len);
@@ -1088,7 +1103,7 @@ setup:
 
 			/* sometimes the RESET won't be reported */
 			if (unlikely(musb->g.speed == USB_SPEED_UNKNOWN)) {
-				/*REVISIT-J: Shall we implement it?*/
+				/*REVISIT-J: Shall we implement it? */
 /* mark temporarily for ssusb because PMU is not ready.
 				u8	power;
 
@@ -1104,15 +1119,15 @@ setup:
 
 			switch (musb->ep0_state) {
 
-			/* sequence #3 (no data stage), includes requests
-			 * we can't forward (notably SET_ADDRESS and the
-			 * device/endpoint feature set/clear operations)
-			 * plus SET_CONFIGURATION and others we must
-			 */
+				/* sequence #3 (no data stage), includes requests
+				 * we can't forward (notably SET_ADDRESS and the
+				 * device/endpoint feature set/clear operations)
+				 * plus SET_CONFIGURATION and others we must
+				 */
 			case MUSB_EP0_STAGE_ACKWAIT:
-				os_printk(K_DEBUG, "&&&&&&&&&&&&&&&&& process MUSB_EP0_STAGE_ACKWAIT\n");
-				handled = service_zero_data_request(
-						musb, &setup);
+				os_printk(K_DEBUG,
+					  "&&&&&&&&&&&&&&&&& process MUSB_EP0_STAGE_ACKWAIT\n");
+				handled = service_zero_data_request(musb, &setup);
 
 				/*
 				 * We're expecting no data in any case, so
@@ -1120,31 +1135,35 @@ setup:
 				 * here helps avoid SetupEnd interrupt coming
 				 * in the idle stage when we're stalling...
 				 */
-				if(1) //Because status phase currently doesn't have interrupt, we process here.
-				{
-					//Process here according to ssusb programming guide
+				if (1) {	/* Because status phase currently doesn't have interrupt, we process here. */
+					/* Process here according to ssusb programming guide */
 					if (musb->set_address) {
 						musb->set_address = false;
-						//musb_writeb(mbase, MUSB_FADDR, musb->address);
-						os_printk(K_INFO, "Set address to 0x%08x...\n", musb->address);
-						os_writel(U3D_DEVICE_CONF, os_readl(U3D_DEVICE_CONF) | (musb->address << DEV_ADDR_OFST));
-					}
-					else if (musb->test_mode) {
+						/* musb_writeb(mbase, MUSB_FADDR, musb->address); */
+						os_printk(K_INFO, "Set address to 0x%08x...\n",
+							  musb->address);
+						os_writel(U3D_DEVICE_CONF,
+							  os_readl(U3D_DEVICE_CONF) | (musb->
+										       address <<
+										       DEV_ADDR_OFST));
+					} else if (musb->test_mode) {
 						os_printk(K_DEBUG, "entering TESTMODE 2\n");
 
 						if (TEST_PACKET_MODE == musb->test_mode_nr)
 							musb_load_testpacket(musb);
 
-						//musb_writeb(mbase, MUSB_TESTMODE,
-						//		musb->test_mode_nr);
+						/* musb_writeb(mbase, MUSB_TESTMODE, */
+						/* musb->test_mode_nr); */
 
-						//Need to send status before really entering test mode.
-						os_writel(U3D_EP0CSR, (os_readl(U3D_EP0CSR) & EP0_W1C_BITS) | musb->ackpend | EP0_DATAEND | EP0_SETUPPKTRDY);
+						/* Need to send status before really entering test mode. */
+						os_writel(U3D_EP0CSR,
+							  (os_readl(U3D_EP0CSR) & EP0_W1C_BITS) |
+							  musb->
+							  ackpend | EP0_DATAEND | EP0_SETUPPKTRDY);
 						musb->ep0_state = MUSB_EP0_STAGE_IDLE;
 
-						while((os_readl(U3D_EP0CSR) & EP0_DATAEND) != 0)//Need to wait for status really loaded by host
-						{
-							mdelay(1); //Without this delay, it will fail.
+						while ((os_readl(U3D_EP0CSR) & EP0_DATAEND) != 0) {	/* Need to wait for status really loaded by host */
+							mdelay(1);	/* Without this delay, it will fail. */
 						}
 
 						os_writel(U3D_USB2_TEST_MODE, musb->test_mode_nr);
@@ -1154,38 +1173,36 @@ setup:
 
 					/* end of sequence #1: write to host (TX state) */
 					{
-						struct usb_request	*request;
+						struct usb_request *request;
 						struct musb_request *req;
 
 						req = next_ep0_request(musb);
-						if (req)
-						{
-						    request = &(req->request);
-							os_printk(K_DEBUG, "&&&&&&&&&&&&&&&&& next_ep0_request\n");
+						if (req) {
+							request = &(req->request);
+							os_printk(K_DEBUG,
+								  "&&&&&&&&&&&&&&&&& next_ep0_request\n");
 							musb_g_ep0_giveback(musb, request);
-						}
-						else
-						{
-							//os_printk(K_DEBUG, "&&&&&&&&&&&&&&&&& next_ep0_request returns null\n");
+						} else {
+							/* os_printk(K_DEBUG, "&&&&&&&&&&&&&&&&& next_ep0_request returns null\n"); */
 						}
 					}
 				}
 
-                musb->ackpend |= EP0_DATAEND | EP0_SETUPPKTRDY; //Set CSR0.SetupPktRdy(W1C) & CSR0.DataEnd
+				musb->ackpend |= EP0_DATAEND | EP0_SETUPPKTRDY;	/* Set CSR0.SetupPktRdy(W1C) & CSR0.DataEnd */
 
 				/* status stage might be immediate */
-				if (handled > 0)
-				{
-					musb->ep0_state = MUSB_EP0_STAGE_IDLE; //Change to idle because status in will be completed immediately after dataend is set
-					os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_IDLE\n");
+				if (handled > 0) {
+					musb->ep0_state = MUSB_EP0_STAGE_IDLE;	/* Change to idle because status in will be completed immediately after dataend is set */
+					os_printk(K_DEBUG,
+						  "----- ep0 state: MUSB_EP0_STAGE_IDLE\n");
 				}
 
 				break;
 
-			/* sequence #1 (IN to host), includes GET_STATUS
-			 * requests that we can't forward, GET_DESCRIPTOR
-			 * and others that we must
-			 */
+				/* sequence #1 (IN to host), includes GET_STATUS
+				 * requests that we can't forward, GET_DESCRIPTOR
+				 * and others that we must
+				 */
 			case MUSB_EP0_STAGE_TX:
 				handled = service_in_request(musb, &setup);
 				if (handled > 0) {
@@ -1193,31 +1210,34 @@ setup:
 					os_printk(K_DEBUG, "handled MUSB_EP0_STAGE_TX.\n");
 
 					/* Wait until FIFOFULL cleared by hrdc */
-					while((os_readl(U3D_EP0CSR) & EP0_FIFOFULL)) {
+					while ((os_readl(U3D_EP0CSR) & EP0_FIFOFULL)) {
 						mdelay(5);
 						i++;
 						if (i > 5) {
-							os_printk(K_INFO, "ep0 still full, something wrong!!!\n");
+							os_printk(K_INFO,
+								  "ep0 still full, something wrong!!!\n");
 							break;
 						}
 					}
 
 					musb->ackpend |= EP0_DATAEND;
 					musb->ep0_state = MUSB_EP0_STAGE_STATUSOUT;
-					os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_STATUSOUT (%s:%d)\n", __func__, __LINE__ );
+					os_printk(K_DEBUG,
+						  "----- ep0 state: MUSB_EP0_STAGE_STATUSOUT (%s:%d)\n",
+						  __func__, __LINE__);
 
-					if(1){ //process MUSB_EP0_STAGE_STATUSOUT because currently we don't have interrupt after status out phase.
-						/* end of sequence #1: write to host (TX state) */
-						{
-							struct usb_request	*request;
-							struct musb_request *req;
+					if (1) {	/* process MUSB_EP0_STAGE_STATUSOUT because currently we don't have interrupt after status out phase. */
+					/* end of sequence #1: write to host (TX state) */
+					{
+						struct usb_request *request;
+						struct musb_request *req;
 
-							req = next_ep0_request(musb);
-							if (req){
-								request = &(req->request);
-								musb_g_ep0_giveback(musb, request);
-							}
+						req = next_ep0_request(musb);
+						if (req) {
+							request = &(req->request);
+							musb_g_ep0_giveback(musb, request);
 						}
+					}
 
 						/*
 						 * In case when several interrupts can get coalesced,
@@ -1226,25 +1246,24 @@ setup:
 
 						retval = IRQ_HANDLED;
 						musb->ep0_state = MUSB_EP0_STAGE_IDLE;
-						os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_IDLE (%s:%d)\n", __func__, __LINE__ );
-					}	 //process MUSB_EP0_STAGE_STATUSOUT because currently we don't have interrupt after status out phase.
+						os_printk(K_DEBUG,
+							  "----- ep0 state: MUSB_EP0_STAGE_IDLE (%s:%d)\n",
+							  __func__, __LINE__);
+					}	/* process MUSB_EP0_STAGE_STATUSOUT because currently we don't have interrupt after status out phase. */
 
-				}
-				else
-				{
-					//os_printk(K_DEBUG, "Cannot service_in_request.\n");
+				} else {
+					/* os_printk(K_DEBUG, "Cannot service_in_request.\n"); */
 				}
 				break;
 
-			/* sequence #2 (OUT from host), always forward */
-			default:		/* MUSB_EP0_STAGE_RX */
+				/* sequence #2 (OUT from host), always forward */
+			default:	/* MUSB_EP0_STAGE_RX */
 				break;
 			}
 
-			//dev_dbg(musb->controller, "handled %d, csr %04x, ep0stage %s\n",
+			/* dev_dbg(musb->controller, "handled %d, csr %04x, ep0stage %s\n", */
 			os_printk(K_DEBUG, "handled %d, csr %04x, ep0stage %s\n",
-				handled, csr,
-				decode_ep0stage(musb->ep0_state));
+				  handled, csr, decode_ep0stage(musb->ep0_state));
 
 			/* unless we need to delegate this to the gadget
 			 * driver, we know how to wrap this up:  csr0 has
@@ -1259,34 +1278,31 @@ setup:
 			if (handled < 0) {
 stall:
 				os_printk(K_INFO, "stall (%d)\n", handled);
-				//flushfifo before send SENDSTALL
+				/* flushfifo before send SENDSTALL */
 
-				if (os_readl(U3D_EP0CSR) & EP0_TXPKTRDY) //try to flushfifo after clear sentstall
-				{
-					#if 0
+				if (os_readl(U3D_EP0CSR) & EP0_TXPKTRDY) { /* try to flushfifo after clear sentstall */
+#if 0
 					u32 csr0 = 0;
 
 					csr0 = os_readl(U3D_EP0CSR);
-					csr0 &= EP0_W1C_BITS; //don't clear W1C bits
+					csr0 &= EP0_W1C_BITS;	/* don't clear W1C bits */
 					csr0 |= CSR0_FLUSHFIFO;
 					os_writel(U3D_EP0CSR, csr0);
 
 					os_printk(K_DEBUG, "waiting for flushfifo.....");
-					while(os_readl(U3D_EP0CSR) & CSR0_FLUSHFIFO) //proceed before it clears
-					{
+					while (os_readl(U3D_EP0CSR) & CSR0_FLUSHFIFO) {	/* proceed before it clears */
 						cpu_relax();
 					}
 					os_printk(K_DEBUG, "done.\n");
-					#else
-					//toggle EP0_RST
+#else
+					/* toggle EP0_RST */
 					os_setmsk(U3D_EP_RST, EP0_RST);
 					os_clrmsk(U3D_EP_RST, EP0_RST);
-					#endif
+#endif
 				}
 
 
-				if(musb->ackpend & EP0_DATAEND)
-				{
+				if (musb->ackpend & EP0_DATAEND) {
 					os_printk(K_DEBUG, "Do not send dataend due to stall.\n");
 					musb->ackpend &= ~EP0_DATAEND;
 				}
@@ -1296,8 +1312,9 @@ stall:
 				os_printk(K_INFO, "@@@@@@@@@@@@@@@ SENDSTALL\n");
 				os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_IDLE\n");
 finish:
-                os_writel(U3D_EP0CSR, (os_readl(U3D_EP0CSR) & EP0_W1C_BITS) | musb->ackpend);
-                musb->ackpend = 0;
+				os_writel(U3D_EP0CSR,
+					  (os_readl(U3D_EP0CSR) & EP0_W1C_BITS) | musb->ackpend);
+				musb->ackpend = 0;
 			}
 		}
 		break;
@@ -1314,29 +1331,27 @@ finish:
 		WARN_ON(1);
 		os_printk(K_INFO, "@@@@@@@@@@@@@@@ SENDSTALL\n");
 
-		//flushfifo before send SENDSTALL
+		/* flushfifo before send SENDSTALL */
 
-		if (os_readl(U3D_EP0CSR) & EP0_TXPKTRDY) //try to flushfifo after clear sentstall
-		{
-			#if 0
+		if (os_readl(U3D_EP0CSR) & EP0_TXPKTRDY) {	/* try to flushfifo after clear sentstall */
+#if 0
 			u32 csr0 = 0;
 
 			csr0 = os_readl(U3D_EP0CSR);
-			csr0 &= EP0_W1C_BITS; //don't clear W1C bits
+			csr0 &= EP0_W1C_BITS;	/* don't clear W1C bits */
 			csr0 |= CSR0_FLUSHFIFO;
 			os_writel(U3D_EP0CSR, csr0);
 
 			os_printk(K_DEBUG, "waiting for flushfifo.....");
-			while(os_readl(U3D_EP0CSR) & CSR0_FLUSHFIFO) //proceed before it clears
-			{
+			while (os_readl(U3D_EP0CSR) & CSR0_FLUSHFIFO) {	/* proceed before it clears */
 				cpu_relax();
 			}
 			os_printk(K_DEBUG, "done.\n");
-			#else
-			//toggle EP0_RST
+#else
+			/* toggle EP0_RST */
 			os_setmsk(U3D_EP_RST, EP0_RST);
 			os_clrmsk(U3D_EP_RST, EP0_RST);
-			#endif
+#endif
 		}
 
 
@@ -1351,8 +1366,7 @@ finish:
 }
 
 
-static int
-musb_g_ep0_enable(struct usb_ep *ep, const struct usb_endpoint_descriptor *desc)
+static int musb_g_ep0_enable(struct usb_ep *ep, const struct usb_endpoint_descriptor *desc)
 {
 	/* always enabled */
 	return -EINVAL;
@@ -1364,14 +1378,13 @@ static int musb_g_ep0_disable(struct usb_ep *e)
 	return -EINVAL;
 }
 
-static int
-musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
+static int musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 {
-	struct musb_ep		*ep;
-	struct musb_request	*req;
-	struct musb		*musb;
-	int			status;
-	unsigned long		lockflags;
+	struct musb_ep *ep;
+	struct musb_request *req;
+	struct musb *musb;
+	int status;
+	unsigned long lockflags;
 
 	if (!e || !r)
 		return -EINVAL;
@@ -1395,14 +1408,13 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 	}
 
 	switch (musb->ep0_state) {
-	case MUSB_EP0_STAGE_RX:		/* control-OUT data */
-	case MUSB_EP0_STAGE_TX:		/* control-IN data */
+	case MUSB_EP0_STAGE_RX:	/* control-OUT data */
+	case MUSB_EP0_STAGE_TX:	/* control-IN data */
 	case MUSB_EP0_STAGE_ACKWAIT:	/* zero-length data */
 		status = 0;
 		break;
 	default:
-		dev_dbg(musb->controller, "ep0 request queued in state %d\n",
-				musb->ep0_state);
+		dev_dbg(musb->controller, "ep0 request queued in state %d\n", musb->ep0_state);
 		status = -EINVAL;
 		goto cleanup;
 	}
@@ -1410,10 +1422,9 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 	/* add request to the list */
 	list_add_tail(&req->list, &ep->req_list);
 
-	//dev_dbg(musb->controller, "queue to %s (%s), length=%d\n",
+	/* dev_dbg(musb->controller, "queue to %s (%s), length=%d\n", */
 	os_printk(K_DEBUG, "queue to %s (%s), length=%d\n",
-			ep->name, ep->is_in ? "IN/TX" : "OUT/RX",
-			req->request.length);
+		  ep->name, ep->is_in ? "IN/TX" : "OUT/RX", req->request.length);
 
 	/* sequence #1, IN ... start writing the data */
 	if (musb->ep0_state == MUSB_EP0_STAGE_TX)
@@ -1425,18 +1436,20 @@ musb_g_ep0_queue(struct usb_ep *e, struct usb_request *r, gfp_t gfp_flags)
 			status = -EINVAL;
 		else {
 			musb->ep0_state = MUSB_EP0_STAGE_STATUSIN;
-            os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_STATUSIN\n");
+			os_printk(K_DEBUG, "----- ep0 state: MUSB_EP0_STAGE_STATUSIN\n");
 
-			os_writel(U3D_EP0CSR, (os_readl(U3D_EP0CSR) & EP0_W1C_BITS) | musb->ackpend | EP0_DATAEND);
+			os_writel(U3D_EP0CSR,
+				  (os_readl(U3D_EP0CSR) & EP0_W1C_BITS) | musb->
+				  ackpend | EP0_DATAEND);
 
-            musb->ackpend = 0;
+			musb->ackpend = 0;
 			musb_g_ep0_giveback(ep->musb, r);
 		}
 
-	/* else for sequence #2 (OUT), caller provides a buffer
-	 * before the next packet arrives.  deferred responses
-	 * (after SETUP is acked) are racey.
-	 */
+		/* else for sequence #2 (OUT), caller provides a buffer
+		 * before the next packet arrives.  deferred responses
+		 * (after SETUP is acked) are racey.
+		 */
 	} else if (musb->ackpend) {
 		os_writel(U3D_EP0CSR, (os_readl(U3D_EP0CSR) & EP0_W1C_BITS) | musb->ackpend);
 		musb->ackpend = 0;
@@ -1455,12 +1468,12 @@ static int musb_g_ep0_dequeue(struct usb_ep *ep, struct usb_request *req)
 
 static int musb_g_ep0_halt(struct usb_ep *e, int value)
 {
-	struct musb_ep		*ep;
-	struct musb		*musb;
-	void __iomem		*base;
-	unsigned long		flags;
-	int			status;
-	u32			csr;
+	struct musb_ep *ep;
+	struct musb *musb;
+	void __iomem *base;
+	unsigned long flags;
+	int status;
+	u32 csr;
 
 	os_printk(K_INFO, "%s\n", __func__);
 
@@ -1483,42 +1496,40 @@ static int musb_g_ep0_halt(struct usb_ep *e, int value)
 
 	switch (musb->ep0_state) {
 
-	/* Stalls are usually issued after parsing SETUP packet, either
-	 * directly in irq context from setup() or else later.
-	 */
-	case MUSB_EP0_STAGE_TX:		/* control-IN data */
+		/* Stalls are usually issued after parsing SETUP packet, either
+		 * directly in irq context from setup() or else later.
+		 */
+	case MUSB_EP0_STAGE_TX:	/* control-IN data */
 	case MUSB_EP0_STAGE_ACKWAIT:	/* STALL for zero-length data */
-	case MUSB_EP0_STAGE_RX:		/* control-OUT data */
+	case MUSB_EP0_STAGE_RX:	/* control-OUT data */
 		csr = os_readl(U3D_EP0CSR);
 		/* FALLTHROUGH */
 
-	/* It's also OK to issue stalls during callbacks when a non-empty
-	 * DATA stage buffer has been read (or even written).
-	 */
+		/* It's also OK to issue stalls during callbacks when a non-empty
+		 * DATA stage buffer has been read (or even written).
+		 */
 	case MUSB_EP0_STAGE_STATUSIN:	/* control-OUT status */
 	case MUSB_EP0_STAGE_STATUSOUT:	/* control-IN status */
 
-		if (os_readl(U3D_EP0CSR) & EP0_TXPKTRDY) //try to flushfifo after clear sentstall
-		{
-			#if 0
+		if (os_readl(U3D_EP0CSR) & EP0_TXPKTRDY) {	/* try to flushfifo after clear sentstall */
+#if 0
 			u32 csr0 = 0;
 
 			csr0 = os_readl(U3D_EP0CSR);
-			csr0 &= EP0_W1C_BITS; //don't clear W1C bits
+			csr0 &= EP0_W1C_BITS;	/* don't clear W1C bits */
 			csr0 |= CSR0_FLUSHFIFO;
 			os_writel(U3D_EP0CSR, csr0);
 
 			os_printk(K_DEBUG, "waiting for flushfifo.....");
-			while(os_readl(U3D_EP0CSR) & CSR0_FLUSHFIFO) //proceed before it clears
-			{
+			while (os_readl(U3D_EP0CSR) & CSR0_FLUSHFIFO) {	/* proceed before it clears */
 				cpu_relax();
 			}
 			os_printk(K_DEBUG, "done.\n");
-			#else
-			//toggle EP0_RST
+#else
+			/* toggle EP0_RST */
 			os_setmsk(U3D_EP_RST, EP0_RST);
 			os_clrmsk(U3D_EP_RST, EP0_RST);
-			#endif
+#endif
 		}
 
 		csr = (csr & EP0_W1C_BITS) | EP0_SENDSTALL;
@@ -1539,11 +1550,11 @@ cleanup:
 }
 
 const struct usb_ep_ops musb_g_ep0_ops = {
-	.enable		= musb_g_ep0_enable,
-	.disable	= musb_g_ep0_disable,
-	.alloc_request	= musb_alloc_request,
-	.free_request	= musb_free_request,
-	.queue		= musb_g_ep0_queue,
-	.dequeue	= musb_g_ep0_dequeue,
-	.set_halt	= musb_g_ep0_halt,
+	.enable = musb_g_ep0_enable,
+	.disable = musb_g_ep0_disable,
+	.alloc_request = musb_alloc_request,
+	.free_request = musb_free_request,
+	.queue = musb_g_ep0_queue,
+	.dequeue = musb_g_ep0_dequeue,
+	.set_halt = musb_g_ep0_halt,
 };

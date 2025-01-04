@@ -1,3 +1,5 @@
+include $(srctree)/drivers/misc/mediatek/Makefile.custom
+
 ifeq ($(MTK_LCM_PHYSICAL_ROTATION), 90)
 ccflags-y  += -DLCM_ROTATE
 endif

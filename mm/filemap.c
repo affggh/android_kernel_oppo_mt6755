@@ -2280,6 +2280,11 @@ struct page *grab_cache_page_write_begin(struct address_space *mapping,
 		gfp_mask |= __GFP_WRITE;
 	if (flags & AOP_FLAG_NOFS)
 		gfp_notmask = __GFP_FS;
+
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP)
+	gfp_mask |= __GFP_NOZONECMA;
+#endif
+
 repeat:
 	page = find_lock_page(mapping, index);
 	if (page)

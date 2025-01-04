@@ -7,11 +7,11 @@
 #include <linux/printk.h>
 #include <linux/types.h>
 
-extern void mu3d_hal_u3dev_en(void);
-extern void mu3d_hal_u3dev_dis(void);
+
+
 
 #define mtk_power_log(fmt, args...) \
-    printk("%s(%d): " fmt, __func__, __LINE__, ##args)
+	pr_debug("%s(%d): " fmt, __func__, __LINE__, ##args)
 
 
 static bool wait_for_value(unsigned long addr, int msk, int value, int ms_intvl, int count)
@@ -37,12 +37,14 @@ static void mtk_chk_usb_ip_ck_sts(struct xhci_hcd *xhci)
 	num_u2_port = SSUSB_U2_PORT_NUM(readl((void __iomem *)_SSUSB_IP_CAP(xhci->sif_regs)));
 
 	ret =
-	    wait_for_value(_SSUSB_IP_PW_STS1(xhci->sif_regs), SSUSB_SYS125_RST_B_STS, SSUSB_SYS125_RST_B_STS, 1, 10);
+	    wait_for_value(_SSUSB_IP_PW_STS1(xhci->sif_regs), SSUSB_SYS125_RST_B_STS,
+			   SSUSB_SYS125_RST_B_STS, 1, 10);
 	if (ret == false)
 		mtk_power_log("sys125_ck is still active!!!\n");
 
 	/* do not check when SSUSB_U2_PORT_PDN = 1, because U2 port stays in reset state */
-	if (num_u2_port && !(readl((void __iomem *)_SSUSB_U2_CTRL(xhci->sif_regs, 0)) & SSUSB_U2_PORT_PDN)) {
+	if (num_u2_port
+	    && !(readl((void __iomem *)_SSUSB_U2_CTRL(xhci->sif_regs, 0)) & SSUSB_U2_PORT_PDN)) {
 		ret =
 		    wait_for_value(_SSUSB_IP_PW_STS2(xhci->sif_regs), SSUSB_U2_MAC_SYS_RST_B_STS,
 				   SSUSB_U2_MAC_SYS_RST_B_STS, 1, 10);
@@ -51,10 +53,11 @@ static void mtk_chk_usb_ip_ck_sts(struct xhci_hcd *xhci)
 	}
 
 	/* do not check when SSUSB_U3_PORT_PDN = 1, because U3 port stays in reset state */
-	if (num_u3_port && !(readl((void __iomem *)_SSUSB_U3_CTRL(xhci->sif_regs, 0)) & SSUSB_U3_PORT_PDN)) {
+	if (num_u3_port
+	    && !(readl((void __iomem *)_SSUSB_U3_CTRL(xhci->sif_regs, 0)) & SSUSB_U3_PORT_PDN)) {
 		ret =
-		    wait_for_value(_SSUSB_IP_PW_STS1(xhci->sif_regs), SSUSB_U3_MAC_RST_B_STS, SSUSB_U3_MAC_RST_B_STS,
-				   1, 10);
+		    wait_for_value(_SSUSB_IP_PW_STS1(xhci->sif_regs), SSUSB_U3_MAC_RST_B_STS,
+				   SSUSB_U3_MAC_RST_B_STS, 1, 10);
 		if (ret == false)
 			mtk_power_log("mac3_mac_ck is still active!!!\n");
 	}
@@ -72,7 +75,8 @@ void enableXhciAllPortPower(struct xhci_hcd *xhci)
 	num_u3_port = SSUSB_U3_PORT_NUM(readl((void __iomem *)_SSUSB_IP_CAP(xhci->sif_regs)));
 	num_u2_port = SSUSB_U2_PORT_NUM(readl((void __iomem *)_SSUSB_IP_CAP(xhci->sif_regs)));
 
-	printk("%s(%d): port number, u3-%d, u2-%d\n", __func__, __LINE__, num_u3_port, num_u2_port);
+	pr_debug("%s(%d): port number, u3-%d, u2-%d\n",
+		__func__, __LINE__, num_u3_port, num_u2_port);
 
 	for (i = 1; i <= num_u3_port; i++) {
 		port_id = i;
@@ -81,7 +85,8 @@ void enableXhciAllPortPower(struct xhci_hcd *xhci)
 		temp = xhci_port_state_to_neutral(temp);
 		temp |= PORT_POWER;
 		xhci_writel(xhci, temp, addr);
-		while (!(xhci_readl(xhci, addr) & PORT_POWER));
+		while (!(xhci_readl(xhci, addr) & PORT_POWER))
+			;
 	}
 
 	for (i = 1; i <= num_u2_port; i++) {
@@ -91,7 +96,8 @@ void enableXhciAllPortPower(struct xhci_hcd *xhci)
 		temp = xhci_port_state_to_neutral(temp);
 		temp |= PORT_POWER;
 		xhci_writel(xhci, temp, addr);
-		while (!(xhci_readl(xhci, addr) & PORT_POWER));
+		while (!(xhci_readl(xhci, addr) & PORT_POWER))
+			;
 	}
 }
 
@@ -116,7 +122,8 @@ void disableXhciAllPortPower(struct xhci_hcd *xhci)
 		temp = xhci_port_state_to_neutral(temp);
 		temp &= ~PORT_POWER;
 		xhci_writel(xhci, temp, addr);
-		while (xhci_readl(xhci, addr) & PORT_POWER);
+		while (xhci_readl(xhci, addr) & PORT_POWER)
+			;
 	}
 
 	for (i = 1; i <= num_u2_port; i++) {
@@ -126,7 +133,8 @@ void disableXhciAllPortPower(struct xhci_hcd *xhci)
 		temp = xhci_port_state_to_neutral(temp);
 		temp &= ~PORT_POWER;
 		xhci_writel(xhci, temp, addr);
-		while (xhci_readl(xhci, addr) & PORT_POWER);
+		while (xhci_readl(xhci, addr) & PORT_POWER)
+			;
 	}
 
 	xhci_print_registers(mtk_xhci);
@@ -142,15 +150,15 @@ void enableAllClockPower(struct xhci_hcd *xhci, bool is_reset)
 	num_u3_port = SSUSB_U3_PORT_NUM(readl((void __iomem *)_SSUSB_IP_CAP(xhci->sif_regs)));
 	num_u2_port = SSUSB_U2_PORT_NUM(readl((void __iomem *)_SSUSB_IP_CAP((xhci->sif_regs))));
 
-	printk("%s(%d): u3 port number = %d\n", __func__, __LINE__, num_u3_port);
-	printk("%s(%d): u2 port number = %d\n", __func__, __LINE__, num_u2_port);
+	pr_debug("%s(%d): u3 port number = %d\n", __func__, __LINE__, num_u3_port);
+	pr_debug("%s(%d): u2 port number = %d\n", __func__, __LINE__, num_u2_port);
 
 	/* reset whole ip */
 	if (is_reset) {
 		writel(readl((void __iomem *)_SSUSB_IP_PW_CTRL(xhci->sif_regs)) | (SSUSB_IP_SW_RST),
 		       (void __iomem *)_SSUSB_IP_PW_CTRL(xhci->sif_regs));
-		writel(readl((void __iomem *)_SSUSB_IP_PW_CTRL(xhci->sif_regs)) & (~SSUSB_IP_SW_RST),
-		       (void __iomem *)_SSUSB_IP_PW_CTRL(xhci->sif_regs));
+		writel(readl((void __iomem *)_SSUSB_IP_PW_CTRL(xhci->sif_regs)) &
+		       (~SSUSB_IP_SW_RST), (void __iomem *)_SSUSB_IP_PW_CTRL(xhci->sif_regs));
 	}
 
 	/* disable ip host power down bit --> power on host ip */
@@ -272,4 +280,3 @@ void enablePortClockPower(int port_index, int port_rev)
 	}
 }
 #endif
-

@@ -1,7 +1,6 @@
 /* ir-lirc-codec.c - rc-core to classic lirc interface bridge
  *
  * Copyright (C) 2010 by Jarod Wilson <jarod@redhat.com>
- * Copyright (C) 2018 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,8 +20,7 @@
 #include <media/rc-core.h>
 #include "rc-core-priv.h"
 
-/* modify for CX861  from 256 to 1024 */
-#define LIRCBUF_SIZE 1024
+#define LIRCBUF_SIZE 256
 
 /**
  * ir_lirc_decode() - Send raw IR data to lirc_dev to be relayed to the

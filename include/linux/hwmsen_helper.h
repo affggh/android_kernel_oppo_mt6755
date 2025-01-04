@@ -112,5 +112,10 @@ extern ssize_t hwmsen_show_word(struct device *dev, struct device_attribute *att
 extern ssize_t hwmsen_store_word(struct device *dev, struct device_attribute *attr, const char *buf,
 				 size_t count);
 extern int hwmsen_get_convert(int direction, struct hwmsen_convert *cvt);
+#ifdef VENDOR_EDIT
+//zhihong.lu@BSP.sensor,2016/7/14,add common api
+extern int hwmsen_create_driver_attr(struct device_driver *driver, struct driver_attribute **list,int num);
+extern int hwmsen_delete_driver_attr(struct device_driver *driver, struct driver_attribute **list,int num);
+#endif /*VENDOR_EDIT*/
 /*----------------------------------------------------------------------------*/
 #endif

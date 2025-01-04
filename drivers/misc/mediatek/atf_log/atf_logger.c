@@ -481,7 +481,7 @@ static const struct file_operations proc_atf_crash_file_operations = {
     .open = atf_crash_file_open,
     .read = seq_read,
     .llseek = seq_lseek,
-    .release = seq_release,
+    .release = single_release,
 };
 
 static struct proc_dir_entry *atf_log_proc_dir;

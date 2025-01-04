@@ -119,7 +119,7 @@ static void lcm_get_params(LCM_PARAMS *params)
 		//params->dsi.pll_div2=0;				// div2=0,1,2,3;div1_real=1,2,4,4	
 		//params->dsi.fbk_div =0x12;    // fref=26MHz, fvco=fref*(fbk_div+1)*2/(div1_real*div2_real)	
 
-		params->dsi.PLL_CLOCK = 494;
+		params->dsi.PLL_CLOCK = 483;
 }
 
 static void lcm_set_gpio_output(unsigned int GPIO, unsigned int output)

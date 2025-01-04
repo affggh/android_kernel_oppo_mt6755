@@ -20,9 +20,17 @@
  *             HISTORY
  * Below this line, this part is controlled by PVCS VM. DO NOT MODIFY!!
  *------------------------------------------------------------------------------
- * $Revision:   1.0  $
- * $Modtime:   11 Aug 2005 10:28:16  $
- * $Log:   //mtkvs01/vmdata/Maui_sw/archives/mcu/hal/peripheral/inc/bmt_chr_setting.h-arc  $
+ * Revision:   1.0
+ * Modtime:   11 Aug 2005 10:28:16
+ * Log:   //mtkvs01/vmdata/Maui_sw/archives/mcu/hal/peripheral/inc/bmt_chr_setting.h-arc
+ *
+ * 05 15 2015 wy.chuang
+ * [ALPS01990538] [MP Feature Patch Back]MT6312 driver & MT6328 init setting & charging setting
+ * .
+ *
+ * 03 04 2015 wy.chuang
+ * [ALPS01921641] [L1_merge] for PMIC and charging
+ * .
  *------------------------------------------------------------------------------
  * Upper this line, this part is controlled by PVCS VM. DO NOT MODIFY!!
  *============================================================================
@@ -32,6 +40,9 @@
 
 #include <mach/mt_typedefs.h>
 #include <cust_charging.h>
+#if defined(CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT)
+#include <cust_pe.h>
+#endif
 
 /* ============================================================ */
 /* define */
@@ -41,13 +52,26 @@
  ****************************************************************************/
 #define BAT_LOG_CRTI 1
 #define BAT_LOG_FULL 2
+#define BAT_LOG_DEBG 3
 
 #define battery_xlog_printk(num, fmt, args...) \
-  do { \
-    if (Enable_BATDRV_LOG >= (int)num) { \
-      pr_notice(fmt, ##args); \
-    } \
-  } while (0)
+do {\
+	if (Enable_BATDRV_LOG >= (int)num) \
+		pr_debug(fmt, ##args); \
+} while (0)
+
+#define battery_log(num, fmt, args...) \
+do {\
+	if (Enable_BATDRV_LOG >= (int)num) \
+		switch (num) {\
+		case BAT_LOG_CRTI:\
+			pr_err(fmt, ##args); \
+			break;\
+		default:\
+			pr_debug(fmt, ##args); \
+			break;\
+		} \
+} while (0)
 
 
 /* ============================================================ */
@@ -78,6 +102,16 @@ typedef enum {
 	CHARGING_CMD_SET_ERROR_STATE,
 	CHARGING_CMD_DISO_INIT,
 	CHARGING_CMD_GET_DISO_STATE,
+	CHARGING_CMD_SET_VINDPM,
+	CHARGING_CMD_SET_VBUS_OVP_EN,
+	CHARGING_CMD_GET_BIF_VBAT,
+	CHARGING_CMD_SET_CHRIND_CK_PDN,
+	CHARGING_CMD_SW_INIT,
+	CHARGING_CMD_ENABLE_SAFETY_TIMER,
+	CHARGING_CMD_SET_HIZ_SWCHR,
+	CHARGING_CMD_GET_BIF_TBAT,
+	CHARGING_CMD_SET_TA20_RESET,
+	CHARGING_CMD_SET_TA20_CURRENT_PATTERN,
 	CHARGING_CMD_NUMBER
 } CHARGING_CTRL_CMD;
 
@@ -314,7 +348,10 @@ typedef enum {
 	BATTERY_VOLT_04_480000_V = 4480000,
 	BATTERY_VOLT_04_487500_V = 4487500,
 	BATTERY_VOLT_04_500000_V = 4500000,
+	BATTERY_VOLT_04_512500_V = 4512500,
 	BATTERY_VOLT_04_520000_V = 4520000,
+	BATTERY_VOLT_04_525000_V = 4525000,
+	BATTERY_VOLT_04_537500_V = 4537500,
 	BATTERY_VOLT_04_540000_V = 4540000,
 	BATTERY_VOLT_04_550000_V = 4550000,
 	BATTERY_VOLT_04_560000_V = 4560000,
@@ -448,8 +485,52 @@ typedef enum {
 	CHARGE_CURRENT_2900_00_MA = 290000,
 	CHARGE_CURRENT_3000_00_MA = 300000,
 	CHARGE_CURRENT_3100_00_MA = 310000,
+	CHARGE_CURRENT_3200_00_MA = 320000,
 	CHARGE_CURRENT_MAX
 } CHR_CURRENT_ENUM;
+
+/* Enum of charger voltage List */
+typedef enum {
+	CHR_VOLT_00_500000_V = 500,
+	CHR_VOLT_01_000000_V = 1000,
+	CHR_VOLT_04_000000_V = 4000,
+	CHR_VOLT_04_500000_V = 4500,
+	CHR_VOLT_05_000000_V = 5000,
+	CHR_VOLT_05_500000_V = 5500,
+	CHR_VOLT_06_000000_V = 6050,
+	CHR_VOLT_06_500000_V = 6500,
+	CHR_VOLT_07_000000_V = 7000,
+	CHR_VOLT_07_500000_V = 7500,
+	CHR_VOLT_08_000000_V = 8000,
+	CHR_VOLT_08_500000_V = 8500,
+	CHR_VOLT_09_000000_V = 9000,
+	CHR_VOLT_09_500000_V = 9500,
+	CHR_VOLT_10_000000_V = 10000,
+	CHR_VOLT_10_500000_V = 10500,
+	CHR_VOLT_11_000000_V = 11000,
+	CHR_VOLT_11_500000_V = 11500,
+	CHR_VOLT_12_000000_V = 12000,
+	CHR_VOLT_12_500000_V = 12500,
+	CHR_VOLT_13_000000_V = 13000,
+	CHR_VOLT_13_500000_V = 13500,
+	CHR_VOLT_14_000000_V = 14000,
+	CHR_VOLT_14_500000_V = 14500,
+	CHR_VOLT_15_000000_V = 15000,
+	CHR_VOLT_15_500000_V = 15500,
+	CHR_VOLT_16_000000_V = 16000,
+	CHR_VOLT_16_500000_V = 16500,
+	CHR_VOLT_17_000000_V = 17000,
+	CHR_VOLT_17_500000_V = 17500,
+	CHR_VOLT_18_000000_V = 18000,
+	CHR_VOLT_18_500000_V = 18500,
+	CHR_VOLT_19_000000_V = 19000,
+	CHR_VOLT_19_500000_V = 19500,
+	CHR_VOLT_20_000000_V = 20000,
+	CHR_VOLT_MAX,
+
+} CHR_VOLTAGE_ENUM;
+
+
 
 /* ============================================================ */
 /* structure */
@@ -473,4 +554,24 @@ extern kal_bool chargin_hw_init_done;
 /* External function */
 /* ============================================================ */
 extern kal_int32 chr_control_interface(CHARGING_CTRL_CMD cmd, void *data);
+extern kal_uint32 upmu_get_reg_value(kal_uint32 reg);
+extern void Charger_Detect_Init(void);
+extern void Charger_Detect_Release(void);
+extern int hw_charging_get_charger_type(void);
+extern void mt_power_off(void);
+extern kal_uint32 mt6311_get_chip_id(void);
+extern int is_mt6311_exist(void);
+extern int is_mt6311_sw_ready(void);
+
+extern void hw_charging_enable_dp_voltage(int ison);
+
+
+/* switch charger */
+extern void switch_charger_set_vindpm(unsigned int chr_v);
+extern void mtk_pe20_plugout_reset(void);
+
+extern BATTERY_VOLTAGE_ENUM battery_get_cv_voltage(void);
+extern void battery_set_cv_voltage(BATTERY_VOLTAGE_ENUM cv);
+/*BCCT input current control function over switch charger*/
+extern kal_uint32 set_chr_input_current_limit(int current_limit);
 #endif				/* #ifndef _CHARGING_H */

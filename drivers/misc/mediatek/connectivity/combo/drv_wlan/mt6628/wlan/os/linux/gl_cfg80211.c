@@ -15,7 +15,7 @@
 ** $Log: gl_cfg80211.c $
 **
 ** 11 23 2012 yuche.tsai
-** [ALPS00398671] [Acer-Tablet] Remove Wi-Fi Direct completely
+** [ALPS00398671] [Tablet] Remove Wi-Fi Direct completely
 ** Fix bug of WiFi may reboot under user load, when WiFi Direct is removed..
 **
 ** 09 12 2012 wcpadmin

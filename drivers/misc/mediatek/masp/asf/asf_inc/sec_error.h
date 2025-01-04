@@ -112,7 +112,7 @@
 #define SEC_SUSBDL_STATUE_QUERY_FAIL            0x9008
 #define SEC_SUSBDL_NOT_ENABLED                  0x9009
 #define SEC_SBOOT_MARK_STATUS_FAIL              0x900A
-#define SEC_SBOOT_NOT_INIT_YET                  0x900B  
+#define SEC_SBOOT_NOT_INIT_YET                  0x900B
 #define SEC_SBOOT_NOTIFY_DRIVER_FAIL            0x900C
 #define SEC_SBOOT_INVALID_IMG_ATTR              0x900D
 
@@ -225,5 +225,4 @@
 
 
 
-#endif /* SEC_ERROR_H */
-
+#endif				/* SEC_ERROR_H */

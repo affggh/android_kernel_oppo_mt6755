@@ -29,7 +29,7 @@
 #include <linux/hwmsen_dev.h>
 #include <linux/sensors_io.h>
 
-#include <mach/mt_devs.h>
+#include <linux/proc_fs.h>
 #include <mach/mt_typedefs.h>
 #include <mach/mt_gpio.h>
 #include <mach/mt_pm_ldo.h>
@@ -37,6 +37,8 @@
 
 #include <cust_mag.h>
 #include <linux/hwmsen_helper.h>
+#include "mag.h"
+
 
 
 /*-------------------------MT6516&MT6573 define-------------------------------*/
@@ -71,7 +73,7 @@
 #define S62X_I2C_ADDR1          (0x0C<<1)
 #define S62X_I2C_ADDR2          (0x1E<<1)
 #else
-#define S62X_I2C_ADDR1          (0x0C)
+#define S62X_I2C_ADDR1          (0x0E)
 #define S62X_I2C_ADDR2          (0x1E)
 #endif
 
@@ -93,13 +95,13 @@
 #define S62X_DEFAULT_DELAY      100
 
 #if S62X_DEBUG_MSG
-#define SSMDBG(format, ...)	printk(KERN_INFO "S62X " format "\n", ## __VA_ARGS__)
+#define SSMDBG(format, ...)	printk(KERN_ERR "S62X " format "\n", ## __VA_ARGS__)
 #else
 #define SSMDBG(format, ...)
 #endif
 
 #if S62X_DEBUG_FUNC
-#define SSMFUNC(func)           printk(KERN_INFO "S62X " func " is called\n")
+#define SSMFUNC(func)           printk(KERN_ERR "S62X " func " is called\n")
 #else
 #define SSMFUNC(func)
 #endif
@@ -112,8 +114,8 @@
 #define SENSOR_DATA_COUNT       (SENSOR_DATA_SIZE/sizeof(short))
 #define CALIBRATION_DATA_SIZE   12
 
-#define RWBUF_SIZE              32
-#define S62X_BUFSIZE            32
+#define RWBUF_SIZE              96
+#define S62X_BUFSIZE            96
 
 #define CONVERT_O		1
 #define CONVERT_O_DIV		1
@@ -172,6 +174,15 @@
 
 #define S62X_IDX_PROBE_OE       0x37
 #define PROBE_OE_WATCHDOG       0x10
+#define S62X_MUL_X              20
+#define S62X_DIV_X              28
+#define S62X_OFF_X              2048
+#define S62X_MUL_Y              20
+#define S62X_DIV_Y              28
+#define S62X_OFF_Y              2048
+#define S62X_MUL_Z              20
+#define S62X_DIV_Z              32
+#define S62X_OFF_Z              2048
 
 /*----------------------------------------------------------------------------*/
 static struct i2c_client *this_client = NULL;
@@ -297,6 +308,8 @@ static struct platform_driver ssm_sensor_driver =
 /*----------------------------------------------------------------------------*/
 static void s62x_power(struct mag_hw *hw, unsigned int on)
 {
+#ifdef __USE_LINUX_REGULATOR_FRAMEWORK__
+#else
         static unsigned int power_on = 0;
 
         if (hw->power_id != POWER_NONE_MACRO) {
@@ -315,6 +328,7 @@ static void s62x_power(struct mag_hw *hw, unsigned int on)
         }
 
         power_on = on;
+#endif //__USE_LINUX_REGULATOR_FRAMEWORK__
 }
 
 /*----------------------------------------------------------------------------*/
@@ -962,6 +976,13 @@ static int s62x_release(struct inode *inode, struct file *file)
 }
 
 /*----------------------------------------------------------------------------*/
+static int factory_mode(void)
+{
+        /* for factory mode (without open from the Daemon and successfully initialized) */
+        return (atomic_read(&dev_open_count) == 1 && atomic_read(&init_phase) == 0);
+}
+
+/*----------------------------------------------------------------------------*/
 #ifndef MTK_ANDROID_4
 static int s62x_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 #else
@@ -976,6 +997,8 @@ static long s62x_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned lo
         char buff[S62X_BUFSIZE];
         char mode;
         short value[12];
+		uint32_t enable;
+		hwm_sensor_data* hwm_data;
         short delay;
         int status;
         int ret = -1;
@@ -1048,6 +1071,14 @@ static long s62x_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned lo
                 }
                 break;
 
+		case MSENSOR_IOCTL_SET_MODE:
+				printk("arg = %d  \n", (char)arg);
+                ret = ECS_SetMode((char)arg);
+                if (ret < 0) {
+                        return ret;
+                }
+                break;
+
         case ECS_IOCTL_GETDATA:
                 ret = ECS_GetData(mdata);
                 if (ret < 0) {
@@ -1111,9 +1142,99 @@ static long s62x_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned lo
                         return -EFAULT;
                 }
                 break;
+				
+		case MSENSOR_IOCTL_READ_CHIPINFO:
+				if (argp == NULL) {
+						printk(KERN_ERR "S61X IO parameter pointer is NULL!\n");
+						break;
+				}
+		
+				ECS_ReadChipInfo(buff, S62X_BUFSIZE);
+				if (copy_to_user(argp, buff, strlen(buff)+1)) {
+						return -EFAULT;
+				}
+				break;
+		
+		case MSENSOR_IOCTL_READ_SENSORDATA:
+				if (argp == NULL) {
+						printk(KERN_ERR "S61X IO parameter pointer is NULL!\n");
+						break;
+				}
+		
+				if (factory_mode()) {
+						ret = ECS_GetData(mdata);
+						if (ret < 0) {
+								return -EFAULT;
+						}
+				}
+		
+				mutex_lock(&last_m_data_mutex);
+				memcpy(mdata, last_m_data, sizeof(mdata));
+				mutex_unlock(&last_m_data_mutex);
+				mdata[0] = mdata[0] * S62X_MUL_X / S62X_DIV_X;
+				mdata[1] = mdata[1] * S62X_MUL_Y / S62X_DIV_Y;
+				mdata[2] = mdata[2] * S62X_MUL_Z / S62X_DIV_Z;
+				sprintf(buff, "%x %x %x", (int)mdata[0], (int)mdata[1], (int)mdata[2]);
+				if (copy_to_user(argp, buff, strlen(buff)+1)) {
+						return -EFAULT;
+				}
+				break;
+		
+		case MSENSOR_IOCTL_SENSOR_ENABLE:
+				if (argp == NULL) {
+						printk(KERN_ERR "S61X IO parameter pointer is NULL!\n");
+						break;
+				}
+		
+				if (copy_from_user(&enable, argp, sizeof(enable))) {
+						SSMDBG("copy_from_user failed.");
+						return -EFAULT;
+				} else {
+						SSMDBG("MSENSOR_IOCTL_SENSOR_ENABLE enable=%d", enable);
+						if (enable == 1) {
+								atomic_set(&o_flag, 1);
+								atomic_set(&open_flag, 1);
+						} else {
+								atomic_set(&o_get_data, 0);
+								atomic_set(&o_flag, 0);
+								if (atomic_read(&m_flag) == 0) {
+										atomic_set(&open_flag, 0);
+								}
+						}
+						wake_up(&open_wq);
+		
+						if (factory_mode()) {
+								int mode = enable ? SS_SENSOR_MODE_MEASURE : SS_SENSOR_MODE_OFF;
+								SSMDBG("MSENSOR_IOCTL_SENSOR_ENABLE SetMode(%d)\n", mode);
+								ECS_SetMode(mode);
+						}
+				}
+				break;
+		
+		case MSENSOR_IOCTL_READ_FACTORY_SENSORDATA:
+				if (argp == NULL) {
+						printk(KERN_ERR "S61X IO parameter pointer is NULL!\n");
+						break;
+				}
+		
+				hwm_data = (hwm_sensor_data *)buff;
+				mutex_lock(&sensor_data_mutex);
+				hwm_data->values[0] = sensor_data[0] * CONVERT_O;
+				hwm_data->values[1] = sensor_data[1] * CONVERT_O;
+				hwm_data->values[2] = sensor_data[2] * CONVERT_O;
+				hwm_data->status = sensor_data[4];
+				hwm_data->value_divide = CONVERT_O_DIV;
+				mutex_unlock(&sensor_data_mutex);
+		
+				sprintf(buff, "%x %x %x %x %x", hwm_data->values[0], hwm_data->values[1],
+						hwm_data->values[2], hwm_data->status, hwm_data->value_divide);
+				if (copy_to_user(argp, buff, strlen(buff)+1)) {
+						return -EFAULT;
+				}
+				break;
 
         default:
-                printk(KERN_ERR "S62X %s not supported = 0x%04x\n", __FUNCTION__, cmd);
+                printk(KERN_ERR "S62X %s not supported = 0x%x\n", __FUNCTION__, cmd);
                 return -ENOIOCTLCMD;
                 break;
         }
@@ -1160,6 +1281,7 @@ int s62x_operate(void* self, uint32_t command, void* buff_in, int size_in,
                 SSMFUNC("s62x_operate");
         }
 #endif
+
         switch (command) {
 
         case SENSOR_DELAY:
@@ -1533,7 +1655,7 @@ static int s62x_i2c_probe(struct i2c_client *client, const struct i2c_device_id 
                 goto exit_kfree;
         }
 
-#if CONFIG_HAS_EARLYSUSPEND
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND) 
         data->early_drv.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB - 1,
         data->early_drv.suspend = s62x_early_suspend,
         data->early_drv.resume  = s62x_late_resume,

@@ -17,10 +17,34 @@
 #elif defined(BUILD_UBOOT)
 #define LCM_PRINT printf
 #else
-#define LCM_PRINT printk
+#define LCM_PRINT pr_debug
 #endif
 
-#define _Y70_Rev_A_
+#define TEMP_VER_CHECK
+
+#ifdef TEMP_VER_CHECK
+#if defined(BUILD_LK)
+#include <platform/mtk_auxadc_sw.h>
+#include <platform/mtk_auxadc_hw.h>
+#elif defined(BUILD_UBOOT)
+#else
+extern int IMM_GetOneChannelValue(int dwChannel, int data[4], int* rawdata);
+#endif
+
+int g_PCBver = 0;    // 0:HW_REV_A , 1:HW_REV_A_2, 2:HW_REV_B
+int first_check = 0;        // first suspend check 
+
+#define HW_REV_A        0
+#define HW_REV_A_2      1
+#define HW_REV_B        2
+
+#define HW_REV_A_RANGE        20      
+#define HW_REV_A_2_RANGE      40
+#define HW_REV_B_RANGE        60
+#endif /* TEMP_VER_CHECK */
+
+//#define _Y70_Rev_A_
+//#define _Y70_Rev_B_
 
 // ---------------------------------------------------------------------------
 //  Local Constants
@@ -249,8 +273,6 @@ static void lcm_get_params(LCM_PARAMS * params)
 	params->dsi.packet_size=256;
 	//video mode timing
 	// Video mode setting
-	params->dsi.intermediat_buffer_num = 2;
-
 	params->dsi.PS=LCM_PACKED_PS_24BIT_RGB888;
 
 	#if 0
@@ -277,7 +299,7 @@ static void lcm_get_params(LCM_PARAMS * params)
 	params->dsi.horizontal_frontporch				= 140;
 	params->dsi.horizontal_active_pixel 			= FRAME_WIDTH;
 
-	params->dsi.PLL_CLOCK = 208;
+	params->dsi.PLL_CLOCK = 234;
 	#endif
 
 }
@@ -408,29 +430,176 @@ static void init_lcm_registers_sleep(void)
 }
 
 
+#ifdef TEMP_VER_CHECK
 /* VCAMD 1.8v LDO enable */
 static void ldo_1v8io_on(void)
 {
 #ifdef BUILD_UBOOT 
 	#error "not implemeted"
 #elif defined(BUILD_LK) 	
+    if ( g_PCBver==HW_REV_B )
+    {
+    	upmu_set_rg_vgp1_vosel(3);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
+    	upmu_set_rg_vgp1_en(1);        
+    }
+    else if ( g_PCBver==HW_REV_A_2 )
+    {
+    	upmu_set_rg_vcamd_vosel(3);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
+    	upmu_set_rg_vcamd_en(1);        
+    }
+    else    //( g_PCBver==HW_REV_A )
+    {
+    	upmu_set_rg_vgp2_vosel(3);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
+    	upmu_set_rg_vgp2_en(1);
+    }
+#else
+    if ( g_PCBver==HW_REV_B )
+    {
+    	hwPowerOn(MT6323_POWER_LDO_VGP1, VOL_1800, "1V8_MTK_LCD_IO");	        
+    }
+    else if ( g_PCBver==HW_REV_A_2 )
+    {
+    	hwPowerOn(MT6323_POWER_LDO_VCAMD, VOL_1800, "1V8_LCD_VIO_MTK_S");	        
+    }
+    else    //( g_PCBver==HW_REV_A )
+    {
+    	hwPowerOn(MT6323_POWER_LDO_VGP2, VOL_1800, "1V8_LCD_VIO_MTK_S");	        
+    }    
+#endif 
+}
 
-    #ifdef _Y70_Rev_A_    // Y70 Rev.A board
+/* VCAMD 1.8v LDO disable */
+static void ldo_1v8io_off(void)
+{
+#ifdef BUILD_UBOOT 
+#error "not implemeted"
+#elif defined(BUILD_LK) 	   
+    if ( g_PCBver==HW_REV_B )
+    {   
+    	upmu_set_rg_vgp1_en(0);            
+    }
+    else if ( g_PCBver==HW_REV_A_2 )
+    {
+    	upmu_set_rg_vcamd_en(0);        
+    }
+    else    //( g_PCBver==HW_REV_A )
+    {
+    	upmu_set_rg_vgp2_en(0);            
+    }    
+#else
+    if ( g_PCBver==HW_REV_B )
+    {
+    	hwPowerDown(MT6323_POWER_LDO_VGP1, "1V8_MTK_LCD_IO");	        
+    }
+    else if ( g_PCBver==HW_REV_A_2 )
+    {
+    	hwPowerDown(MT6323_POWER_LDO_VCAMD, "1V8_LCD_VIO_MTK_S");	        
+    }
+    else    //( g_PCBver==HW_REV_A )
+    {
+    	hwPowerDown(MT6323_POWER_LDO_VGP2, "1V8_LCD_VIO_MTK_S");	        
+    }    
+#endif 
+}
+
+/* VGP2 3.0v LDO enable */
+static void ldo_3v0_on(void)
+{
+
+#ifdef BUILD_UBOOT 
+	#error "not implemeted"
+#elif defined(BUILD_LK)
+    if ( g_PCBver==HW_REV_B )
+    { 
+    	upmu_set_rg_vgp2_vosel(6);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
+    	upmu_set_rg_vgp2_en(1);        
+    }
+    else if ( g_PCBver==HW_REV_A_2 )
+    {
+    	upmu_set_rg_vgp2_vosel(6);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
+    	upmu_set_rg_vgp2_en(1);	        
+    }
+    else    //( g_PCBver==HW_REV_A )
+    {
+        upmu_set_rg_vgp1_vosel(6);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
+        upmu_set_rg_vgp1_en(1);
+    }    
+#else
+    if ( g_PCBver==HW_REV_B )
+    {
+    	hwPowerOn(MT6323_POWER_LDO_VGP2, VOL_3000, "3V0_MTK_LCD_VCC");	        
+    }
+    else if ( g_PCBver==HW_REV_A_2 )
+    {
+    	hwPowerOn(MT6323_POWER_LDO_VGP2, VOL_3000, "3V0_LCD_VCC_MTK_S");        
+    }
+    else    //( g_PCBver==HW_REV_A )
+    {
+	    hwPowerOn(MT6323_POWER_LDO_VGP1, VOL_3000, "3V0_TOUCH_VDD");	    
+    }    
+#endif
+
+}
+
+/* VGP2 3.0v LDO disable */
+static void ldo_3v0_off(void)
+{
+#ifdef BUILD_UBOOT 
+	#error "not implemeted"
+#elif defined(BUILD_LK)
+    if ( g_PCBver==HW_REV_B )
+    {
+	    upmu_set_rg_vgp2_en(0);        
+    }
+    else if ( g_PCBver==HW_REV_A_2 )
+    {
+    	upmu_set_rg_vgp2_en(0);        
+    }
+    else    //( g_PCBver==HW_REV_A )
+    {
+    	upmu_set_rg_vgp1_en(0);    
+    }    
+#else
+    if ( g_PCBver==HW_REV_B )
+    {
+	    hwPowerDown(MT6323_POWER_LDO_VGP2, "3V0_MTK_LCD_VCC");	        
+    }
+    else if ( g_PCBver==HW_REV_A_2 )
+    {
+    	hwPowerDown(MT6323_POWER_LDO_VGP2, "3V0_LCD_VCC_MTK_S");	        
+    }
+    else    //( g_PCBver==HW_REV_A )
+    {
+    	hwPowerDown(MT6323_POWER_LDO_VGP1, "3V0_TOUCH_VDD");	    
+    }    
+#endif
+
+}
+#else //====================================== /* TEMP_VER_CHECK */
+/* VCAMD 1.8v LDO enable */
+static void ldo_1v8io_on(void)
+{
+#ifdef BUILD_UBOOT 
+	#error "not implemeted"
+#elif defined(BUILD_LK) 	
+    #if defined(_Y70_Rev_A_)    // Y70 Rev.A board
 	upmu_set_rg_vgp2_vosel(3);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
 	upmu_set_rg_vgp2_en(1);
+    #elif defined(_Y70_Rev_B_)  // Y70 Rev.B board
+	upmu_set_rg_vgp1_vosel(3);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
+	upmu_set_rg_vgp1_en(1);
     #else               // Y70 Rev.A-2 board
 	upmu_set_rg_vcamd_vosel(3);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
 	upmu_set_rg_vcamd_en(1);
     #endif /* _Y70_Rev_A_ */
-    
 #else
-
-    #ifdef _Y70_Rev_A_    // Y70 Rev.A board
-	hwPowerOn(MT6323_POWER_LDO_VGP2, VOL_1800, "1V8_LCD_VIO_MTK_S");	
+    #if defined(_Y70_Rev_A_)    // Y70 Rev.A board
+	hwPowerOn(MT6323_POWER_LDO_VGP2, VOL_1800, "1V8_LCD_VIO_MTK_S");	    
+    #elif defined(_Y70_Rev_B_)  // Y70 Rev.B board
+	hwPowerOn(MT6323_POWER_LDO_VGP1, VOL_1800, "1V8_MTK_LCD_IO");	
     #else               // Y70 Rev.A-2 board
 	hwPowerOn(MT6323_POWER_LDO_VCAMD, VOL_1800, "1V8_LCD_VIO_MTK_S");	
     #endif /* _Y70_Rev_A_ */
-    
 #endif 
 }
 
@@ -440,87 +609,78 @@ static void ldo_1v8io_off(void)
 #ifdef BUILD_UBOOT 
 #error "not implemeted"
 #elif defined(BUILD_LK) 	
-
-    #ifdef _Y70_Rev_A_    // Y70 Rev.A board
-	upmu_set_rg_vgp2_en(0);    
+    #if defined(_Y70_Rev_A_)    // Y70 Rev.A board
+	upmu_set_rg_vgp2_en(0);        
+    #elif defined(_Y70_Rev_B_)  // Y70 Rev.B board
+	upmu_set_rg_vgp1_en(0);    
     #else               // Y70 Rev.A-2 board
 	upmu_set_rg_vcamd_en(0);
     #endif /* _Y70_Rev_A_ */
-
 #else
-
-    #ifdef _Y70_Rev_A_    // Y70 Rev.A board
-	hwPowerDown(MT6323_POWER_LDO_VGP2, "1V8_LCD_VIO_MTK_S");	
+    #if defined(_Y70_Rev_A_)    // Y70 Rev.A board
+	hwPowerDown(MT6323_POWER_LDO_VGP2, "1V8_LCD_VIO_MTK_S");	    
+    #elif defined(_Y70_Rev_B_)  // Y70 Rev.B board
+	hwPowerDown(MT6323_POWER_LDO_VGP1, "1V8_MTK_LCD_IO");	
     #else               // Y70 Rev.A-2 board
 	hwPowerDown(MT6323_POWER_LDO_VCAMD, "1V8_LCD_VIO_MTK_S");	
     #endif /* _Y70_Rev_A_ */
-
 #endif 
 }
 
 /* VGP2 3.0v LDO enable */
 static void ldo_3v0_on(void)
 {
-#if 1 //defined(TARGET_S7)
+
 #ifdef BUILD_UBOOT 
 	#error "not implemeted"
 #elif defined(BUILD_LK)
-    
-    #ifdef _Y70_Rev_A_    // Y70 Rev.A board
+    #if defined(_Y70_Rev_A_)    // Y70 Rev.A board
 	upmu_set_rg_vgp1_vosel(6);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
-	upmu_set_rg_vgp1_en(1);
+	upmu_set_rg_vgp1_en(1);    
+    #elif defined(_Y70_Rev_B_)  // Y70 Rev.B board    
+	upmu_set_rg_vgp2_vosel(6);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
+	upmu_set_rg_vgp2_en(1);
     #else               // Y70 Rev.A-2 board
 	upmu_set_rg_vgp2_vosel(6);  // VGP2_SEL= 101 : 2.8V , 110 : 3.0V
 	upmu_set_rg_vgp2_en(1);	
     #endif /* _Y70_Rev_A_ */
-
 #else
-
-    #ifdef _Y70_Rev_A_    // Y70 Rev.A board
-	hwPowerOn(MT6323_POWER_LDO_VGP1, VOL_3000, "3V0_TOUCH_VDD");	
+    #if defined(_Y70_Rev_A_)    // Y70 Rev.A board
+	hwPowerOn(MT6323_POWER_LDO_VGP1, VOL_3000, "3V0_TOUCH_VDD");	    
+    #elif defined(_Y70_Rev_B_)  // Y70 Rev.B board        
+	hwPowerOn(MT6323_POWER_LDO_VGP2, VOL_3000, "3V0_MTK_LCD_VCC");	
     #else               // Y70 Rev.A-2 board
 	hwPowerOn(MT6323_POWER_LDO_VGP2, VOL_3000, "3V0_LCD_VCC_MTK_S");	
     #endif /* _Y70_Rev_A_ */
+#endif
 
-#endif
-#else
-	mt_set_gpio_mode(GPIO_LCM_PWR, GPIO_LCM_PWR_M_GPIO);
-	mt_set_gpio_pull_enable(GPIO_LCM_PWR, GPIO_PULL_ENABLE);
-	mt_set_gpio_dir(GPIO_LCM_PWR, GPIO_DIR_OUT);
-	mt_set_gpio_out(GPIO_LCM_PWR, GPIO_OUT_ONE);
-#endif
 }
 
 /* VGP2 3.0v LDO disable */
 static void ldo_3v0_off(void)
 {
-#if 1 //defined(TARGET_S7)
 #ifdef BUILD_UBOOT 
 	#error "not implemeted"
 #elif defined(BUILD_LK)
-
-    #ifdef _Y70_Rev_A_    // Y70 Rev.A board
-	upmu_set_rg_vgp1_en(0);
+    #if defined(_Y70_Rev_A_)    // Y70 Rev.A board
+	upmu_set_rg_vgp1_en(0);    
+    #elif defined(_Y70_Rev_B_)  // Y70 Rev.B board        
+	upmu_set_rg_vgp2_en(0);
     #else               // Y70 Rev.A-2 board
 	upmu_set_rg_vgp2_en(0);
     #endif /* _Y70_Rev_A_ */
-    
 #else
-
-    #ifdef _Y70_Rev_A_    // Y70 Rev.A board
-	hwPowerDown(MT6323_POWER_LDO_VGP1, "3V0_TOUCH_VDD");	
+    #if defined(_Y70_Rev_A_)    // Y70 Rev.A board
+	hwPowerDown(MT6323_POWER_LDO_VGP1, "3V0_TOUCH_VDD");	    
+    #elif defined(_Y70_Rev_B_)  // Y70 Rev.B board     
+	hwPowerDown(MT6323_POWER_LDO_VGP2, "3V0_MTK_LCD_VCC");	
     #else               // Y70 Rev.A-2 board
 	hwPowerDown(MT6323_POWER_LDO_VGP2, "3V0_LCD_VCC_MTK_S");	
-    #endif /* _Y70_Rev_A_ */
-    
+    #endif /* _Y70_Rev_A_ */   
 #endif
-#else
-	mt_set_gpio_mode(GPIO_LCM_PWR, GPIO_LCM_PWR_M_GPIO);
-	mt_set_gpio_pull_enable(GPIO_LCM_PWR, GPIO_PULL_ENABLE);
-	mt_set_gpio_dir(GPIO_LCM_PWR, GPIO_DIR_OUT);
-	mt_set_gpio_out(GPIO_LCM_PWR, GPIO_OUT_ZERO);
-#endif
+
 }
+#endif /* TEMP_VER_CHECK */
 
 /*
 DSV power +5V,-5v
@@ -567,11 +727,48 @@ static void reset_lcd_module(unsigned char reset)
    	mt_set_gpio_out(GPIO_LCM_RST, GPIO_OUT_ZERO);
    }
 }
-   
+
+#ifdef TEMP_VER_CHECK
+static int get_pcb_version(void)
+{
+
+    int data[4] = {0, 0, 0, 0};
+    int rawvalue    = 0;
+    int ret         = 0;
+    int PCBvoltage  = 0;
+
+    ret = IMM_GetOneChannelValue(1, data, &rawvalue);
+    if (ret == 0)
+    {
+        LCM_PRINT("[%s] success to get adc value channel(1)=(0x%x) (%d) (ret=%d)\n", __func__, rawvalue, rawvalue, ret);
+        LCM_PRINT("[%s] data[0]=0x%x, data[1]=0x%x\n\n",__func__, data[0], data[1]);
+    } else {
+        LCM_PRINT("[%s] fail to get adc value (ret=%d)\n", __func__, ret);
+    }
+
+    PCBvoltage = (int)(rawvalue * 150 / 4096);
+
+    if ( PCBvoltage>HW_REV_B_RANGE )
+        g_PCBver = HW_REV_B;    // rev.b
+    else if ( (PCBvoltage>HW_REV_A_RANGE) && (PCBvoltage<HW_REV_B_RANGE) )
+        g_PCBver = HW_REV_A_2;    // rev.a-2
+    else
+        g_PCBver = HW_REV_A;    // rev.a
+    
+    LCM_PRINT("PCBvoltage(%d), g_PCBver(%d)\n", PCBvoltage, g_PCBver);
+    
+    return g_PCBver;
+}
+#endif /* TEMP_VER_CHECK */
 
 static void lcm_init(void)
 {
-#if defined(BUILD_LK) 	
+#if defined(BUILD_LK) 	    
+    #ifdef TEMP_VER_CHECK
+    g_PCBver = get_pcb_version();
+    LCM_PRINT("[LCD] pcb_version =%d\n",g_PCBver);
+    #endif /* TEMP_VER_CHECK */
+
 	ldo_p5m5_dsv_5v5_off();
 	SET_RESET_PIN(0);
 	MDELAY(50);
@@ -609,6 +806,17 @@ static void lcm_init(void)
 
 static void lcm_suspend(void)
 {
+#ifdef TEMP_VER_CHECK
+#if defined(BUILD_LK) 	    
+#else
+    if ( first_check == 0 )
+    {
+        g_PCBver = get_pcb_version();
+        LCM_PRINT("[LCD-KERNEL]board_version =%d\n",g_PCBver);
+        first_check = 1;
+    }
+#endif    
+#endif /* TEMP_VER_CHECK */
 	init_lcm_registers_sleep();
 
 	SET_RESET_PIN(0);

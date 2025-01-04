@@ -8,7 +8,7 @@
 #include <linux/workqueue.h>
 #include <linux/version.h>
 
-#include "kernel/trace/trace.h"
+#include "trace.h"
 #include "mach/mt_mon.h"
 
 static struct trace_array *mt65xx_mon_trace;

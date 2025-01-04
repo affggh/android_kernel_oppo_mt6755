@@ -27,7 +27,7 @@
 #endif
 
 #ifdef CONFIG_ZRAM
-#include <zram_drv.h>
+#include <../../../block/zram/zram_drv.h>
 #endif
 
 /* for collecting ion total memory usage*/
@@ -364,7 +364,7 @@ static void mlog_meminfo(void)
 
 	mlock = P2K(global_page_state(NR_MLOCK));
 #if defined(CONFIG_ZRAM) & defined(CONFIG_ZSMALLOC)
-	zram = (zram_devices && zram_devices->init_done && zram_devices->meta) ?
+	zram = (zram_devices && init_done(zram_devices) && zram_devices->meta) ?
 	    B2K(zs_get_total_size_bytes(zram_devices->meta->mem_pool)) : 0;
 #else
 	zram = 0;
@@ -591,6 +591,13 @@ collect_proc_mem_info:
 			swap_out += t->swap_out;
 #endif
 			t = next_thread(t);
+#ifdef MLOG_DEBUG
+#if defined(__LP64__) || defined(_LP64)
+			if ((long long)t < 0xffffffc000000000)
+				break;
+#endif
+#endif
+
 		} while (t != p);
 
 		/* emit log */
@@ -748,7 +755,7 @@ static void mlog_timer_handler(unsigned long data)
 {
 	mlog(MLOG_TRIGGER_TIMER);
 
-	mod_timer(&mlog_timer, jiffies + timer_intval);
+	mod_timer(&mlog_timer, round_jiffies(jiffies + timer_intval));
 }
 
 static void mlog_init_logger(void)

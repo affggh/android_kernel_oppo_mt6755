@@ -26,6 +26,7 @@
 
 #include <linux/usb/composite.h>
 #include <linux/usb/functionfs.h>
+#include <linux/ratelimit.h>
 
 
 #define FUNCTIONFS_MAGIC	0xa647361 /* Chosen by a honest dice roll ;) */
@@ -783,9 +784,9 @@ first_try:
 			goto error;
 		}
 
-		if (atomic_read(&epfile->error)) {
-			pr_err("%s: ep=%p\n", __func__, epfile->ep);
-		}
+		if (atomic_read(&epfile->error))
+			pr_err_ratelimited("%s: ep=%p\n", __func__, epfile->ep);
+
 
 		/* Wait for endpoint to be enabled */
 		ep = epfile->ep;

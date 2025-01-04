@@ -1904,19 +1904,15 @@ static ssize_t mms_self_diagnostic_show(struct i2c_client *client, char *buf)
 
 		for (row = 0 ; row < MAX_ROW; row++) {
 				ret += sprintf(buf+ret,"[%2d]  ",row);
-				printk("[Touch] [%2d]  ",row);
 
 			for (col = 0 ; col < MAX_COL ; col++) {
 
 					if (ts->mit_data[row][col] <= limit_upper && ts->mit_data[row][col] >= limit_lower ){
 							ret += sprintf(buf+ret," ,");
-							printk(" ,");
 						}else{
 							ret += sprintf(buf+ret,"X,");
-							printk("X,");
 						}
 			}
-				printk("\n");
 				ret += sprintf(buf+ret,"\n");
 		}
 		ret += sprintf(buf+ret,"RawData : FAIL\n\n");

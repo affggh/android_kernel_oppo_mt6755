@@ -47,7 +47,7 @@ static DEFINE_SEMAPHORE(aed_ee_sem);
  *  may be accessed from irq
 */
 static spinlock_t aed_device_lock;
-int aee_mode = AEE_MODE_CUSTOMER_USER;
+int aee_mode = AEE_MODE_NOT_INIT;
 static int force_red_screen = AEE_FORCE_NOT_SET;
 
 static struct proc_dir_entry *aed_proc_dir;
@@ -162,7 +162,7 @@ void msg_show(const char *prefix, AE_Msg *msg)
 struct aed_eerec {		/* external exception record */
 	struct list_head list;
 	char assert_type[32];
-	char exp_filename[512];
+	char exp_filename[2048];
 	unsigned int exp_linenum;
 	unsigned int fatal1;
 	unsigned int fatal2;
@@ -235,11 +235,20 @@ static ssize_t msg_copy_to_user(const char *prefix, const char *msg, char __user
 {
 	ssize_t ret = 0;
 	int len;
+    char *msg_tmp;
 
 	msg_show(prefix, (AE_Msg *) msg);
 
 	if (msg == NULL)
 		return 0;
+    msg_tmp = kzalloc(count, GFP_KERNEL);
+    if (msg_tmp != NULL) {
+        memcpy(msg_tmp, msg, count);
+    }
+    else {
+        LOGE("%s : kzalloc() fail!\n", __func__);
+        msg_tmp = msg;
+    }
 
 	len = ((AE_Msg *) msg)->len + sizeof(AE_Msg);
 
@@ -263,6 +272,8 @@ static ssize_t msg_copy_to_user(const char *prefix, const char *msg, char __user
 	*f_pos += count;
 	ret = count;
  out:
+    if (msg_tmp != msg)
+        kfree(msg_tmp);
 	return ret;
 }
 
@@ -730,7 +741,7 @@ __weak int aee_dump_ccci_debug_info(int md_id, void **addr, int *size) {
 
 static void ee_gen_detail_msg(void)
 {
-	int i, n = 0;
+	int i, n = 0, l = 0;
 	AE_Msg *rep_msg;
 	char *data;
 	int *mem;
@@ -749,8 +760,13 @@ static void ee_gen_detail_msg(void)
 			return;
 
 		data = (char *)rep_msg + sizeof(AE_Msg);
-		n += snprintf(data + n, msgsize - n, "== EXTERNAL EXCEPTION LOG ==\n");
-		n += snprintf(data + n, msgsize - n, "%s\n", (char *)eerec->ee_log);
+		//n += snprintf(data + n, msgsize - n, "== EXTERNAL EXCEPTION LOG ==\n");
+		//n += snprintf(data + n, msgsize - n, "%s\n", (char *)eerec->ee_log);
+		l = snprintf(data + n, msgsize - n, "== EXTERNAL EXCEPTION LOG ==\n%s\n", (char *)eerec->ee_log);
+        if (l >= msgsize - n) {
+            LOGE("ee_log may overflow! %d >= %d\n", l, msgsize - n);
+        }
+        n += min(l, msgsize - n);
 	} else {
 		if (strncmp(eerec->assert_type, "modem", 5) == 0) {
 			if (1 == sscanf(eerec->exp_filename, "md%d:", &md_id)) {
@@ -777,7 +793,8 @@ static void ee_gen_detail_msg(void)
 			n += snprintf(data + n, msgsize -n, "kmalloc fail, no log available\n");
 		}
 	}
-	n += snprintf(data + n, msgsize - n, "== MEM DUMP(%d) ==\n", eerec->ee_phy_size);
+	l = snprintf(data + n, msgsize - n, "== MEM DUMP(%d) ==\n", eerec->ee_phy_size);
+    n += min(l, msgsize - n);
 	if (ccci_log) {
 		n += snprintf(data + n, msgsize - n, "== CCCI LOG ==\n");
 		mem = (int *)ccci_log;
@@ -845,6 +862,13 @@ static int ee_log_avail(void)
 	return (aed_dev.eerec != NULL);
 }
 
+static char* ee_msg_avail(void)
+{
+    if (aed_dev.eerec)
+        return aed_dev.eerec->msg;
+	return NULL;
+}
+
 static void ee_gen_ind_msg(struct aed_eerec *eerec)
 {
 	unsigned long flags = 0;
@@ -876,8 +900,13 @@ static void ee_gen_ind_msg(struct aed_eerec *eerec)
 		return;
 
 	rep_msg->cmdType = AE_IND;
-	rep_msg->cmdId = AE_IND_EXP_RAISED;
-	rep_msg->arg = AE_EE;
+//#ifdef VENDOR_EDIT
+//WenLong.Cai@Mobile.Network, 2016/07/14, Modify for enable create DB file when modem crash on release build 
+    //rep_msg->cmdId = AE_IND_EXP_RAISED;
+//#else
+    rep_msg->cmdId = AE_IND_FATAL_RAISED;
+//#endif /* VENDOR_EDIT */
+    rep_msg->arg = AE_EE;
 	rep_msg->len = 0;
 	rep_msg->dbOption = eerec->db_opt;
 
@@ -935,7 +964,7 @@ static int aed_ee_release(struct inode *inode, struct file *filp)
 static unsigned int aed_ee_poll(struct file *file, struct poll_table_struct *ptable)
 {
 	/* LOGD("%s\n", __func__); */
-	if (ee_log_avail()) {
+	if (ee_log_avail() && ee_msg_avail()) {
 		return POLLIN | POLLRDNORM | POLLOUT | POLLWRNORM;
 	} else {
 		poll_wait(file, &aed_dev.eewait, ptable);
@@ -1320,6 +1349,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			/* Try to prevent overrun */
 			dal_show->msg[sizeof(dal_show->msg) - 1] = 0;
 #ifdef CONFIG_MTK_FB
+			LOGD("AEE CALL DAL_Printf now\n");
 			DAL_Printf("%s", dal_show->msg);
 #endif
 
@@ -1337,7 +1367,9 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			dal_setcolor.background = 0xff0000;	/*red */
 
 #ifdef CONFIG_MTK_FB
+			LOGD("AEE CALL DAL_SetColor now\n");
 			DAL_SetColor(dal_setcolor.foreground, dal_setcolor.background);
+			LOGD("AEE CALL DAL_Clean now\n");
 			DAL_Clean();
 #endif
 			break;
@@ -1358,7 +1390,9 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				goto EXIT;
 			}
 #ifdef CONFIG_MTK_FB
+			LOGD("AEE CALL DAL_SetColor now\n");
 			DAL_SetColor(dal_setcolor.foreground, dal_setcolor.background);
+			LOGD("AEE CALL DAL_SetScreenColor now\n");
 			DAL_SetScreenColor(dal_setcolor.screencolor);
 #endif
 			break;
@@ -1714,7 +1748,7 @@ static void kernel_reportAPI(const AE_DEFECT_ATTR attr, const int db_opt, const 
 {
 	struct aee_oops *oops;
 	int n = 0;
-	if (aee_mode >= AEE_MODE_CUSTOMER_USER || (aee_mode == AEE_MODE_CUSTOMER_ENG && attr > AE_DEFECT_EXCEPTION))
+	if (aee_mode == AEE_MODE_CUSTOMER_USER || (aee_mode == AEE_MODE_CUSTOMER_ENG && attr == AE_DEFECT_WARNING))
 		return;
 	oops = aee_oops_create(attr, AE_KERNEL_PROBLEM_REPORT, module);
 	if (NULL != oops) {
@@ -1780,16 +1814,19 @@ void aee_kernel_dal_api(const char *file, const int line, const char *msg)
 			&& (force_red_screen == AEE_FORCE_RED_SCREEN))) {
 			dal_setcolor.foreground = 0xff00ff;	/* fg: purple */
 			dal_setcolor.background = 0x00ff00;	/* bg: green */
+			LOGD("AEE CALL DAL_SetColor now\n");
 			DAL_SetColor(dal_setcolor.foreground, dal_setcolor.background);
 			dal_setcolor.screencolor = 0xff0000;	/* screen:red */
+			LOGD("AEE CALL DAL_SetScreenColor now\n");
 			DAL_SetScreenColor(dal_setcolor.screencolor);
 			strncpy(dal_show->msg, msg, sizeof(dal_show->msg) - 1);
 			dal_show->msg[sizeof(dal_show->msg) - 1] = 0;
+			LOGD("AEE CALL DAL_Printf now\n");
 			DAL_Printf("%s", dal_show->msg);
-			kfree(dal_show);
 		} else {
 			LOGD("DAL not allowed (mode %d)\n", aee_mode);
 		}
+		kfree(dal_show);
 	}
 	up(&aed_dal_sem);
 #endif
@@ -1811,8 +1848,13 @@ static void external_exception(const char *assert_type, const int *log, int log_
 
 	LOGD("%s : [%s] log ptr %p size %d, phy ptr %p size %d\n", __func__,
 	     assert_type, log, log_size, phy, phy_size);
-	if (aee_mode >= AEE_MODE_CUSTOMER_USER)
+//#ifdef VENDOR_EDIT
+//WenLong.Cai@Mobile.Network, 2016/07/14, Delete for enable create DB file when modem crash on release build 
+/*
+    if (aee_mode >= AEE_MODE_CUSTOMER_USER)
 		return;
+*/
+//#endif /* VENDOR_EDIT */
 	eerec = kzalloc(sizeof(struct aed_eerec), GFP_ATOMIC);
 	if (eerec == NULL) {
 		LOGE("%s: kmalloc fail", __func__);

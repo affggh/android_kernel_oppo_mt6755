@@ -31,38 +31,38 @@ void FirmwareCheck( void )
     unsigned int packrat, bootpackrat;
     unsigned short packageID, packageIDRev;
 
-    printk("\nCheck firmware information\n");
+    pr_debug("\nCheck firmware information\n");
 
         //Check Config ID
         readRMI(F34_Ctrl_Base, &buffer[0], 4);
-        printk("\nConfigID = %c%c%c%c\n", buffer[0], buffer[1], buffer[2], buffer[3]);
+        pr_debug("\nConfigID = %c%c%c%c\n", buffer[0], buffer[1], buffer[2], buffer[3]);
 
     //Check Product family ID
     readRMI(F01_Query_Base+2, buffer, 1);
-    printk("Product Family = %d\n", buffer[0]);
+    pr_debug("Product Family = %d\n", buffer[0]);
     readRMI(F01_Query_Base+3, buffer, 1);
-    printk("Firmware Revision = %d\n", buffer[0]);
+    pr_debug("Firmware Revision = %d\n", buffer[0]);
 
         //Check UI Product ID
         readRMI(F01_Query_Base+11, &buffer[0], 10);
-        printk("Product ID = ");
+        pr_debug("Product ID = ");
     for(i=0; i<10; i++)
     {
-        printk("%c", buffer[i]);
+        pr_debug("%c", buffer[i]);
         if(buffer[i] == 0)    break;
     }
-        printk("\n");
+        pr_debug("\n");
 
         //Check UI packrat #
         readRMI(F01_Query_Base+18, &buffer[0], 3);
         packrat = (int)(buffer[0] | (buffer[1] << 8) | (buffer[2] << 16));
-    printk("Firmware = 0x%X%X%X\n", buffer[2], buffer[1], buffer[0]);
+    pr_debug("Firmware = 0x%X%X%X\n", buffer[2], buffer[1], buffer[0]);
 
     readRMI(F01_Query_Base+17, &buffer[0], 4);
     packageID = (buffer[1] << 8) | buffer[0];
     packageIDRev = (buffer[3] << 8) | buffer[2];
-    printk("Package ID = %d\n", packageID);
-    printk("Package ID Rev = %d\n\n", packageIDRev);
+    pr_debug("Package ID = %d\n", packageID);
+    pr_debug("Package ID Rev = %d\n\n", packageIDRev);
 
         //Enter bootloader mode
         readRMI(F34_Query_Base, &buffer[0], 2);
@@ -74,24 +74,24 @@ void FirmwareCheck( void )
 
     //Check bootloader Product family ID
     readRMI(F01_Query_Base+2, buffer, 1);
-    printk("Bootloader Product Family = %d\n", buffer[0]);
+    pr_debug("Bootloader Product Family = %d\n", buffer[0]);
     readRMI(F01_Query_Base+3, buffer, 1);
-    printk("Bootloader Firmware Revision = %d\n", buffer[0]);
+    pr_debug("Bootloader Firmware Revision = %d\n", buffer[0]);
 
         //Check Bootloader Product ID
         readRMI(F01_Query_Base+11, &buffer[0], 10);
-        printk("Bootloader Product ID = ");
+        pr_debug("Bootloader Product ID = ");
         for(i=0; i<10; i++)
     {
-        printk("%c", buffer[i]);
+        pr_debug("%c", buffer[i]);
         if(buffer[i] == 0)    break;
         }
-        printk("\n");
+        pr_debug("\n");
 
         //Check Bootloader packrat #
         readRMI(F01_Query_Base+18, &buffer[0], 3);
         bootpackrat = (unsigned int)(buffer[0] | (buffer[1] << 8) | (buffer[2] << 16));
-    printk("Bootloader Firmware = 0x%X%X%X\n", buffer[2], buffer[1], buffer[0]);
+    pr_debug("Bootloader Firmware = 0x%X%X%X\n", buffer[2], buffer[1], buffer[0]);
 
         //Reset
         buffer[0] = 0x01;
@@ -116,20 +116,20 @@ void FirmwareCheck_temp( void )
 
         //Check Config ID
         readRMI(F34_Ctrl_Base, &buffer[0], 4);
-        printk("\nConfigID = %c%c%c%c\n", buffer[0], buffer[1], buffer[2], buffer[3]);
+        pr_debug("\nConfigID = %c%c%c%c\n", buffer[0], buffer[1], buffer[2], buffer[3]);
 
     partNumber1 = (buffer[0] << 4) | (buffer[1] >> 4);
     partNumber2 = buffer[1] & 0x0F;
-    printk("ID = 0x%x 0x%x 0x%x 0x%x\n", partNumber1, partNumber2, buffer[2], buffer[3]);
+    pr_debug("ID = 0x%x 0x%x 0x%x 0x%x\n", partNumber1, partNumber2, buffer[2], buffer[3]);
 
-    printk("Configuration ID : TM%d-%03d %c%03d\n", partNumber1, partNumber2, buffer[2], buffer[3]);
+    pr_debug("Configuration ID : TM%d-%03d %c%03d\n", partNumber1, partNumber2, buffer[2], buffer[3]);
 }
 
 void AttentionTest( void )
 {
     unsigned char command;
 
-    printk("\nBin #: 23        Name: Attention Test\n");
+    pr_debug("\nBin #: 23        Name: Attention Test\n");
 
     //Reset
     command = 0x01;
@@ -137,8 +137,8 @@ void AttentionTest( void )
     delayMS(100);
 
     if(waitATTN(1, 300) == 1)
-        printk("Attention Test Pass\n");
+        pr_debug("Attention Test Pass\n");
     else
-        printk("Attention Test Fail\n");
+        pr_debug("Attention Test Fail\n");
 }
 

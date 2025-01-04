@@ -579,7 +579,7 @@ static int get_device_info(struct us_data *us, const struct usb_device_id *id,
 	adjust_quirks(us);
 
 	if (us->fflags & US_FL_IGNORE_DEVICE) {
-		dev_info(pdev, "device ignored\n");
+		US_DEBUGPX("device ignored\n");
 		return -ENODEV;
 	}
 
@@ -591,7 +591,7 @@ static int get_device_info(struct us_data *us, const struct usb_device_id *id,
 		us->fflags &= ~US_FL_GO_SLOW;
 
 	if (us->fflags)
-		dev_info(pdev, "Quirks match for vid %04x pid %04x: %lx\n",
+		US_DEBUGPX("Quirks match for vid %04x pid %04x: %lx\n",
 				le16_to_cpu(dev->descriptor.idVendor),
 				le16_to_cpu(dev->descriptor.idProduct),
 				us->fflags);
@@ -616,7 +616,7 @@ static int get_device_info(struct us_data *us, const struct usb_device_id *id,
 			us->protocol == idesc->bInterfaceProtocol)
 			msg += 2;
 		if (msg >= 0 && !(us->fflags & US_FL_NEED_OVERRIDE))
-			dev_notice(pdev, "This device "
+			US_DEBUGPX("This device "
 					"(%04x,%04x,%04x S %02x P %02x)"
 					" has %s in unusual_devs.h (kernel"
 					" %s)\n"
@@ -876,7 +876,7 @@ static void usb_stor_scan_dwork(struct work_struct *work)
 			scan_dwork.work);
 	struct device *dev = &us->pusb_intf->dev;
 
-	dev_dbg(dev, "starting scan\n");
+	US_DEBUGPX("starting scan\n");
 
 	/* For bulk-only devices, determine the max LUN value */
 	if (us->protocol == USB_PR_BULK && !(us->fflags & US_FL_SINGLE_LUN)) {
@@ -885,7 +885,7 @@ static void usb_stor_scan_dwork(struct work_struct *work)
 		mutex_unlock(&us->dev_mutex);
 	}
 	scsi_scan_host(us_to_host(us));
-	dev_dbg(dev, "scan complete\n");
+	US_DEBUGPX("scan complete\n");
 
 	/* Should we unbind if no devices were detected? */
 
@@ -1005,8 +1005,7 @@ int usb_stor_probe2(struct us_data *us)
 					dev_name(&us->pusb_intf->dev));
 	result = scsi_add_host(us_to_host(us), dev);
 	if (result) {
-		dev_warn(dev,
-				"Unable to add the scsi host\n");
+		US_DEBUGPX("Unable to add the scsi host\n");
 		goto BadDevice;
 	}
 
@@ -1015,7 +1014,7 @@ int usb_stor_probe2(struct us_data *us)
 	set_bit(US_FLIDX_SCAN_PENDING, &us->dflags);
 
 	if (delay_use > 0)
-		dev_dbg(dev, "waiting for device to settle before scanning\n");
+		US_DEBUGPX("waiting for device to settle before scanning\n");
 	queue_delayed_work(system_freezable_wq, &us->scan_dwork,
 			delay_use * HZ);
 	return 0;

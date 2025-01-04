@@ -42,7 +42,7 @@
 #define MUSBFSH_HSDMA_COUNT		0xc
 
 #define MUSBFSH_HSDMA_CHANNEL_OFFSET(_bchannel, _offset)		\
-		(MUSBFSH_HSDMA_BASE + (_bchannel << 4) + _offset)//_bchannel starts from 0
+		(MUSBFSH_HSDMA_BASE + (_bchannel << 4) + _offset)	/* _bchannel starts from 0 */
 
 #define musbfsh_read_hsdma_addr(mbase, bchannel)	\
 	musbfsh_readl(mbase,	\
@@ -77,28 +77,28 @@
 #define MUSBFSH_HSDMA_BURSTMODE_INCR16	3
 
 #ifndef MUSBFSH_HSDMA_CHANNELS
-#define MUSBFSH_HSDMA_CHANNELS		8 
+#define MUSBFSH_HSDMA_CHANNELS		8
 #endif
 
 struct musbfsh_dma_controller;
 
 struct musbfsh_dma_channel {
-	struct dma_channel		channel;
-	struct musbfsh_dma_controller	*controller;
-	u32				start_addr;
-	u32				len;
-	u16				max_packet_sz;
-	u8				idx;
-	u8				epnum;
-	u8				transmit;
+	struct dma_channel channel;
+	struct musbfsh_dma_controller *controller;
+	u32 start_addr;
+	u32 len;
+	u16 max_packet_sz;
+	u8 idx;
+	u8 epnum;
+	u8 transmit;
 };
 
 struct musbfsh_dma_controller {
-	struct dma_controller		controller;
-	struct musbfsh_dma_channel		channel[MUSBFSH_HSDMA_CHANNELS];
-	void				*private_data;
-	void __iomem			*base;
-	u8				channel_count;
-	u8				used_channels;
-	u8				irq;
+	struct dma_controller controller;
+	struct musbfsh_dma_channel channel[MUSBFSH_HSDMA_CHANNELS];
+	void *private_data;
+	void __iomem *base;
+	u8 channel_count;
+	u8 used_channels;
+	u8 irq;
 };

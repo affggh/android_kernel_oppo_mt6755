@@ -285,7 +285,7 @@ char wlog_buf[6000] = {0};
 #define DO_IF(do_work, goto_error) 								\
 	do {												\
 		if(do_work){										\
-			printk(KERN_INFO "[Touch E] Action Failed [%s %d] \n",	\
+			pr_info("[Touch E] Action Failed [%s %d] \n",	\
 				__func__, __LINE__); \
 			goto goto_error;				\
 		}							\
@@ -334,7 +334,7 @@ bool switchPage(int page) {
 		count++;
 	} while ((int)data != page && (count < DefaultTimeout));
 	if(count >= DefaultTimeout){
-		printk("[s3528]Timeout -- Page switch fail ! \n");
+		pr_debug("[s3528]Timeout -- Page switch fail ! \n");
 		return false;
 	}
 	return true;
@@ -836,15 +836,15 @@ int CompareNoiseReport(void)
 
 	out_buf += sprintf(wlog_buf+out_buf, "\n----------------------------------------------------------------------------------------------------------\n");
 	for (i = 0; i < TxChannelCount; i++){
-		printk("[s3528][Touch] Tx[%2d]: ", i);
+		pr_debug("[s3528][Touch] Tx[%2d]: ", i);
 		out_buf += sprintf(wlog_buf+out_buf, "   %5d : ", i);
 		for (j = 0; j < RxChannelCount; j++){
 			ImagepF[i][j] = NoiseDeltaMax[i][j] - NoiseDeltaMin[i][j];
-			printk("%3d,", ImagepF[i][j]);
+			pr_debug("%3d,", ImagepF[i][j]);
 			out_buf += sprintf(wlog_buf+out_buf, "%5d ", ImagepF[i][j]);
 			//		int temp = ImagepF[i][j];
 		}
-		printk("\n");
+		pr_debug("\n");
 		out_buf += sprintf(wlog_buf+out_buf, "\n");
 	}
 	out_buf += sprintf(wlog_buf+out_buf, "------------------------------------------------------------------------------------------------------------\n");
@@ -1126,17 +1126,17 @@ int ReadADCRangeReport(void)
 	TOUCH_INFO_MSG("ADC Range Data: \n");
 	//outbuf += sprintf(f54_wlog_buf+outbuf, "ADC Range Test Data : \n");
 	for (i = 0; i < (int)TxChannelCount; i++){
-		//printk("[Touch] Tx[%2d]: ", i);
+		//pr_debug("[Touch] Tx[%2d]: ", i);
 		//outbuf += sprintf(f54_wlog_buf+outbuf, "   %5d : ", i);
 		for (j = 0; j < (int)RxChannelCount; j++){
 			//Image1[i][j] = ((unsigned short)Data[k]  | (unsigned short)Data[k+1] << 8);
 			Image1[i][j] = ((unsigned short)Data[k]);
 			//ImagepF[i][j] = Image1[i][j]/1000.0;
-			//printk("%3u,", Image1[i][j]);
+			//pr_debug("%3u,", Image1[i][j]);
 			//outbuf += sprintf(f54_wlog_buf+outbuf, "%5u ", Image1[i][j]);
 			k = k + 2;
 		}
-		//printk("\n");
+		//pr_debug("\n");
 		//outbuf += sprintf(f54_wlog_buf+outbuf, "\n");
 	}
 
@@ -1340,17 +1340,17 @@ int ReadSensorSpeedReport(void)
 
 	for (i = 0; i < (int)TxChannelCount; i++)
 	{
-		//printk("[Touch] Tx[%2d]: ", i);
+		//pr_debug("[Touch] Tx[%2d]: ", i);
 		//outbuf += sprintf(f54_wlog_buf+outbuf, "Tx[%d]: ", i);
 		for (j = 0; j < (int)RxChannelCount; j++)
 		{
 			Image1[i][j] = ((short)Data[k] | (short)Data[k+1] << 8);
 			ImagepF[i][j] = Image1[i][j];
-			//printk("%3d,", ImagepF[i][j]);
+			//pr_debug("%3d,", ImagepF[i][j]);
 			//outbuf += sprintf(f54_wlog_buf+outbuf, "%d  ", ImagepF[i][j]);
 			k = k + 2;
 		}
-		//printk("\n");
+		//pr_debug("\n");
 		//outbuf += sprintf(f54_wlog_buf+outbuf, "\n");
 	}
 
@@ -1606,7 +1606,7 @@ void RunQueries(void)
 		if (cFunc == 0){
 			break;
 		}
-		printk("[s3528]F0x%x\n",cFunc);
+		pr_debug("[s3528]F0x%x\n",cFunc);
 		switch (cFunc){
 			case 0x01:
 				if (!bHaveF01){
@@ -2142,10 +2142,10 @@ bool TestPreparation(void)
 
 	// Apply ForceUpdate.
 	Read8BitRegisters(F54CommandBase, &data, 1);
-	printk("s3528 Apply ForceUpdate => F54CommandBase\n");
+	pr_debug("s3528 Apply ForceUpdate => F54CommandBase\n");
 	data = data | 0x04;
 	Write8BitRegisters(F54CommandBase, &data, 1);
-	printk("s3528 Apply ForceUpdate=>F54CommandBase\n");
+	pr_debug("s3528 Apply ForceUpdate=>F54CommandBase\n");
 	// Wait complete
 	count = 0;
 	do {
@@ -2567,7 +2567,7 @@ void CheckCrash(char *rst, int min_caps_value)
 	return;
 error:
 	sprintf(rst, "%d", 0);
-	printk("[s3528]winodw crack check fail\n");
+	pr_debug("[s3528]winodw crack check fail\n");
 }
 
 void SCAN_PDT(void)
@@ -2585,7 +2585,7 @@ void SCAN_PDT(void)
 int F54Test(int input, int mode, char *buf)
 	//int _tmain(int argc, _TCHAR* argv[])
 {
-	printk("[s3528][F54TEST] input = %d, mode = %d \n",input,mode );
+	pr_debug("[s3528][F54TEST] input = %d, mode = %d \n",input,mode );
 
 	int ret = 0;
 	unsigned char data;

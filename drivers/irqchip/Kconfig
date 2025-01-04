@@ -47,7 +47,28 @@ config MTK_GIC
        select IRQ_DOMAIN
        select MULTI_IRQ_HANDLER
 
+config MTK_IRQ
+       def_bool y if !MTK_GIC
+
 config MTK_EIC
        bool
        select IRQ_DOMAIN
+
+config MTK_EIC_HISTORY_DUMP
+       bool "Enable MTK EIC HISTORY Debugger"
+       def_bool n
+       depends on MTK_EIC
+       help
+         This option is used to collect last eint interupts and its property before WDT TIMEOUT.
+         with thie option, we could know which eint interrupt is triggered too often to cause system
+         watchdog timeout.
+
+config MTK_IRQ_NEW_DESIGN
+	bool
+	select MTK_GIC
+
+config MTK_IRQ_NEW_DESIGN_DEBUG
+	bool
+	select MTK_GIC
+	select MTK_IRQ_NEW_DESIGN
 

@@ -35,5 +35,4 @@ extern struct acc_context *acc_context_obj;
 #define GETCALI 3
 
 int acc_factory_device_init(void);
-
 #endif

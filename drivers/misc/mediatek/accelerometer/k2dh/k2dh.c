@@ -302,9 +302,9 @@ static GSENSOR_VECTOR3D gsensor_gain;
 
 /*----------------------------------------------------------------------------*/
 #define GSE_TAG                  "[Gsensor] "
-#define GSE_FUN(f)               printk(KERN_ERR GSE_TAG"%s()\n", __FUNCTION__)
-#define GSE_ERR(fmt, args...)    printk(KERN_ERR GSE_TAG"[ERROR] %s() line=%d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define GSE_LOG(fmt, args...)    printk(KERN_ERR GSE_TAG fmt, ##args)
+#define GSE_FUN(f)               pr_debug("[Gsensor] %s()\n", __FUNCTION__)
+#define GSE_ERR(fmt, args...)    pr_debug("[Gsensor] [ERROR] %s() line=%d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define GSE_LOG(fmt, args...)    pr_debug(fmt, ##args)
 /*----------------------------------------------------------------------------*/
 static struct data_resolution K2DH_data_resolution[1] = {
  /* combination by {FULL_RES,RANGE}*/
@@ -977,13 +977,13 @@ static int k2dh_ReadSensorData(struct i2c_client *client, char *buf, int bufsize
         obj->data[K2DH_AXIS_Y] -= obj->cali_sw[K2DH_AXIS_Y];
         obj->data[K2DH_AXIS_Z] -= obj->cali_sw[K2DH_AXIS_Z];
 
-        //printk("cali_sw x=%d, y=%d, z=%d \n",obj->cali_sw[K2DH_AXIS_X],obj->cali_sw[K2DH_AXIS_Y],obj->cali_sw[K2DH_AXIS_Z]);
+        //GSE_LOG("cali_sw x=%d, y=%d, z=%d \n",obj->cali_sw[K2DH_AXIS_X],obj->cali_sw[K2DH_AXIS_Y],obj->cali_sw[K2DH_AXIS_Z]);
 
         /*remap coordinate*/
         acc[obj->cvt.map[K2DH_AXIS_X]] = obj->cvt.sign[K2DH_AXIS_X]*obj->data[K2DH_AXIS_X];
         acc[obj->cvt.map[K2DH_AXIS_Y]] = obj->cvt.sign[K2DH_AXIS_Y]*obj->data[K2DH_AXIS_Y];
         acc[obj->cvt.map[K2DH_AXIS_Z]] = obj->cvt.sign[K2DH_AXIS_Z]*obj->data[K2DH_AXIS_Z];
-        //printk("cvt x=%d, y=%d, z=%d \n",obj->cvt.sign[K2DH_AXIS_X],obj->cvt.sign[K2DH_AXIS_Y],obj->cvt.sign[K2DH_AXIS_Z]);
+        //GSE_LOG("cvt x=%d, y=%d, z=%d \n",obj->cvt.sign[K2DH_AXIS_X],obj->cvt.sign[K2DH_AXIS_Y],obj->cvt.sign[K2DH_AXIS_Z]);
 
         if(atomic_read(&obj->trace) & K2DH_TRC_RAWDATA)
         {
@@ -991,7 +991,7 @@ static int k2dh_ReadSensorData(struct i2c_client *client, char *buf, int bufsize
         }
 
         //Out put the mg
-        //printk("mg acc=%d, GRAVITY=%d, sensityvity=%d \n",acc[K2DH_AXIS_X],GRAVITY_EARTH_1000,obj->reso->sensitivity);
+        //GSE_LOG("mg acc=%d, GRAVITY=%d, sensityvity=%d \n",acc[K2DH_AXIS_X],GRAVITY_EARTH_1000,obj->reso->sensitivity);
         acc[K2DH_AXIS_X] = acc[K2DH_AXIS_X] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;
         acc[K2DH_AXIS_Y] = acc[K2DH_AXIS_Y] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;
         acc[K2DH_AXIS_Z] = acc[K2DH_AXIS_Z] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;

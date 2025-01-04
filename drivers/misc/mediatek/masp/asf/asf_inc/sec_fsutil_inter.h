@@ -4,6 +4,6 @@
 /******************************************************************************
  *  EXPORT FUNCTION
  ******************************************************************************/
-unsigned int sec_fs_read_secroimg (char* path, char* buf);
+unsigned int sec_fs_read_secroimg(char *path, char *buf);
 
-#endif 
+#endif

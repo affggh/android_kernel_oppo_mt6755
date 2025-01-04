@@ -30,7 +30,7 @@ void mrdump_reserve_memory(void)
 {
 	struct mrdump_control_block *cblock = NULL;
 
-#if defined(CONFIG_ARCH_MT6752)
+#if defined(CONFIG_ARCH_MT6735) || defined(CONFIG_ARCH_MT6752) || defined(CONFIG_ARCH_MT6795)
 #define PRELOADER_ADDR (PHYS_OFFSET + 0x2000000)
 #define PRELOADER_SIZE 0x200000
 

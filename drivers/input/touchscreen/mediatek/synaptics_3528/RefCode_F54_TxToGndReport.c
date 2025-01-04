@@ -46,7 +46,7 @@ unsigned char F54_TxToGndReport(void)
 
     ret = sprintf(buf, "\nBin #: 10        Name: Transmitter To Ground Short Test\n");
 #else
-    printk("\nBin #: 10        Name: Transmitter To Ground Short Test\n");
+    pr_debug("\nBin #: 10        Name: Transmitter To Ground Short Test\n");
 #endif
     for (i = 0; i < CFG_F54_TXCOUNT; i++)
          ImageArray[i] = 0;
@@ -83,23 +83,23 @@ unsigned char F54_TxToGndReport(void)
 #ifdef F54_Porting
     ret += sprintf(buf+ret, "Column:\t");
 #else
-    printk("Column:\t");
+    pr_debug("Column:\t");
 #endif
     for (i = 0; i < numberOfTx; i++)
     {
 #ifdef F54_Porting
         ret += sprintf(buf+ret, "Tx%d,\t", TxChannelUsed[i]);
 #else
-        printk("Tx%d,\t", TxChannelUsed[i]);
+        pr_debug("Tx%d,\t", TxChannelUsed[i]);
 #endif
     }
 #ifdef F54_Porting
     ret += sprintf(buf+ret, "\n");
     ret += sprintf(buf+ret, "0:\t");
 #else
-    printk("\n");
+    pr_debug("\n");
 
-    printk("0:\t");
+    pr_debug("0:\t");
 #endif
     for (i = 0; i < numberOfTx; i++)
     {
@@ -109,7 +109,7 @@ unsigned char F54_TxToGndReport(void)
 #ifdef F54_Porting
             ret += sprintf(buf+ret, "%d,\t", ImageArray[TxChannelUsed[i]]);
 #else
-            printk("%d,\t", ImageArray[TxChannelUsed[i]]);
+            pr_debug("%d,\t", ImageArray[TxChannelUsed[i]]);
 #endif
         }
         else
@@ -117,26 +117,26 @@ unsigned char F54_TxToGndReport(void)
 #ifdef F54_Porting
             ret += sprintf(buf+ret, "%d(*),\t", ImageArray[TxChannelUsed[i]]);
 #else
-            printk("%d(*),\t", ImageArray[TxChannelUsed[i]]);
+            pr_debug("%d(*),\t", ImageArray[TxChannelUsed[i]]);
 #endif
         }
     }
 #ifdef F54_Porting
     ret += sprintf(buf+ret, "\n");
 #else
-    printk("\n");
+    pr_debug("\n");
 #endif
 
    /*
    // Check against test limits
-   printk("TxToGND Result\n");
+   pr_debug("TxToGND Result\n");
    for (i = 0; i < numberOfTx; i++)
    {
         if(ImageArray[TxChannelUsed[i]] == TxGNDLimit)
                Result[i] = 'P'; //Pass
         else
             Result[i] = 'F'; //Fail
-        printk("Tx%d = %c\n", TxChannelUsed[i], Result[i]);
+        pr_debug("Tx%d = %c\n", TxChannelUsed[i], Result[i]);
    }
     */
 
@@ -154,7 +154,7 @@ unsigned char F54_TxToGndReport(void)
         ret += sprintf(buf+ret, "Test Result: Pass\n");
         write_log(buf);
 #else
-        printk("Test Result: Pass\n");
+        pr_debug("Test Result: Pass\n");
 #endif
         return 1; //Pass
     }
@@ -164,7 +164,7 @@ unsigned char F54_TxToGndReport(void)
         ret += sprintf(buf+ret, "Test Result: Fail\n");
         write_log(buf);
 #else
-         printk("Test Result: Fail\n");
+         pr_debug("Test Result: Fail\n");
 #endif
          return 0; //Fail
      }
@@ -253,14 +253,14 @@ int F54_GetTxToGndReport(char *buf)
 
     /*
     // Check against test limits
-    printk("TxToGND Result\n");
+    pr_debug("TxToGND Result\n");
     for (i = 0; i < numberOfTx; i++)
     {
     if(ImageArray[TxChannelUsed[i]] == TxGNDLimit)
     Result[i] = 'P'; //Pass
     else
     Result[i] = 'F'; //Fail
-    printk("Tx%d = %c\n", TxChannelUsed[i], Result[i]);
+    pr_debug("Tx%d = %c\n", TxChannelUsed[i], Result[i]);
     }
      */
 

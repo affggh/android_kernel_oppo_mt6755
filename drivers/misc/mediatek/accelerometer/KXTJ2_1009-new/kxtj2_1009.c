@@ -183,9 +183,9 @@ static struct acc_init_info kxtj2_1009_init_info = {
 
 /*----------------------------------------------------------------------------*/
 #define GSE_TAG                  "[Gsensor] "
-#define GSE_FUN(f)               printk( GSE_TAG"%s\n", __FUNCTION__)
-#define GSE_ERR(fmt, args...)    printk(KERN_ERR GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define GSE_LOG(fmt, args...)    printk( GSE_TAG fmt, ##args)
+#define GSE_FUN(f)               pr_debug(GSE_TAG"%s\n", __FUNCTION__)
+#define GSE_ERR(fmt, args...)    pr_err(GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define GSE_LOG(fmt, args...)    pr_debug(GSE_TAG fmt, ##args)
 /*----------------------------------------------------------------------------*/
 static struct data_resolution kxtj2_1009_data_resolution[1] = {
  /* combination by {FULL_RES,RANGE}*/
@@ -237,7 +237,7 @@ static int KXTJ2_1009_SetDataResolution(struct kxtj2_1009_i2c_data *obj)
 
 	if(hwmsen_read_block(obj->client, KXTJ2_1009_REG_DATA_RESOLUTION, databuf, 0x01))
 	{
-		printk("kxtj2_1009 read Dataformat failt \n");
+		GSE_ERR("kxtj2_1009 read Dataformat failt \n");
 		return KXTJ2_1009_ERR_I2C;
 	}
 
@@ -340,10 +340,10 @@ static int KXTJ2_1009_ReadData(struct i2c_client *client, s16 data[KXTJ2_1009_AX
 			if ( data[i] == 0x0800 )	//so we want to calculate actual number here
 				data[i]= -2048;			//10bit resolution, 512= 2^(12-1)
 			else if ( data[i] & 0x0800 )//transfor format
-			{							//printk("data 0 step %x \n",data[i]);
-				data[i] -= 0x1; 		//printk("data 1 step %x \n",data[i]);
-				data[i] = ~data[i]; 	//printk("data 2 step %x \n",data[i]);
-				data[i] &= 0x07ff;		//printk("data 3 step %x \n\n",data[i]);
+			{							//GSE_LOG("data 0 step %x \n",data[i]);
+				data[i] -= 0x1; 		//GSE_LOG("data 1 step %x \n",data[i]);
+				data[i] = ~data[i]; 	//GSE_LOG("data 2 step %x \n",data[i]);
+				data[i] &= 0x07ff;		//GSE_LOG("data 3 step %x \n\n",data[i]);
 				data[i] = -data[i]; 	
 			}
 		}	
@@ -415,7 +415,7 @@ static int KXTJ2_1009_ReadOffset(struct i2c_client *client, s8 ofs[KXTJ2_1009_AX
 
 	ofs[1]=ofs[2]=ofs[0]=0x00;
 
-	printk("offesx=%x, y=%x, z=%x",ofs[0],ofs[1],ofs[2]);
+	GSE_LOG("offesx=%x, y=%x, z=%x",ofs[0],ofs[1],ofs[2]);
 	
 	return err;    
 }
@@ -606,12 +606,12 @@ static int KXTJ2_1009_CheckDeviceID(struct i2c_client *client)
 
 	if(false)
 	{
-		printk("KXTJ2_1009_CheckDeviceID 0x%x failt!\n ", databuf[0]);
+		GSE_ERR("KXTJ2_1009_CheckDeviceID 0x%x failt!\n ", databuf[0]);
 		return KXTJ2_1009_ERR_IDENTIFICATION;
 	}
 	else
 	{
-		printk("KXTJ2_1009_CheckDeviceID 0x%x pass!\n ", databuf[0]);
+		GSE_LOG("KXTJ2_1009_CheckDeviceID 0x%x pass!\n ", databuf[0]);
 	}
 	
 	exit_KXTJ2_1009_CheckDeviceID:
@@ -643,7 +643,7 @@ static int KXTJ2_1009_SCP_SetPowerMode(bool enable)
     res = SCP_sensorHub_req_send(&req, &len, 1);
     if (res)
     {
-        GSE_ERR("SCP_sensorHub_req_send!\n");
+        GSE_ERR("SCP_sensorHub_req_send fail : res!\n", res);
         return res;
     }
 
@@ -719,7 +719,7 @@ static int KXTJ2_1009_SetDataFormat(struct i2c_client *client, u8 dataformat)
 
 	if(hwmsen_read_block(client, KXTJ2_1009_REG_DATA_FORMAT, databuf, 0x01))
 	{
-		printk("kxtj2_1009 read Dataformat failt \n");
+		GSE_ERR("kxtj2_1009 read Dataformat failt \n");
 		return KXTJ2_1009_ERR_I2C;
 	}
 
@@ -738,7 +738,7 @@ static int KXTJ2_1009_SetDataFormat(struct i2c_client *client, u8 dataformat)
 
 	KXTJ2_1009_SetPowerMode(client, cur_sensor_power/*true*/);
 	
-	printk("KXTJ2_1009_SetDataFormat OK! \n");
+	GSE_LOG("KXTJ2_1009_SetDataFormat OK! \n");
 	
 
 	return KXTJ2_1009_SetDataResolution(obj);    
@@ -757,7 +757,7 @@ static int KXTJ2_1009_SetBWRate(struct i2c_client *client, u8 bwrate)
 
 	if(hwmsen_read_block(client, KXTJ2_1009_REG_BW_RATE, databuf, 0x01))
 	{
-		printk("kxtj2_1009 read rate failt \n");
+		GSE_ERR("kxtj2_1009 read rate failt \n");
 		return KXTJ2_1009_ERR_I2C;
 	}
 
@@ -776,7 +776,7 @@ static int KXTJ2_1009_SetBWRate(struct i2c_client *client, u8 bwrate)
 
 	
 	KXTJ2_1009_SetPowerMode(client, cur_sensor_power/*true*/);
-	printk("KXTJ2_1009_SetBWRate OK! \n");
+	GSE_LOG("KXTJ2_1009_SetBWRate OK! \n");
 	
 	return KXTJ2_1009_SUCCESS;    
 }
@@ -855,7 +855,7 @@ static int kxtj2_1009_init_client(struct i2c_client *client, int reset_cali)
 			return res;
 		}
 	}
-	printk("kxtj2_1009_init_client OK!\n");
+	GSE_LOG("kxtj2_1009_init_client OK!\n");
 #ifdef CONFIG_KXTJ2_1009_LOWPASS
 	memset(&obj->fir, 0x00, sizeof(obj->fir));  
 #endif
@@ -964,7 +964,7 @@ static int KXTJ2_1009_ReadSensorData(struct i2c_client *client, char *buf, int b
         {
 
             #ifdef DEBUG_MSG_CAL
-            printk("+++KXTJ2 Calibration Raw Data,%d,%d,%d\n",raw[0],raw[1],raw[2]);
+            GSE_LOG("+++KXTJ2 Calibration Raw Data,%d,%d,%d\n",raw[0],raw[1],raw[2]);
             #endif
             temp_zsum = 0;
             Wave_Max =-4095;
@@ -975,7 +975,7 @@ static int KXTJ2_1009_ReadSensorData(struct i2c_client *client, char *buf, int b
             
             if ( BUF_RANGE > BUF_RANGE_Limit ) BUF_RANGE = BUF_RANGE_Limit; 
                 
-            //k printk("KXTJ2 Buffer Range =%d\n",BUF_RANGE);
+            //k GSE_LOG("KXTJ2 Buffer Range =%d\n",BUF_RANGE);
             
             for (k=0; k < BUF_RANGE-1; k++) {
                 temp_zbuf[k] = temp_zbuf[k+1];
@@ -997,7 +997,7 @@ static int KXTJ2_1009_ReadSensorData(struct i2c_client *client, char *buf, int b
                     Z_AVG[0] = temp_zsum / BUF_RANGE;
                     //k
     		        #ifdef DEBUG_MSG_CAL
-                    printk("+++ Z_AVG=%d\n ", Z_AVG[0]);
+                    GSE_LOG("+++ Z_AVG=%d\n ", Z_AVG[0]);
                     #endif
                 }
                 else 
@@ -1005,21 +1005,21 @@ static int KXTJ2_1009_ReadSensorData(struct i2c_client *client, char *buf, int b
                     Z_AVG[1] = temp_zsum / BUF_RANGE;
                     //k 
 		            #ifdef DEBUG_MSG_CAL
-                    printk("--- Z_AVG=%d\n ", Z_AVG[1]);
+                    GSE_LOG("--- Z_AVG=%d\n ", Z_AVG[1]);
                     #endif
                 }
-                // printk("KXTJ2 start Z compensation Z_AVG Max Min,%d,%d,%d\n",(temp_zsum / BUF_RANGE),Wave_Max,Wave_Min);
+                // GSE_LOG("KXTJ2 start Z compensation Z_AVG Max Min,%d,%d,%d\n",(temp_zsum / BUF_RANGE),Wave_Max,Wave_Min);
             }
         }
         else if(abs((abs(raw[2])- Sensitivity_def))  > ((Detection_range)+ 154))
         {
             #ifdef DEBUG_MSG_CAL
-            printk("KXTJ2 out of SPEC Raw Data,%d,%d,%d\n",raw[0],raw[1],raw[2]);
+            GSE_LOG("KXTJ2 out of SPEC Raw Data,%d,%d,%d\n",raw[0],raw[1],raw[2]);
             #endif
         }
         //else
         //{
-        //    printk("KXTJ2 not in horizontal X=%d, Y=%d\n", raw[0], raw[1]);
+        //    GSE_LOG("KXTJ2 not in horizontal X=%d, Y=%d\n", raw[0], raw[1]);
         //}
 
         if ( raw[2] >=0) 
@@ -1029,8 +1029,8 @@ static int KXTJ2_1009_ReadSensorData(struct i2c_client *client, char *buf, int b
                 
         //k
         #ifdef DEBUG_MSG_CAL
-        //printk("---KXTJ2 Calibration Raw Data,%d,%d,%d==> Z+=%d  Z-=%d \n",raw[0],raw[1],raw[2],Z_AVG[0],Z_AVG[1]);
-        printk("---After Cali,X=%d,Y=%d,Z=%d \n",raw[0],raw[1],raw[2]);
+        //GSE_LOG("---KXTJ2 Calibration Raw Data,%d,%d,%d==> Z+=%d  Z-=%d \n",raw[0],raw[1],raw[2],Z_AVG[0],Z_AVG[1]);
+        GSE_LOG("---After Cali,X=%d,Y=%d,Z=%d \n",raw[0],raw[1],raw[2]);
         #endif
         obj->data[KXTJ2_1009_AXIS_X]=raw[0];
         obj->data[KXTJ2_1009_AXIS_Y]=raw[1];
@@ -1038,24 +1038,24 @@ static int KXTJ2_1009_ReadSensorData(struct i2c_client *client, char *buf, int b
 #endif
 /*Kionix Auto-Cali End*/
 
-		//printk("raw data x=%d, y=%d, z=%d \n",obj->data[KXTJ2_1009_AXIS_X],obj->data[KXTJ2_1009_AXIS_Y],obj->data[KXTJ2_1009_AXIS_Z]);
+		//GSE_LOG("raw data x=%d, y=%d, z=%d \n",obj->data[KXTJ2_1009_AXIS_X],obj->data[KXTJ2_1009_AXIS_Y],obj->data[KXTJ2_1009_AXIS_Z]);
 		obj->data[KXTJ2_1009_AXIS_X] += obj->cali_sw[KXTJ2_1009_AXIS_X];
 		obj->data[KXTJ2_1009_AXIS_Y] += obj->cali_sw[KXTJ2_1009_AXIS_Y];
 		obj->data[KXTJ2_1009_AXIS_Z] += obj->cali_sw[KXTJ2_1009_AXIS_Z];
 		
-		//printk("cali_sw x=%d, y=%d, z=%d \n",obj->cali_sw[KXTJ2_1009_AXIS_X],obj->cali_sw[KXTJ2_1009_AXIS_Y],obj->cali_sw[KXTJ2_1009_AXIS_Z]);
+		//GSE_LOG("cali_sw x=%d, y=%d, z=%d \n",obj->cali_sw[KXTJ2_1009_AXIS_X],obj->cali_sw[KXTJ2_1009_AXIS_Y],obj->cali_sw[KXTJ2_1009_AXIS_Z]);
 		
 		/*remap coordinate*/
 		acc[obj->cvt.map[KXTJ2_1009_AXIS_X]] = obj->cvt.sign[KXTJ2_1009_AXIS_X]*obj->data[KXTJ2_1009_AXIS_X];
 		acc[obj->cvt.map[KXTJ2_1009_AXIS_Y]] = obj->cvt.sign[KXTJ2_1009_AXIS_Y]*obj->data[KXTJ2_1009_AXIS_Y];
 		acc[obj->cvt.map[KXTJ2_1009_AXIS_Z]] = obj->cvt.sign[KXTJ2_1009_AXIS_Z]*obj->data[KXTJ2_1009_AXIS_Z];
-		//printk("cvt x=%d, y=%d, z=%d \n",obj->cvt.sign[KXTJ2_1009_AXIS_X],obj->cvt.sign[KXTJ2_1009_AXIS_Y],obj->cvt.sign[KXTJ2_1009_AXIS_Z]);
+		//GSE_LOG("cvt x=%d, y=%d, z=%d \n",obj->cvt.sign[KXTJ2_1009_AXIS_X],obj->cvt.sign[KXTJ2_1009_AXIS_Y],obj->cvt.sign[KXTJ2_1009_AXIS_Z]);
 
 
 		//GSE_LOG("Mapped gsensor data: %d, %d, %d!\n", acc[KXTJ2_1009_AXIS_X], acc[KXTJ2_1009_AXIS_Y], acc[KXTJ2_1009_AXIS_Z]);
 
 		//Out put the mg
-		//printk("mg acc=%d, GRAVITY=%d, sensityvity=%d \n",acc[KXTJ2_1009_AXIS_X],GRAVITY_EARTH_1000,obj->reso->sensitivity);
+		//GSE_LOG("mg acc=%d, GRAVITY=%d, sensityvity=%d \n",acc[KXTJ2_1009_AXIS_X],GRAVITY_EARTH_1000,obj->reso->sensitivity);
 		acc[KXTJ2_1009_AXIS_X] = acc[KXTJ2_1009_AXIS_X] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;
 		acc[KXTJ2_1009_AXIS_Y] = acc[KXTJ2_1009_AXIS_Y] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;
 		acc[KXTJ2_1009_AXIS_Z] = acc[KXTJ2_1009_AXIS_Z] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;		
@@ -1118,7 +1118,7 @@ static int KXTJ2_1009_InitSelfTest(struct i2c_client *client)
 	{
 		return res;
 	}
-	printk("step1: result = %x",result);
+	GSE_LOG("step1: result = %x",result);
 	if(result != 0xaa)
 		return -EINVAL;
 
@@ -1134,7 +1134,7 @@ static int KXTJ2_1009_InitSelfTest(struct i2c_client *client)
 	{
 		return res;
 	}
-	printk("step3: result = %x",result);
+	GSE_LOG("step3: result = %x",result);
 	if(result != 0xAA)
 		return -EINVAL;
 		
@@ -1144,7 +1144,7 @@ static int KXTJ2_1009_InitSelfTest(struct i2c_client *client)
 	{
 		return res;
 	}
-	printk("step4: result = %x",result);
+	GSE_LOG("step4: result = %x",result);
 	if(result != 0x55)
 		return -EINVAL;
 	else
@@ -1160,7 +1160,7 @@ static int KXTJ2_1009_JudgeTestResult(struct i2c_client *client, s32 prv[KXTJ2_1
     if(0 != (res = hwmsen_read_byte(client, 0x0c, &test_result)))
         return res;
 
-	printk("test_result = %x \n",test_result);
+	GSE_LOG("test_result = %x \n",test_result);
     if ( test_result != 0xaa ) 
 	{
         GSE_ERR("KXTJ2_1009_JudgeTestResult failt\n");
@@ -1558,9 +1558,9 @@ static ssize_t show_power_status_value(struct device_driver *ddri, char *buf)
 	}
     
 	if(sensor_power)
-		printk("G sensor is in work mode, sensor_power = %d\n", sensor_power);
+		GSE_LOG("G sensor is in work mode, sensor_power = %d\n", sensor_power);
 	else
-		printk("G sensor is in standby mode, sensor_power = %d\n", sensor_power);
+		GSE_LOG("G sensor is in standby mode, sensor_power = %d\n", sensor_power);
 
 	return snprintf(buf, PAGE_SIZE, "%x\n", databuf[0]);
 }
@@ -1582,7 +1582,7 @@ static u8 i2c_dev_reg =0 ;
 
 static ssize_t show_register(struct device_driver *pdri, char *buf)
 {
-	printk("i2c_dev_reg is 0x%2x \n", i2c_dev_reg);
+	GSE_LOG("i2c_dev_reg is 0x%2x \n", i2c_dev_reg);
 
 	return 0;
 }
@@ -1590,7 +1590,7 @@ static ssize_t show_register(struct device_driver *pdri, char *buf)
 static ssize_t store_register(struct device_driver *ddri, const char *buf, size_t count)
 {
 	i2c_dev_reg = simple_strtoul(buf, NULL, 16);
-	printk("set i2c_dev_reg = 0x%2x \n", i2c_dev_reg);
+	GSE_LOG("set i2c_dev_reg = 0x%2x \n", i2c_dev_reg);
 
 	return 0;
 }
@@ -1604,7 +1604,7 @@ static ssize_t store_register_value(struct device_driver *ddri, const char *buf,
 	memset(databuf, 0, sizeof(u8)*2);    
 
 	input_value = simple_strtoul(buf, NULL, 16);
-	printk("input_value = 0x%2x \n", (unsigned int)input_value);
+	GSE_LOG("input_value = 0x%2x \n", (unsigned int)input_value);
 
 	if(NULL == obj)
 	{
@@ -1614,7 +1614,7 @@ static ssize_t store_register_value(struct device_driver *ddri, const char *buf,
 
 	databuf[0] = i2c_dev_reg;
 	databuf[1] = input_value;
-	printk("databuf[0]=0x%2x  databuf[1]=0x%2x \n", databuf[0],databuf[1]);
+	GSE_LOG("databuf[0]=0x%2x  databuf[1]=0x%2x \n", databuf[0],databuf[1]);
 
 	res = i2c_master_send(obj->client, databuf, 0x2);
 
@@ -1645,7 +1645,7 @@ static ssize_t show_register_value(struct device_driver *ddri, char *buf)
 			return KXTJ2_1009_ERR_I2C;
 		}
 
-		printk("i2c_dev_reg=0x%2x  data=0x%2x \n", i2c_dev_reg,databuf[0]);
+		GSE_LOG("i2c_dev_reg=0x%2x  data=0x%2x \n", i2c_dev_reg,databuf[0]);
 	
 		return 0;
 		
@@ -2078,6 +2078,7 @@ static int kxtj2_1009_suspend(struct i2c_client *client, pm_message_t msg)
 #endif
 		{
 			GSE_ERR("write power control fail!!\n");
+			mutex_unlock(&kxtj2_1009_mutex);
 			return -1;
 		}
         mutex_unlock(&kxtj2_1009_mutex);
@@ -2113,6 +2114,7 @@ static int kxtj2_1009_resume(struct i2c_client *client)
 #endif
 	{
 		GSE_ERR("initialize client fail!!\n");
+		mutex_unlock(&kxtj2_1009_mutex);
 		return err;        
 	}
 	atomic_set(&obj->suspend, 0);
@@ -2143,6 +2145,7 @@ static void kxtj2_1009_early_suspend(struct early_suspend *h)
 #endif
 	{
 		GSE_ERR("write power control fail!!\n");
+		mutex_unlock(&kxtj2_1009_mutex);
 		return;
 	}
 	mutex_unlock(&kxtj2_1009_mutex);
@@ -2176,6 +2179,7 @@ static void kxtj2_1009_late_resume(struct early_suspend *h)
 #endif
 	{
 		GSE_ERR("initialize client fail!!\n");
+		mutex_unlock(&kxtj2_1009_mutex);
 		return;        
 	}
 	atomic_set(&obj->suspend, 0); 
@@ -2225,11 +2229,11 @@ static int kxtj2_1009_enable_nodata(int en)
 
     if(err != KXTJ2_1009_SUCCESS)
 	{
-		printk("kxtj2_1009_enable_nodata fail!\n");
+		GSE_ERR("kxtj2_1009_enable_nodata fail!\n");
 		return -1;
 	}
 
-    printk("kxtj2_1009_enable_nodata OK!\n");
+    GSE_LOG("kxtj2_1009_enable_nodata OK!\n");
 	return 0;
 }
 
@@ -2254,7 +2258,7 @@ static int kxtj2_1009_set_delay(u64 ns)
     err = SCP_sensorHub_req_send(&req, &len, 1);
     if (err)
     {
-        GSE_ERR("SCP_sensorHub_req_send!\n");
+        GSE_ERR("SCP_sensorHub_req_send fail : %d!\n", err);
         return err;
     }
 #else//#ifdef CUSTOM_KERNEL_SENSORHUB    
@@ -2326,7 +2330,7 @@ static int kxtj2_1009_set_batch(int flags, int64_t period_ns, int64_t timeout)
     err = SCP_sensorHub_req_send(&req, &len, 1);
     if (err)
     {
-        GSE_ERR("SCP_sensorHub_req_send!\n");
+        GSE_ERR("SCP_sensorHub_req_send fail : %d!\n", err);
         return err;
     }
 #endif
@@ -2351,7 +2355,7 @@ static int kxtj2_1009_get_data(int* x ,int* y,int* z, int* status)
 		err = SCP_sensorHub_req_send(&req, &len, 1);
 		if (err)
 		{
-			GSE_ERR("SCP_sensorHub_req_send!\n");
+			GSE_ERR("SCP_sensorHub_req_send fail : %d!\n", err);
 			return err;
 		}
 
@@ -2364,15 +2368,14 @@ static int kxtj2_1009_get_data(int* x ,int* y,int* z, int* status)
 		}
 
 		//sscanf(buff, "%x %x %x", req.get_data_rsp.int16_Data[0], req.get_data_rsp.int16_Data[1], req.get_data_rsp.int16_Data[2]);
-		*x = req.get_data_rsp.int16_Data[0];
-		*y = req.get_data_rsp.int16_Data[1];
-		*z = req.get_data_rsp.int16_Data[2];
-		GSE_ERR("x = %d, y = %d, z = %d\n", *x, *y, *z);
+		*x = (int)req.get_data_rsp.int16_Data[0]*GRAVITY_EARTH_1000/1000;
+		*y = (int)req.get_data_rsp.int16_Data[1]*GRAVITY_EARTH_1000/1000;
+		*z = (int)req.get_data_rsp.int16_Data[2]*GRAVITY_EARTH_1000/1000;
 		*status = SENSOR_STATUS_ACCURACY_MEDIUM;
 
 		if(atomic_read(&obj_i2c_data->trace) & ADX_TRC_RAWDATA)
 		{
-			//show data
+			GSE_LOG("x = %d, y = %d, z = %d\n", *x, *y, *z);
 		}	
 #else
     mutex_lock(&kxtj2_1009_mutex);
@@ -2489,7 +2492,7 @@ static int kxtj2_1009_i2c_probe(struct i2c_client *client, const struct i2c_devi
 	 	GSE_ERR("register acc data path err\n");
 		goto exit_create_attr_failed;
 	}
-	err = batch_register_support_info(ID_ACCELEROMETER,ctl.is_support_batch, 1000, 0);
+	err = batch_register_support_info(ID_ACCELEROMETER,ctl.is_support_batch, 102, 0); //divisor is 1000/9.8
     if(err)
     {
         GSE_ERR("register gsensor batch support err = %d\n", err);
@@ -2554,7 +2557,7 @@ static int kxtj2_1009_remove(void)
 static int  kxtj2_1009_local_init(void)
 {
     struct acc_hw *hw = get_cust_acc_hw();
-	//printk("fwq loccal init+++\n");
+	//GSE_LOG("fwq loccal init+++\n");
 
 	KXTJ2_1009_power(hw, 1);
 	if(i2c_add_driver(&kxtj2_1009_i2c_driver))
@@ -2566,7 +2569,7 @@ static int  kxtj2_1009_local_init(void)
 	{
 	   return -1;
 	}
-	//printk("fwq loccal init---\n");
+	//GSE_LOG("fwq loccal init---\n");
 	return 0;
 }
 

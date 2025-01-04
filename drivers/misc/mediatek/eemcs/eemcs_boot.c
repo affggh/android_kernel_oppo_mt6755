@@ -156,6 +156,8 @@ static volatile unsigned int time_out_abort = 0;
 static void bootup_to_monitor(unsigned long val);
 static DEFINE_TIMER(bootup_to_monitor_timer, bootup_to_monitor, 0, 0);
 
+
+
 static int query_feature_setting(char buff[])
 {
 	int ret = -1;
@@ -178,6 +180,14 @@ static int query_feature_setting(char buff[])
 		((int*)buff)[0] = 0;
 		#endif
 		DBGLOG(BOOT, INF, "query_feature_setting: GEMINI=%d", ((int*)buff)[0]);
+		ret = 0;
+	} else if (strcmp(buff, "MTK_CU_3G_DSDS_SUPPORT") == 0) {
+		#ifdef MTK_CU_3G_DSDS_SUPPORT
+		((int*)buff)[0] = 1;
+		#else
+		((int*)buff)[0] = 0;
+		#endif
+		DBGLOG(BOOT, INF, "query_feature_setting: MTK_CU_3G_DSDS_SUPPORT=%d", ((int*)buff)[0]);
 		ret = 0;
 	} else {
 		DBGLOG(BOOT, ERR, "query_feature_setting fail: %s not exist", buff);
@@ -1074,14 +1084,10 @@ KAL_INT32 eemcs_boot_file_packet_ack(KAL_UINT32 file_offset, KAL_UINT32 size)
     while (size > 0) {
         KAL_UINT32 skb_size = 0;
         KAL_UINT32 bin_size = 0;
-        //KAL_UINT32 retry_cnt = 0;
         unsigned char *bin_head = NULL;
 
         new_skb = NULL;
         while ((tx_pkt_room = ccci_boot_write_space_check()) <= 0){
-            //if ((retry_cnt++ % 1000) == 0)
-            //    DBGLOG(BOOT, ERR, "ccci_boot_write_space_check: no space!");
-			
             if (time_out_abort) {
                 DBGLOG(BOOT, ERR, "send md image timeout");
                 time_out_abort = 0;
@@ -1089,8 +1095,6 @@ KAL_INT32 eemcs_boot_file_packet_ack(KAL_UINT32 file_offset, KAL_UINT32 size)
                 goto _skb_fail;
             }
         };
-        //retry_cnt = 0;
-		
         if (tx_pkt_room > 0) {
             #ifdef CCCI_SDIO_HEAD
             if (size > (g_eemcs_file_pkt_len - CCCI_BOOT_HEADER_ROOM)) {
@@ -2295,8 +2299,8 @@ static int set_bootup_timeout_value(unsigned int val)
 
 
 /* for executable "cli_eemcs" */
-#if TEST_DRV
-#if EMCS_SDIO_DRVTST 
+#ifdef TEST_DRV
+#ifdef EMCS_SDIO_DRVTST 
 extern int call_function(char *buf);
 #endif
 //static char boot_wr_buf[200];

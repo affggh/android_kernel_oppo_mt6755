@@ -22,7 +22,10 @@
 
 #ifdef MT_LTE_AUTO_CALIBRATION
 #include "mach/mt_boot.h"
-extern int wait_sdio_autok_ready(void *);
+//extern int wait_sdio_autok_ready(void *);
+extern int force_autok;
+extern int wait_sdio_autok_ready(void *data, int force_autok);
+
 #endif
 
 
@@ -708,7 +711,8 @@ static int lte_autok_writeproc(struct file *file,const char *buffer,
 #ifndef NATIVE_AUTOK
         mtlte_sys_trigger_auto_calibration(NULL);
 #else        
-        wait_sdio_autok_ready((void*)lte_dev.sdio_func->card->host);
+        //wait_sdio_autok_ready((void*)lte_dev.sdio_func->card->host);
+        wait_sdio_autok_ready((void*)lte_dev.sdio_func->card->host, 0);
 #endif        
     }
 
@@ -829,7 +833,10 @@ int mtlte_sys_sdio_probe( struct sdio_func *func, const struct sdio_device_id *i
             KAL_SLEEP_MSEC(50);
         }
 #else
-      wait_sdio_autok_ready((void*)lte_dev.sdio_func->card->host);
+      //wait_sdio_autok_ready((void*)lte_dev.sdio_func->card->host);
+      wait_sdio_autok_ready((void*)lte_dev.sdio_func->card->host, force_autok);
+      force_autok = 0;
+
 #endif
       
     //	KAL_RAWPRINT(("lte_autok_finish = %d\n", lte_autok_finish));
@@ -890,7 +897,7 @@ int mtlte_sys_sdio_probe( struct sdio_func *func, const struct sdio_device_id *i
 
     sdio_func1_wr(SDIO_IP_WPLRCR, &changed_WPLRCR, 4);	
 
-#if EMCS_SDIO_DRVTST		
+#ifdef EMCS_SDIO_DRVTST		
 	if ((ret = mtlte_dev_test_probe(LTE_TEST_DEVICE_MINOR, &func->dev)) != KAL_SUCCESS){
 		KAL_RAWPRINT(("[PROBE] XXXXXX mt_lte_sdio_probe -mtlte_dev_test_probe %d fail \n", LTE_TEST_DEVICE_MINOR)); 
 		goto PROBE_TEST_DRV_FAIL ;
@@ -933,7 +940,7 @@ SETUP_IRQ_FAIL:
 	kthread_stop(lte_dev.sdio_thread); 	
 CREATE_THREAD_FAIL:
 
-#if EMCS_SDIO_DRVTST		
+#ifdef EMCS_SDIO_DRVTST		
 	mtlte_dev_test_detach(LTE_TEST_DEVICE_MINOR) ;
 PROBE_TEST_DRV_FAIL:
 #endif
@@ -983,7 +990,7 @@ void mtlte_sys_sdio_remove(struct sdio_func *func)
 	KAL_RAWPRINT(("[REMOVE] mtlte_sys_check_sdio_thread_stop Done. \n")); 
 
 
-#if EMCS_SDIO_DRVTST		
+#ifdef EMCS_SDIO_DRVTST		
 	mtlte_dev_test_detach(LTE_TEST_DEVICE_MINOR) ;
 #endif	
   
@@ -1054,7 +1061,7 @@ int mtlte_sys_sdio_driver_init(void)
 		goto DF_INITFAIL ; 
     }
 
-#if EMCS_SDIO_DRVTST	
+#ifdef EMCS_SDIO_DRVTST	
 	if ((ret = mtlte_dev_test_drvinit()) != KAL_SUCCESS){
 		KAL_RAWPRINT(("[INIT] XXXXXX lte_sdio_driver_init -mtlte_dev_test_drvinit fail \n")); 
 		goto TEST_DRV_INITFAIL ; 
@@ -1080,7 +1087,7 @@ int mtlte_sys_sdio_driver_init(void)
 ONOFF_DEV_FAIL:
     sdio_unregister_driver(&mtlte_driver);
 SDIO_REG_FAIL :      	
-#if EMCS_SDIO_DRVTST	
+#ifdef EMCS_SDIO_DRVTST	
 	mtlte_dev_test_drvdeinit() ;
 TEST_DRV_INITFAIL :
 #endif	
@@ -1108,7 +1115,7 @@ void mtlte_sys_sdio_driver_exit(void)
     KAL_RAWPRINT(("[EXIT] sdio_unregister_driver OK. \n"));       
 
 
-#if EMCS_SDIO_DRVTST		
+#ifdef EMCS_SDIO_DRVTST		
     mtlte_dev_test_drvdeinit() ;    
     KAL_RAWPRINT(("[EXIT] mtlte_dev_test_drvdeinit OK. \n")); 
 #endif   

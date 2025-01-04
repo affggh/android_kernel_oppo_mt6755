@@ -36,8 +36,25 @@ typedef enum {
 	KERNEL_POWER_OFF_CHARGING_BOOT = 8,
 	LOW_POWER_OFF_CHARGING_BOOT = 9,
 #endif
+	#ifdef VENDOR_EDIT
+//rendong.shi@BSP.boot, 2015/01/23, add for mos mode
+   MOS_BOOT = 10,
+   OPPO_SAU_BOOT = 11,
+   #endif
 	UNKNOWN_BOOT
 } BOOTMODE;
+#ifdef VENDOR_EDIT
+//rendong.shi@BSP.boot, 2015/01/23, add for mos mode
+typedef enum 
+{
+    OPPO_NORMAL_BOOT = 0,
+    OPPO_SILENCE_BOOT = 1,
+	OPPO_UNKNOWN_BOOT
+}OPPO_BOOTMODE;
+
+extern OPPO_BOOTMODE oppo_boot_mode;
+
+#endif
 
 #define BOOT_DEV_NAME           "BOOT"
 #define BOOT_SYSFS              "boot"

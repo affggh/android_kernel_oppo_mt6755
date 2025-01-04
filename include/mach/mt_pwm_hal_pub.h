@@ -15,6 +15,9 @@
 
 #include <mach/mt_typedefs.h>
 
+#if !defined(CONFIG_MTK_CLKMGR)
+#include <linux/clk.h>
+#endif
 /*********************************
 *  Define Error Number
 **********************************/
@@ -27,17 +30,27 @@
 #define EINVALID 6
 
 #ifdef PWM_DEBUG
-#define PWMDBG(fmt, args ...) printk(KERN_INFO "pwm %5d: " fmt, __LINE__, ##args)
+#define PWMDBG(fmt, args ...)  pr_debug("pwm %5d: " fmt, __LINE__, ##args)
 #else
 #define PWMDBG(fmt, args ...)
 #endif
 
-#define PWMMSG(fmt, args ...)  printk(KERN_INFO fmt, ##args)
+#define PWMMSG(fmt, args ...)  pr_debug(fmt, ##args)
 
 #define PWM_DEVICE "mt-pwm"
 
+#if !defined(CONFIG_MTK_LEGACY)
+#ifdef CONFIG_OF
+extern void __iomem *pwm_base;
+#endif
+#endif
+#if !defined(CONFIG_MTK_CLKMGR)
+void mt_pwm_power_on_hal(struct clk *clk, BOOL pmic_pad, unsigned long *power_flag);
+void mt_pwm_power_off_hal(struct clk *clk, BOOL pmic_pad, unsigned long *power_flag);
+#else
 void mt_pwm_power_on_hal(U32 pwm_no, BOOL pmic_pad, unsigned long *power_flag);
 void mt_pwm_power_off_hal(U32 pwm_no, BOOL pmic_pad, unsigned long *power_flag);
+#endif
 void mt_pwm_init_power_flag(unsigned long *power_flag);
 S32 mt_pwm_sel_pmic_hal(U32 pwm_no);
 S32 mt_pwm_sel_ap_hal(U32 pwm_no);
@@ -72,8 +85,7 @@ void mt_pwm_dump_regs_hal(void);
 void pwm_debug_store_hal(void);
 void pwm_debug_show_hal(void);
 
-void mt_set_pwm_buf0_addr_hal(U32 pwm_no, U32 addr);	//add by mtk
-void mt_set_pwm_buf0_size_hal(U32 pwm_no, U16 size);	//add by mktk
-
+void mt_set_pwm_buf0_addr_hal(U32 pwm_no, U32 addr);
+void mt_set_pwm_buf0_size_hal(U32 pwm_no, U16 size);
 
 #endif

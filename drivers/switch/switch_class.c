@@ -22,6 +22,7 @@
 #include <linux/fs.h>
 #include <linux/err.h>
 #include <linux/switch.h>
+#include <linux/soc/oppo/mmkey_log.h>
 
 struct class *switch_class;
 static atomic_t device_count;
@@ -57,6 +58,15 @@ static ssize_t name_show(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
 static DEVICE_ATTR(name, S_IRUGO, name_show, NULL);
 
+#ifdef VENDOR_EDIT
+/*yuanyan@Swdp.multimedia, 2016/04/18, Add for write the headset connect times to criticaldata start*/
+void report_headphone_log(int state){
+	if(1==state || 2==state){
+		mm_keylog_write("headset plug in\n", "headphone plug in\n", TYPE_HEADPHONE_PLUG_IN_COUNT);
+	}
+}
+/*yuanyan@Swdp.multimedia, 2016/04/18, Add for write the headset connect times to criticaldata end*/
+#endif
 void switch_set_state(struct switch_dev *sdev, int state)
 {
 	char name_buf[120];
@@ -68,7 +78,10 @@ void switch_set_state(struct switch_dev *sdev, int state)
 
 	if (sdev->state != state) {
 		sdev->state = state;
-
+#ifdef VENDOR_EDIT
+		/*yuanyan@Swdp.multimedia, 2016/04/18, Add for write the headset connect times to criticaldata*/
+		report_headphone_log(state);
+#endif	
 		prop_buf = (char *)get_zeroed_page(GFP_KERNEL);
 		if (prop_buf) {
 			length = name_show(sdev->dev, NULL, prop_buf);

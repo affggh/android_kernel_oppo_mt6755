@@ -21,32 +21,17 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/swap.h>
-#ifdef CONFIG_MTKPASR_MAFL
 #include <linux/shrinker.h>
-#endif
 
 #include <mach/mt_spm_sleep.h>
 
 #include "../zsmalloc/zsmalloc.h"
 
-/* MTKPASR enabled? */
-#define IS_MTKPASR_ENABLED		\
-	do {				\
-		if (!mtkpasr_enable)	\
-			return 0;	\
-	} while (0)
-
-#define IS_MTKPASR_ENABLED_NORV		\
-	do {				\
-		if (!mtkpasr_enable)	\
-			return;		\
-	} while (0)
-
 /* MTKPASR Debug Filter */
 #define mtkpasr_print(level, x...)			\
 	do {						\
 		if (mtkpasr_debug_level >= level)	\
-			printk(KERN_CRIT x);		\
+			pr_alert(x);			\
 	} while (0)
 
 #define MTKPASR		"MTKPASR"
@@ -60,9 +45,15 @@
 #define	mtkpasr_err(string, args...)	mtkpasr_print(1, "[%s]:[%s][%d] "string, MTKPASR, __func__, __LINE__, ##args)
 #endif
 
-/* This is an experimental value based on ARMv7 single core with 1.3 GHz! (Let the external decompression time be around 0.25s.) */
+/*
+ * This is an experimental value based on ARMv7 single core with 1.3 GHz!
+ * (Let the external decompression time be around 0.25s.)
+ * */
 /* #define MTKPASR_MAX_EXTCOMP	0x1FFF */
-/* This is an experimental value based on ARMv7 single core with 1.1 GHz! (Let the external decompression time be around 0.05s.) */
+/*
+ * This is an experimental value based on ARMv7 single core with 1.1 GHz!
+ * (Let the external decompression time be around 0.05s.)
+ * */
 #ifndef CONFIG_64BIT
 #define MTKPASR_MAX_EXTCOMP	0x801
 #else
@@ -70,7 +61,6 @@
 #endif
 
 #define MTKPASR_FLUSH() do {				\
-				local_irq_disable();	\
 				lru_add_drain();	\
 				drain_local_pages(NULL);\
 			} while (0)			\
@@ -80,34 +70,39 @@
 /* A batch of to-be-migrated pages */
 #define MTKPASR_CHECK_MIGRATE		SWAP_CLUSTER_MAX
 
-#ifdef CONFIG_MTKPASR_MAFL
 /* Current Implementation in Linux - see mm/internal.h */
 #define PAGE_ORDER(page)	page_private(page)
-#endif
 
 /* Inused pages in bank */
 #define BANK_INUSED(i)		(mtkpasr_banks[i].inused)
 /* Related rank */
 #define BANK_RANK(i)		(mtkpasr_banks[i].rank)
 
+/* Test whether a page is in use */
+#define PAGE_INUSED(p)		(!PageBuddy(p))
+
+/* Accumulate isolated */
+#define ACCUMULATE_ISOLATED()	do {					\
+					if (page_is_file_cache(page))	\
+						file_isolated++;	\
+					else				\
+						anon_isolated++;	\
+				} while (0)
+/* Update isolated */
+#define UPDATE_ISOLATED()	do {									\
+					__mod_zone_page_state(zone, NR_ISOLATED_FILE, file_isolated);	\
+					__mod_zone_page_state(zone, NR_ISOLATED_ANON, anon_isolated);	\
+				} while (0)
+
 /* Check whether there is any pending wakeup - (bool)*/
 #define CHECK_PENDING_WAKEUP	spm_check_wakeup_src()	/*pm_wakeup_pending()*/
 
-/* Kernel APIs */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-#define PAGE_EVICTABLE(page, vma)	page_evictable(page, vma)
-#define ZS_CREATE_POOL(name, flags)	zs_create_pool(name, flags)
-#else
+/* Kernel APIs - 3.10 */
 #define PAGE_EVICTABLE(page, vma)	page_evictable(page)
 #define ZS_CREATE_POOL(name, flags)	zs_create_pool(flags)
-#endif
 
-/* Page Migration API */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
-#define MIGRATE_PAGES(from, func, priv)	migrate_pages(from, func, priv, false, MIGRATE_ASYNC)
-#else
-#define MIGRATE_PAGES(from, func, priv)	migrate_pages(from, func, priv, MIGRATE_ASYNC, MR_COMPACTION)
-#endif
+/* Page Migration API - 3.10 */
+#define MIGRATE_PAGES(from, func, priv)	migrate_pages(from, func, priv, MIGRATE_ASYNC, MR_MEMORY_HOTPLUG)
 
 /*-- Configurable parameters */
 
@@ -178,6 +173,7 @@ struct mtkpasr {
 
 #define MTKPASR_SROFF	0xFFFFFFFF
 #define MTKPASR_RDPDON	0xFFFFFFFE
+#define MTKPASR_INUSED	0x0FFFFFFF
 #define MTKPASR_SEGMENT_CH0	0x000000FF
 #define MTKPASR_SEGMENT_CH1	0x0000FF00
 #define MTKPASR_SEGMENT_CH2	0x00FF0000
@@ -199,10 +195,9 @@ struct mtkpasr_bank {
 	u32 valid_pages;		/* Valid pages in this bank */
 	void *rank;			/* Associated rank */
 	u32 segment;			/* Corresponding to which segment */
-#ifdef CONFIG_MTKPASR_MAFL
-	struct list_head mafl;		/* Mark it As Free by removing page blocks from buddy allocator to its List */
+	struct list_head mafl;		/* Mark it As Free by removing page blocks from buddy allocator to its List
+					   - MAFL */
 	int inmafl;			/* Remaining count in mafl(in pages) */
-#endif
 	union {
 		u32 comp_pos;
 		struct {
@@ -226,7 +221,8 @@ enum mtkpasr_phase {
 	MTKPASR_OFF,			/* PASR is off */
 	MTKPASR_ENTERING,		/* Entering PASR. Do data compression on highmem inuse pages. */
 	MTKPASR_DISABLINGSR,		/* After entering PASR, disabling SR */
-	MTKPASR_RESTORING,		/* If there is any incoming ITR, then to terminate any on-going(Entering, Disabling SR) PASR */
+	MTKPASR_RESTORING,		/* If there is any incoming ITR,
+					   then to terminate any on-going(Entering, Disabling SR) PASR */
 	MTKPASR_EXITING,		/* Exiting PASR. Do data decompression on highmem inuse pages. */
 	MTKPASR_ENABLINGSR,		/* Before exiting PASR, enabling SR */
 	MTKPASR_ON,			/* PASR is on */
@@ -236,7 +232,8 @@ enum mtkpasr_phase {
 	MTKPASR_SUCCESS,
 	MTKPASR_FAIL,
 	MTKPASR_WRONG_STATE,		/* Wrong state! */
-	MTKPASR_GET_WAKEUP,		/* There exists a pending wakeup source during PASR flow! Another ret value is -EBUSY */
+	MTKPASR_GET_WAKEUP,		/* There exists a pending wakeup source during PASR flow!
+					   Another ret value is -EBUSY */
 	MTKPASR_PHASE_ONE,
 	MTKPASR_PHASE_TWO,
 };
@@ -272,16 +269,16 @@ extern u32 pasr_bank_to_segment(unsigned long start_pfn, unsigned long end_pfn);
 /* Show mem banks */
 extern int mtkpasr_show_banks(char *);
 
-#ifdef CONFIG_MTKPASR_MAFL
+/* Strategy Control */
 #define MAX_OPS_INVARIANT	(3)
 #define MAX_NO_OPS_INVARIANT	(MAX_OPS_INVARIANT << 2)
 #define KEEP_NO_OPS		(0x7FFFFFFF)
+extern unsigned int mtkpasr_show_collected(void);
 extern unsigned long mtkpasr_show_page_reserved(void);
 extern bool mtkpasr_no_phaseone_ops(void);
 extern bool mtkpasr_no_ops(void);
-#endif
 
-extern enum mtkpasr_phase mtkpasr_entering(void);
+/*extern enum mtkpasr_phase mtkpasr_entering(void);*/
 extern enum mtkpasr_phase mtkpasr_disablingSR(u32 *sr, u32 *dpd);
 extern enum mtkpasr_phase mtkpasr_enablingSR(void);
 extern enum mtkpasr_phase mtkpasr_exiting(void);
@@ -298,5 +295,42 @@ extern int mtkpasr_acquire_frees(void);
 extern void set_mtkpasr_triggered(void);
 extern void clear_mtkpasr_triggered(void);
 extern bool is_mtkpasr_triggered(void);
+
+/*------------------*/
+/*-- page_alloc.c --*/
+/*------------------*/
+
+/* Find inuse & free pages */
+extern int pasr_find_free_page(struct page *page, struct list_head *freelist);
+/* Compute admit order for page allocation */
+/* extern int pasr_compute_safe_order(void); */
+
+/* Banksize */
+extern unsigned long pasrbank_pfns;
+
+/*--------------*/
+/*-- vmscan.c --*/
+/*--------------*/
+
+/* Isolate pages */
+extern int mtkpasr_isolate_page(struct page *page);
+
+/* Drop pages in file/anon lrus! */
+extern int mtkpasr_drop_page(struct page *page);
+
+#ifdef NO_UART_CONSOLE
+extern unsigned char mtkpasr_log_buf[4096];
+#endif
+
+/* mtkpasr_sysfs.c */
+extern unsigned long mtkpasr_triggered;
+extern unsigned long failed_mtkpasr;
+extern void try_to_shrink_slab(void);
+extern void mtkpasr_reset_state(void);
+extern unsigned long mtkpasr_force_rankoff(void);
+extern void mtkpasr_phaseone_ops_internal(void);
+
+/* Set pageblock's mobility */
+extern void set_pageblock_mobility(struct page *page, int mobility);
 
 #endif

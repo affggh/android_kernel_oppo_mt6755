@@ -26,11 +26,10 @@ ccflags-y += -I$(srctree)/$(obj)/include
 #ccflags-y += -I$(MTK_ROOT)/kernel/drivers/conn_md/include/
 ccflags-y += -I$$(srctree)/drivers/misc/mediatek/conn_md/include/
 
-ccflags-y += -DTEST_DRV=1
+ccflags-y += -DTEST_DRV
 # move to lte_df_main.h to solve compile error
 #ccflags-y += -DIMMEDIATE_RELOAD_DL_SKB=1
 
-ccflags-y += -DEMCS_SDIO_DRVTST=0
  
 ifeq ($(CONFIG_MTK_SECURITY_SW_SUPPORT), y)
 ifeq ($(CONFIG_MTK_SEC_SECRO_AC_SUPPORT), y)
@@ -42,6 +41,14 @@ endif
 endif
 ifeq ($(CONFIG_MTK_SEC_MODEM_NVRAM_ANTI_CLONE), y)
 ccflags-y  += -DMTK_SEC_MODEM_NVRAM_ANTI_CLONE
+endif
+
+ifeq ($(GEMINI), yes)
+ccflags-y  += -DGEMINI
+endif
+
+ifeq ($(MTK_CU_3G_DSDS_SUPPORT), yes)
+ccflags-y  += -DMTK_CU_3G_DSDS_SUPPORT
 endif
 
 else

@@ -1,9 +1,9 @@
 #include "tpd.h"
 #define GUP_FW_INFO
 #include "tpd_custom_gt9xx.h"
-
+#if defined(CONFIG_MTK_LEGACY)
 #include "cust_gpio_usage.h" 
-
+#endif
 #ifdef TPD_PROXIMITY
 #include <linux/hwmsensor.h>
 #include <linux/hwmsen_dev.h>
@@ -11,6 +11,7 @@
 #endif
 
 #ifdef CONFIG_OF_TOUCH
+#include <linux/regulator/consumer.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #endif
@@ -173,13 +174,27 @@ static const struct i2c_device_id tpd_i2c_id[] = {{"gt9xx", 0}, {}};
 static unsigned short force[] = {0, 0xBA, I2C_CLIENT_END, I2C_CLIENT_END};
 static const unsigned short *const forces[] = { force, NULL };
 //static struct i2c_client_address_data addr_data = { .forces = forces,};
+#if defined(CONFIG_MTK_LEGACY)
 static struct i2c_board_info __initdata i2c_tpd = { I2C_BOARD_INFO("gt9xx", (0xBA >> 1))};
+#endif
+#if !defined(CONFIG_MTK_LEGACY)
+static const struct of_device_id tpd_of_match[] = {
+		{.compatible = "mediatek,CAP_TOUCH"},
+		{},
+};
+#endif
 static struct i2c_driver tpd_i2c_driver =
 {
     .probe = tpd_i2c_probe,
     .remove = tpd_i2c_remove,
     .detect = tpd_i2c_detect,
     .driver.name = "gt9xx",
+	.driver = {
+		.name = "gt9xx",
+	#if !defined(CONFIG_MTK_LEGACY)
+		.of_match_table = tpd_of_match,
+	#endif
+	},
     .id_table = tpd_i2c_id,
     .address_list = (const unsigned short *) forces,
 };
@@ -1200,6 +1215,22 @@ static s32 gtp_get_info(struct i2c_client *client)
 }
 #endif
 
+/*******************************************************/
+static u8 get_cfg_info_group1_charger_size(void)
+{
+	u8 cfg_info_group1_charger[] = CTP_CFG_GROUP1_CHARGER;
+	
+	return sizeof(cfg_info_group1_charger);
+}
+
+static void get_cfg_info_group1_charger(u8 *p_cfg_info_group1_charger, u8 *cfg_info_group1_charger_len)
+{
+	u8 cfg_info_group1_charger[] = CTP_CFG_GROUP1_CHARGER;
+
+	memcpy(p_cfg_info_group1_charger, cfg_info_group1_charger, sizeof(cfg_info_group1_charger));
+
+	*cfg_info_group1_charger_len = CFG_GROUP_LEN(cfg_info_group1_charger);
+}
 
 /*******************************************************
 Function:
@@ -1236,17 +1267,23 @@ static s32 gtp_init_panel(struct i2c_client *client)
                           CFG_GROUP_LEN(cfg_info_group5),
                           CFG_GROUP_LEN(cfg_info_group6)};
 
-	#if GTP_CHARGER_SWITCH
-	u8 cfg_info_group1_charger[] = CTP_CFG_GROUP1_CHARGER;
-
-    u8 *send_charger_cfg_buf[] = {cfg_info_group1_charger, cfg_info_group2, cfg_info_group3,
+    u8 *send_charger_cfg_buf[] = {NULL, cfg_info_group2, cfg_info_group3,
                         cfg_info_group4, cfg_info_group5, cfg_info_group6};
-    u8 charger_cfg_info_len[] = { CFG_GROUP_LEN(cfg_info_group1_charger), 
+    u8 charger_cfg_info_len[] = { 0, 
                           			CFG_GROUP_LEN(cfg_info_group2),
                           			CFG_GROUP_LEN(cfg_info_group3),
                           			CFG_GROUP_LEN(cfg_info_group4), 
                           			CFG_GROUP_LEN(cfg_info_group5),
                           			CFG_GROUP_LEN(cfg_info_group6)};
+
+	#if GTP_CHARGER_SWITCH
+	
+	send_charger_cfg_buf[0] = kmalloc(get_cfg_info_group1_charger_size(), GFP_KERNEL);
+	if (!send_charger_cfg_buf[0])
+		GTP_ERROR("!cfg_info_group1_charger\n");
+	else
+		get_cfg_info_group1_charger(send_charger_cfg_buf[0], &charger_cfg_info_len[0]);
+
 	GTP_DEBUG("Charger Config Groups\' Lengths: %d, %d, %d, %d, %d, %d", 
         charger_cfg_info_len[0], charger_cfg_info_len[1], charger_cfg_info_len[2], charger_cfg_info_len[3],
         charger_cfg_info_len[4], charger_cfg_info_len[5]);
@@ -1288,6 +1325,9 @@ static s32 gtp_init_panel(struct i2c_client *client)
                 {
                     gtp_get_info(client);
                 }
+				if (send_charger_cfg_buf[0]) {
+					kfree(send_charger_cfg_buf[0]);
+				}
                 return -1;
             }
         }
@@ -1295,6 +1335,9 @@ static s32 gtp_init_panel(struct i2c_client *client)
         {
             GTP_ERROR("Failed to get sensor_id, No config sent!");
             pnl_init_error = 1;
+			if (send_charger_cfg_buf[0]) {
+				kfree(send_charger_cfg_buf[0]);
+			}
             return -1;
         }
         GTP_INFO("Sensor_ID: %d", sensor_id);
@@ -1309,6 +1352,9 @@ static s32 gtp_init_panel(struct i2c_client *client)
 	{
 		GTP_ERROR("CHARGER_CTP_CONFIG_GROUP%d is INVALID CONFIG GROUP! NO Config Sent! You need to check you header file CFG_GROUP section!", sensor_id+1);
         pnl_init_error = 1;
+		if (send_charger_cfg_buf[0]) {
+			kfree(send_charger_cfg_buf[0]);
+		}
         return -1;
 	}
 	#endif
@@ -1319,6 +1365,9 @@ static s32 gtp_init_panel(struct i2c_client *client)
     {
         GTP_ERROR("CTP_CONFIG_GROUP%d is INVALID CONFIG GROUP! NO Config Sent! You need to check you header file CFG_GROUP section!", sensor_id+1);
         pnl_init_error = 1;
+		if (send_charger_cfg_buf[0]) {
+			kfree(send_charger_cfg_buf[0]);
+		}
         return -1;
     }
     
@@ -1356,6 +1405,9 @@ static s32 gtp_init_panel(struct i2c_client *client)
         else
         {
             GTP_ERROR("Failed to get ic config version!No config sent!");
+			if (send_charger_cfg_buf[0]) {
+				kfree(send_charger_cfg_buf[0]);
+			}
             return -1;
         }
     }
@@ -1507,6 +1559,11 @@ static s32 gtp_init_panel(struct i2c_client *client)
     }
     
     msleep(10);
+#if GTP_DRIVER_SEND_CFG
+	if (send_charger_cfg_buf[0]) {
+		kfree(send_charger_cfg_buf[0]);
+	}
+#endif
     return 0;
 }
 
@@ -1548,14 +1605,21 @@ Note:
 *******************************************************/
 void gtp_int_sync(s32 ms)
 {
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
     msleep(ms);
     GTP_GPIO_AS_INT(GTP_INT_PORT);
+#else
+	tpd_gpio_output(1, 0);
+	msleep(ms);
+	tpd_gpio_as_int(1);
+#endif
 }
 
 void gtp_reset_guitar(struct i2c_client *client, s32 ms)
 {
     GTP_INFO("GTP RESET!\n");
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);
     msleep(ms);
     GTP_GPIO_OUTPUT(GTP_INT_PORT, client->addr == 0x14);
@@ -1564,6 +1628,16 @@ void gtp_reset_guitar(struct i2c_client *client, s32 ms)
     GTP_GPIO_OUTPUT(GTP_RST_PORT, 1);
 
     msleep(6);                      //must >= 6ms
+#else
+	tpd_gpio_output(0, 0);
+	msleep(ms);
+	tpd_gpio_output(1, client->addr == 0x14);
+
+	msleep(2);
+	tpd_gpio_output(0, 1);
+
+	msleep(6);                      /* must >= 6ms */
+#endif
 
 #if GTP_COMPATIBLE_MODE
     if (CHIP_TYPE_GT9F == gtp_chip_type)
@@ -1584,8 +1658,13 @@ static int tpd_power_on(struct i2c_client *client)
     int reset_count = 0;
 
 reset_proc:
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);   
     GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+	tpd_gpio_output(0, 0);   
+	tpd_gpio_output(1, 0);
+#endif
     msleep(10);
 
 #if 0
@@ -1595,12 +1674,17 @@ reset_proc:
     mt_set_gpio_out(GPIO_CTP_EN_PIN, GPIO_OUT_ONE);
 
 #else   // ( defined(MT6575) || defined(MT6577) || defined(MT6589) )
-
+#if !defined(CONFIG_MTK_LEGACY)
+	ret=regulator_enable(tpd->reg);  //enable regulator
+	if (ret)
+		GTP_ERROR("regulator_enable() failed!\n");
+#else /* #if !defined(CONFIG_MTK_LEGACY) */
     #ifdef TPD_POWER_SOURCE_CUSTOM
         hwPowerOn(TPD_POWER_SOURCE_CUSTOM, VOL_2800, "TP");
     #else
         hwPowerOn(MT65XX_POWER_LDO_VGP2, VOL_2800, "TP");
     #endif
+#endif /* #if !defined(CONFIG_MTK_LEGACY) */
     #ifdef TPD_POWER_SOURCE_1800
         hwPowerOn(TPD_POWER_SOURCE_1800, VOL_1800, "TP");
     #endif
@@ -2074,9 +2158,8 @@ static int tpd_registration(struct i2c_client *client)
 		s32 err = 0;
 		s32 ret = 0;		
 		u16 version_info;
-#if GTP_HAVE_TOUCH_KEY
 		s32 idx = 0;
-#endif
+
 #ifdef TPD_PROXIMITY
 		struct hwmsen_object obj_ps;
 #endif
@@ -2096,7 +2179,7 @@ static int tpd_registration(struct i2c_client *client)
 	
 		if ((err = misc_register(&tpd_misc_device)))
 		{
-			printk("mtk_tpd: tpd_misc_device register failed\n");
+			GTP_ERROR("mtk_tpd: tpd_misc_device register failed\n");
 		}
 	
 #endif
@@ -2144,15 +2227,20 @@ static int tpd_registration(struct i2c_client *client)
 			GTP_INFO(TPD_DEVICE " failed to create kernel thread: %d\n", err);
 		}
 		
-		
+#if defined(CONFIG_MTK_LEGACY)
 #if GTP_HAVE_TOUCH_KEY
-	
 		for (idx = 0; idx < GTP_MAX_KEY_NUM; idx++)
 		{
 			input_set_capability(tpd->dev, EV_KEY, touch_key_array[idx]);
 		}
-	
 #endif
+#else /* #if defined(CONFIG_MTK_LEGACY) */
+		if(tpd_dts_data.use_tpd_button){
+			for (idx = 0; idx < tpd_dts_data.tpd_key_num; idx++) {
+				input_set_capability(tpd->dev, EV_KEY, tpd_dts_data.tpd_key_local[idx]);
+			}
+		}
+#endif /* #if defined(CONFIG_MTK_LEGACY) */
 #if GTP_SLIDE_WAKEUP
 		input_set_capability(tpd->dev, EV_KEY, KEY_POWER);
 #endif
@@ -2164,9 +2252,11 @@ static int tpd_registration(struct i2c_client *client)
 		//__set_bit(INPUT_PROP_POINTER, tpd->dev->propbit); // 20130722
 #endif
 		// set INT mode
-		mt_set_gpio_mode(GPIO_CTP_EINT_PIN, GPIO_CTP_EINT_PIN_M_EINT);
-		mt_set_gpio_dir(GPIO_CTP_EINT_PIN, GPIO_DIR_IN);
-		mt_set_gpio_pull_enable(GPIO_CTP_EINT_PIN, GPIO_PULL_DISABLE);
+#if defined(CONFIG_MTK_LEGACY)
+		GTP_GPIO_AS_INT(GTP_INT_PORT);
+#else
+		tpd_gpio_as_int(1);
+#endif
 	
 		msleep(50);
 
@@ -2295,8 +2385,13 @@ void force_reset_guitar(void)
     mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
 #endif
 
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);   
     GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+	tpd_gpio_output(0, 0);
+	tpd_gpio_output(1, 0);
+#endif
 #if 0
     //Power off TP
     mt_set_gpio_mode(GPIO_CTP_EN_PIN, GPIO_CTP_EN_PIN_M_GPIO);
@@ -2308,22 +2403,34 @@ void force_reset_guitar(void)
     msleep(30);
 #else           // ( defined(MT6575) || defined(MT6577) || defined(MT6589) )
     // Power off TP
+#if !defined(CONFIG_MTK_LEGACY)
+		ret=regulator_disable(tpd->reg); //disable regulator
+		if (ret)
+			GTP_ERROR("regulator_disable() failed!\n");
+#else /* #if !defined(CONFIG_MTK_LEGACY) */
     #ifdef TPD_POWER_SOURCE_CUSTOM
         hwPowerDown(TPD_POWER_SOURCE_CUSTOM, "TP");
     #else
         hwPowerDown(MT65XX_POWER_LDO_VGP2, "TP");
     #endif
+#endif /* #if !defined(CONFIG_MTK_LEGACY) */
 #ifdef TPD_POWER_SOURCE_1800
 	hwPowerDown(TPD_POWER_SOURCE_1800, "TP");
 #endif
         msleep(30); 
 
     // Power on TP
+#if !defined(CONFIG_MTK_LEGACY)
+	ret=regulator_enable(tpd->reg);  //enable regulator
+	if (ret)
+		GTP_ERROR("regulator_enable() failed!\n");
+#else /* #if !defined(CONFIG_MTK_LEGACY) */
     #ifdef TPD_POWER_SOURCE_CUSTOM
         hwPowerOn(TPD_POWER_SOURCE_CUSTOM, VOL_2800, "TP");
     #else
         hwPowerOn(MT65XX_POWER_LDO_VGP2, VOL_2800, "TP");
     #endif
+#endif /* #if !defined(CONFIG_MTK_LEGACY) */
         msleep(30);
 
 #endif
@@ -2540,7 +2647,7 @@ int lcm_x = 0, lcm_y = 0;
 #endif
 #if GTP_CHARGER_SWITCH
 	if(is_charger_cfg_updating){
-		printk("tpd_down ignored when CFG changing\n");
+		GTP_ERROR("tpd_down ignored when CFG changing\n");
 		return;
 	}
 #endif
@@ -2570,7 +2677,7 @@ int lcm_x = 0, lcm_y = 0;
 	    y = 0;
 	else
 	    y = y - lcm_y; 
-	printk("x:%d, y:%d, lcm_x:%d, lcm_y:%d\n", x, y, lcm_x, lcm_y);               
+	GTP_DEBUG("x:%d, y:%d, lcm_x:%d, lcm_y:%d\n", x, y, lcm_x, lcm_y);               
 #endif	    
     input_report_abs(tpd->dev, ABS_MT_POSITION_X, x);
     input_report_abs(tpd->dev, ABS_MT_POSITION_Y, y);
@@ -2581,6 +2688,7 @@ int lcm_x = 0, lcm_y = 0;
     tpd_history_y=y;
 
     //MMProfileLogEx(MMP_TouchPanelEvent, MMProfileFlagPulse, 1, x+y);
+#if defined(CONFIG_MTK_LEGACY)
 #ifdef TPD_HAVE_BUTTON
 
     if (FACTORY_BOOT == get_boot_mode() || RECOVERY_BOOT == get_boot_mode())
@@ -2589,13 +2697,20 @@ int lcm_x = 0, lcm_y = 0;
     }
 
 #endif
+#else /* #if defined(CONFIG_MTK_LEGACY) */
+	if(tpd_dts_data.use_tpd_button){
+		if (FACTORY_BOOT == get_boot_mode() || RECOVERY_BOOT == get_boot_mode()) {
+			tpd_button(x, y, 1);
+		}
+	}
+#endif /* #if defined(CONFIG_MTK_LEGACY) */
 }
 
 static void tpd_up(s32 x, s32 y, s32 id)
 {
 #if GTP_CHARGER_SWITCH
 	if(is_charger_cfg_updating){
-		printk("tpd_up change is_charger_cfg_updating status\n");
+		GTP_ERROR("tpd_up change is_charger_cfg_updating status\n");
 		is_charger_cfg_updating = false;
 		return;
 	}
@@ -2610,14 +2725,20 @@ static void tpd_up(s32 x, s32 y, s32 id)
     tpd_history_y=0;
     //MMProfileLogEx(MMP_TouchPanelEvent, MMProfileFlagPulse, 0, x+y);
 
+#if defined(CONFIG_MTK_LEGACY)
 #ifdef TPD_HAVE_BUTTON
-
     if (FACTORY_BOOT == get_boot_mode() || RECOVERY_BOOT == get_boot_mode())
     {
         tpd_button(x, y, 0);
     }
-
 #endif
+#else /* #if defined(CONFIG_MTK_LEGACY) */
+	if(tpd_dts_data.use_tpd_button){
+		if (FACTORY_BOOT == get_boot_mode() || RECOVERY_BOOT == get_boot_mode()) {
+			tpd_button(x, y, 0);
+		}
+	}
+#endif /* #if defined(CONFIG_MTK_LEGACY) */
 }
 #if GTP_CHARGER_SWITCH
 static u64 CFG_time_interval = 0;
@@ -2766,10 +2887,10 @@ static int touch_event_handler(void *unused)
 
 #if 0//G_DEBUG
     ret = gtp_i2c_read(i2c_client_point, g_buffer, 3);
-    printk("mtk-tpd:0x3014:value %x\n", g_buffer[2]);
+    GTP_DEBUG("mtk-tpd:0x3014:value %x\n", g_buffer[2]);
     if(ret>0 &&(g_buffer[2] == 0x1d))//0x001d: 1640hz;0x004b:4292hz 
     {
-        printk("low report rate:0x3014:value %x\n", g_buffer[2]);
+        GTP_DEBUG("low report rate:0x3014:value %x\n", g_buffer[2]);
     }
 
 #endif
@@ -3177,6 +3298,44 @@ exit_work_func:
 
 static int tpd_local_init(void)
 {
+#if !defined CONFIG_MTK_LEGACY
+	int ret;
+	char *cust_tpd_name = NULL;
+	struct device_node *node = NULL, *tpd_node;
+	GTP_INFO("Device Tree get regulator!");
+	/* check if cust defined */
+	node = of_find_compatible_node(NULL, NULL, "mediatek,regulator_supply");
+	if(node){
+		cust_tpd_name = of_get_property(node, "CAP_TOUCH_VDD", NULL);
+		if (cust_tpd_name == NULL){
+			/* no customer setting, use default touch regulator */
+			tpd->reg=regulator_get(tpd->tpd_dev,"VTOUCH");
+			ret=regulator_set_voltage(tpd->reg, 2800000, 2800000);	// set 2.8v
+			if (ret){
+				GTP_ERROR("regulator_set_voltage(%d) failed!\n", ret);
+				return -1;
+			}
+		}else{
+			/* customer setting existed */
+			GTP_INFO("Using Cust-LDO. Touch regulator name =%s!\n", cust_tpd_name);
+			/* backup tpd node */
+			tpd_node = tpd->tpd_dev->of_node;
+			/* get customer regulator supply node */
+			tpd->tpd_dev->of_node = node;
+			tpd->reg=regulator_get(tpd->tpd_dev,"CAP_TOUCH_VDD");
+			ret=regulator_set_voltage(tpd->reg, 2800000, 2800000);	// set 2.8v
+			if (ret){
+				GTP_ERROR("regulator_set_voltage() failed!\n");
+			return -1;
+		}
+			/* restore tpd node */
+			tpd->tpd_dev->of_node = tpd_node;
+		}
+	}else{
+		GTP_ERROR("regulator get touch node failed!\n");
+		return -1;
+	}
+#endif
 #if GTP_ESD_PROTECT
     clk_tick_cnt = 2 * HZ;   // HZ: clock ticks in 1 second generated by system
     GTP_DEBUG("Clock ticks for an esd cycle: %d", clk_tick_cnt);
@@ -3207,9 +3366,14 @@ static int tpd_local_init(void)
         return -1;
     }
     input_set_abs_params(tpd->dev, ABS_MT_TRACKING_ID, 0, (GTP_MAX_TOUCH-1), 0, 0);
+#if defined(CONFIG_MTK_LEGACY)
 #ifdef TPD_HAVE_BUTTON
     tpd_button_setting(TPD_KEY_COUNT, tpd_keys_local, tpd_keys_dim_local);// initialize tpd button data
 #endif
+#else /* #if defined(CONFIG_MTK_LEGACY) */
+	if(tpd_dts_data.use_tpd_button)
+		tpd_button_setting(TPD_KEY_COUNT, tpd_dts_data.tpd_key_local, tpd_dts_data.tpd_key_dim_local);// initialize tpd button data
+#endif  /* #if defined(CONFIG_MTK_LEGACY) */
 
 #if (defined(TPD_WARP_START) && defined(TPD_WARP_END))
     TPD_DO_WARP = 1;
@@ -3284,6 +3448,7 @@ Output:
 *******************************************************/
 static s8 gtp_enter_sleep(struct i2c_client *client)
 {
+	int ret = 0;
 #if GTP_COMPATIBLE_MODE
     if (CHIP_TYPE_GT9F == gtp_chip_type)
     {
@@ -3310,8 +3475,13 @@ static s8 gtp_enter_sleep(struct i2c_client *client)
 
 #if GTP_POWER_CTRL_SLEEP
 
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);   
     GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+	tpd_gpio_output(0, 0);
+	tpd_gpio_output(1, 0);
+#endif
     msleep(10);
 
 #if 0 //ifdef MT6573
@@ -3324,12 +3494,18 @@ static s8 gtp_enter_sleep(struct i2c_client *client)
     #ifdef TPD_POWER_SOURCE_1800
         hwPowerDown(TPD_POWER_SOURCE_1800, "TP");
     #endif
-    
+
+#if !defined(CONFIG_MTK_LEGACY)
+		ret=regulator_disable(tpd->reg); //disable regulator
+		if (ret)
+			GTP_ERROR("regulator_disable() failed!\n");
+#else /* #if !defined(CONFIG_MTK_LEGACY) */
     #ifdef TPD_POWER_SOURCE_CUSTOM
         hwPowerDown(TPD_POWER_SOURCE_CUSTOM, "TP");
     #else
         hwPowerDown(MT65XX_POWER_LDO_VGP2, "TP");
     #endif
+#endif /* #if !defined(CONFIG_MTK_LEGACY) */
 #endif
 
     GTP_INFO("GTP enter sleep by poweroff!");
@@ -3341,8 +3517,11 @@ static s8 gtp_enter_sleep(struct i2c_client *client)
         s8 retry = 0;
         u8 i2c_control_buf[3] = {(u8)(GTP_REG_SLEEP >> 8), (u8)GTP_REG_SLEEP, 5};
         
-        
+#if defined(CONFIG_MTK_LEGACY)
         GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+		tpd_gpio_output(1, 0);
+#endif
         msleep(5);
         //i2c_control_buf[2] = 0x08; // for double system
     
@@ -3416,7 +3595,11 @@ static s8 gtp_wakeup_sleep(struct i2c_client *client)
         
         while (retry++ < 10)
         {
+#if defined(CONFIG_MTK_LEGACY)
             GTP_GPIO_OUTPUT(GTP_INT_PORT, 1);
+#else
+			tpd_gpio_output(1, 1);
+#endif
             msleep(5);
             
             ret = gtp_i2c_test(client);
@@ -3608,7 +3791,7 @@ static void tpd_resume(struct early_suspend *h)
 {
     s32 ret = -1;
 
-    printk("mtk-tpd: %s start\n", __FUNCTION__);
+    GTP_DEBUG("mtk-tpd: %s start\n", __FUNCTION__);
 #ifdef TPD_PROXIMITY
 
     if (tpd_proximity_flag == 1)
@@ -3673,7 +3856,7 @@ static void tpd_resume(struct early_suspend *h)
 #ifdef GTP_CHARGER_DETECT
     queue_delayed_work(gtp_charger_check_workqueue, &gtp_charger_check_work, clk_tick_cnt);
 #endif
-    printk("mtk-tpd: %s end\n", __FUNCTION__);
+    GTP_DEBUG("mtk-tpd: %s end\n", __FUNCTION__);
 }
 
 static struct tpd_driver_t tpd_device_driver =
@@ -3682,21 +3865,29 @@ static struct tpd_driver_t tpd_device_driver =
     .tpd_local_init = tpd_local_init,
     .suspend = tpd_suspend,
     .resume = tpd_resume,
+#if defined(CONFIG_MTK_LEGACY)
 #ifdef TPD_HAVE_BUTTON
     .tpd_have_button = 1,
 #else
     .tpd_have_button = 0,
 #endif
+#endif /* #if defined(CONFIG_MTK_LEGACY) */
 };
 
 static void tpd_off(void)
 {
-
+	int ret = 0;
+#if !defined(CONFIG_MTK_LEGACY)
+		ret=regulator_disable(tpd->reg); //disable regulator
+		if (ret)
+			GTP_ERROR("regulator_disable() failed!\n");
+#else /* #if !defined(CONFIG_MTK_LEGACY) */
 #ifdef TPD_POWER_SOURCE_CUSTOM
 	hwPowerDown(TPD_POWER_SOURCE_CUSTOM, "TP");
 #else
 	hwPowerDown(MT65XX_POWER_LDO_VGP2, "TP");
 #endif
+#endif /* #if !defined(CONFIG_MTK_LEGACY) */
 #ifdef TPD_POWER_SOURCE_1800
 	hwPowerDown(TPD_POWER_SOURCE_1800, "TP");
 #endif
@@ -3750,11 +3941,15 @@ static void tpd_on(void)
 static int __init tpd_driver_init(void)
 {
     GTP_INFO("MediaTek gt91xx touch panel driver init\n");
+#if !defined(CONFIG_MTK_LEGACY)
+	tpd_get_dts_info();
+#else /* #if !defined(CONFIG_MTK_LEGACY) */
 #if defined(TPD_I2C_NUMBER)	
     i2c_register_board_info(TPD_I2C_NUMBER, &i2c_tpd, 1);
 #else
     i2c_register_board_info(0, &i2c_tpd, 1);
 #endif
+#endif /* #if !defined(CONFIG_MTK_LEGACY) */
     if (tpd_driver_add(&tpd_device_driver) < 0)
         GTP_INFO("add generic driver failed\n");
 

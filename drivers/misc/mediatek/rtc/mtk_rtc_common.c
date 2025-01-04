@@ -48,6 +48,8 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/pm_wakeup.h>
+#include <linux/sched.h>
+#include <asm/div64.h>
 
 
 /* #include <mach/mt6577_boot.h> */
@@ -67,7 +69,6 @@
 /* #include <linux/printk.h> */
 
 #define RTC_NAME	"mt-rtc"
-#define XLOG_MYTAG	"Power/RTC"
 #define RTC_RELPWR_WHEN_XRST	1	/* BBPU = 0 when xreset_rstb goes low */
 
 
@@ -86,9 +87,6 @@ extern void pmic_register_interrupt_callback(kal_uint32 intNo,void (EINT_FUNC_PT
 extern void pmic_enable_interrupt(kal_uint32 intNo,kal_uint32 en,char *str);
 #endif
 
-#ifdef VRTC_PWM_ENABLE
-struct timespec rtc_xts_start;
-#endif
 /*
  * RTC_PDN1:
  *     bit 0 - 3  : Android bits
@@ -151,9 +149,9 @@ struct timespec rtc_xts_start;
  * RTC_NEW_SPARE3: RTC_AL_MTH bit8~15
  *	   bit 8 ~ 15 : reserved bits
  */
-#if 1
+
 #define rtc_xinfo(fmt, args...)		\
-	pr_debug(fmt, ##args)
+	pr_notice(fmt, ##args)
 
 #define rtc_xerror(fmt, args...)	\
 	pr_err(fmt, ##args)
@@ -161,16 +159,6 @@ struct timespec rtc_xts_start;
 #define rtc_xfatal(fmt, args...)	\
 	pr_emerg(fmt, ##args)
 
-#else
-#define rtc_xinfo(fmt, args...)		\
-	xlog_printk(ANDROID_LOG_INFO, XLOG_MYTAG, fmt, ##args)
-
-#define rtc_xerror(fmt, args...)	\
-	xlog_printk(ANDROID_LOG_ERROR, XLOG_MYTAG, fmt, ##args)
-
-#define rtc_xfatal(fmt, args...)	\
-	xlog_printk(ANDROID_LOG_FATAL, XLOG_MYTAG, fmt, ##args)
-#endif
 static struct rtc_device *rtc;
 static DEFINE_SPINLOCK(rtc_lock);
 
@@ -206,7 +194,6 @@ int get_rtc_spare_fg_value(void)
 	spin_lock_irqsave(&rtc_lock, flags);
 	temp = hal_rtc_get_register_status("FG");
 	spin_unlock_irqrestore(&rtc_lock, flags);
-
 	return temp;
 }
 
@@ -221,9 +208,52 @@ int set_rtc_spare_fg_value(int val)
 	spin_lock_irqsave(&rtc_lock, flags);
 	hal_rtc_set_register_status("FG", val);
 	spin_unlock_irqrestore(&rtc_lock, flags);
+	rtc_xinfo("set_rtc_spare_fg: %d\n", val);
 
 	return 0;
 }
+
+#ifdef VENDOR_EDIT /* OPPO 2016-01-05 sjc Add for charging */
+#if defined(CONFIG_MTK_HAFG_20)
+extern bool battery_meter_get_soc_init_flag(void);
+#endif
+
+int get_rtc_spare_oppo_fg_value(void)
+{
+	/* RTC_AL_DOM bit8~14 */
+	u16 temp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&rtc_lock, flags);
+	temp = hal_rtc_get_register_status("OPPO_FG");
+	spin_unlock_irqrestore(&rtc_lock, flags);
+	rtc_xinfo("get_rtc_spare_oppo_fg: %d\n", temp);
+	return temp;
+}
+
+int set_rtc_spare_oppo_fg_value(int val)
+{
+	/* RTC_AL_HOU bit8~14 */
+	unsigned long flags;
+
+#if defined(CONFIG_MTK_HAFG_20)
+	if (battery_meter_get_soc_init_flag() == false) {
+		printk(KERN_ERR "===set_rtc_spare_oppo_fg: soc_init_flag is false===\n");
+		return 1;
+	}
+#endif
+
+	if (val > 100)
+		return 1;
+
+	spin_lock_irqsave(&rtc_lock, flags);
+	hal_rtc_set_register_status("OPPO_FG", val);
+	spin_unlock_irqrestore(&rtc_lock, flags);
+	rtc_xinfo("set_rtc_spare_oppo_fg: %d\n", val);
+
+	return 0;
+}
+#endif /* VENDOR_EDIT */
 
 bool crystal_exist_status(void)
 {
@@ -358,6 +388,55 @@ void rtc_mark_kpoc(void)
 	hal_rtc_mark_mode("kpoc");
 	spin_unlock_irqrestore(&rtc_lock, flags);
 }
+#endif
+#ifdef VENDOR_EDIT
+//rendong.shi@BSP.boot, 2015/04/27, add for reboot kernel panic mode
+void rtc_mark_reboot_kernel(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&rtc_lock, flags);
+    hal_rtc_mark_mode("kernel");
+	spin_unlock_irqrestore(&rtc_lock, flags);
+}
+
+
+void rtc_mark_silence(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&rtc_lock, flags);
+    hal_rtc_mark_mode("silence");
+	spin_unlock_irqrestore(&rtc_lock, flags);
+}
+
+void rtc_mark_sau(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&rtc_lock, flags);
+    hal_rtc_mark_mode("sau");
+	spin_unlock_irqrestore(&rtc_lock, flags);
+}
+
+void rtc_mark_mos(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&rtc_lock, flags);
+    hal_rtc_mark_mode("mos");
+	spin_unlock_irqrestore(&rtc_lock, flags);
+}
+//mingqiang.guo@bsp.boot 2015/10/16, add for reboot meta
+void rtc_mark_meta(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&rtc_lock, flags);
+    hal_rtc_mark_mode("meta");
+	spin_unlock_irqrestore(&rtc_lock, flags);
+}
+
 #endif
 void rtc_mark_fast(void)
 {
@@ -637,22 +716,67 @@ static int rtc_ops_set_alarm(struct device *dev, struct rtc_wkalrm *alm)
 void rtc_pwm_enable_check(void)
 {
 #ifdef VRTC_PWM_ENABLE
-	struct timespec rtc_xts_end, tom, sleep;
-	__kernel_time_t dif_time;
+	U64 time;
 
 	rtc_xinfo("rtc_pwm_enable_check()\n");
 
-	get_xtime_and_monotonic_and_sleep_offset(&rtc_xts_end, &tom, &sleep);
-	dif_time = rtc_xts_end.tv_sec - rtc_xts_start.tv_sec;
+	time = sched_clock();
+	do_div(time, 1000000000);
 
-	if(dif_time > RTC_PWM_ENABLE_POLLING_TIMER)
+
+	if(time > RTC_PWM_ENABLE_POLLING_TIMER)
 	{
 		hal_rtc_pwm_enable();
+	}
+	else
+	{
+		rtc_xinfo("time=%lld, less than %d, don't enable rtc pwm\n",time,RTC_PWM_ENABLE_POLLING_TIMER);
 	}
 
 #endif
 }
 
+#ifdef CONFIG_COMPAT
+static long rtc_ops_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	long err = 0;
+
+	void __user *arg32 = compat_ptr(arg);
+	rtc_xinfo("rtc_ops_compat_ioctl cmd=%d\n", cmd);
+	if (!file->f_op || !file->f_op->unlocked_ioctl)
+		return -ENOTTY;
+
+	switch (cmd) {
+	case COMPAT_RTC_AUTOBOOT_ON:
+		if (arg32 == NULL) {
+			err = -EINVAL;
+			break;
+		}
+		err = file->f_op->unlocked_ioctl(file, RTC_AUTOBOOT_ON, (unsigned long)arg32);
+		if (err) {
+			rtc_xerror("RTC_AUTOBOOT_ON unlocked_ioctl failed.");
+			return err;
+		}
+	break;
+	case COMPAT_RTC_AUTOBOOT_OFF:
+		if (arg32 == NULL) {
+			err = -EINVAL;
+			break;
+		}
+		err = file->f_op->unlocked_ioctl(file, RTC_AUTOBOOT_OFF, (unsigned long)arg32);
+		if (err) {
+			rtc_xerror("RTC_AUTOBOOT_OFF unlocked_ioctl failed.");
+			return err;
+		}
+	break;
+	default:
+		rtc_xerror("unknown IOCTL: 0x%08x\n", cmd);
+		err = -ENOIOCTLCMD;
+	break;
+	}
+	return err;
+}
+#endif
 
 static int rtc_ops_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 {
@@ -683,6 +807,9 @@ static struct rtc_class_ops rtc_ops = {
 	.read_alarm = rtc_ops_read_alarm,
 	.set_alarm = rtc_ops_set_alarm,
 	.ioctl = rtc_ops_ioctl,
+	#ifdef CONFIG_COMPAT
+	.compat_ioctl = rtc_ops_compat_ioctl,
+	#endif
 };
 
 static int rtc_pdrv_probe(struct platform_device *pdev)
@@ -704,13 +831,6 @@ static int rtc_pdrv_probe(struct platform_device *pdev)
 	#ifdef PMIC_REGISTER_INTERRUPT_ENABLE
 		pmic_register_interrupt_callback(RTC_INTERRUPT_NUM,rtc_irq_handler);	
 		pmic_enable_interrupt(RTC_INTERRUPT_NUM,1,"RTC");
-	#endif
-
-	#ifdef VRTC_PWM_ENABLE
-	{
-		struct timespec tom, sleep;
-		get_xtime_and_monotonic_and_sleep_offset(&rtc_xts_start, &tom, &sleep);
-	}
 	#endif
 
 	device_init_wakeup(&pdev->dev, 1);

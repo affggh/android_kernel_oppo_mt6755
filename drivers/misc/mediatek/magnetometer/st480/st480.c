@@ -90,6 +90,8 @@ volatile static struct mag_3 mag;
 /*----------------------------------------------------------------------------*/
 static void st480_power(struct mag_hw *hw, unsigned int on) 
 {
+    #ifdef __USE_LINUX_REGULATOR_FRAMEWORK__
+	#else
 	static unsigned int power_on = 0;
 
 	if(hw->power_id != POWER_NONE_MACRO)
@@ -115,6 +117,7 @@ static void st480_power(struct mag_hw *hw, unsigned int on)
 		}
 	}
 	power_on = on;
+	#endif
 }
 
 /*----------------------------------------------------------------------------*/

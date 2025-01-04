@@ -366,6 +366,14 @@ static int create_mem_extents(struct list_head *list, gfp_t gfp_mask)
 		unsigned long zone_start, zone_end;
 		struct mem_extent *ext, *cur, *aux;
 
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP) /* SVP 12 */
+		/*
+		 * ZONE_CMA is a virtual zone and it's spanned is subset of
+		 * other zone, so we don't need to make another mem_extents.
+		*/
+		if (is_zone_cma(zone))
+			continue;
+#endif
 		zone_start = zone->zone_start_pfn;
 		zone_end = zone->zone_start_pfn + zone->spanned_pages;
 
@@ -1007,6 +1015,16 @@ void free_basic_memory_bitmaps(void)
 unsigned int snapshot_additional_pages(struct zone *zone)
 {
 	unsigned int res;
+
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP) /* SVP 12 */
+	/*
+	 * Estimation of needed pages for ZONE_CMA is already reflected
+	 * when calculating other zones since ZONE_CMA is a virtual zone and
+	 * it's span is subset of other zone.
+	 */
+	if (is_zone_cma(zone))
+		return 0;
+#endif
 
 	res = DIV_ROUND_UP(zone->spanned_pages, BM_BITS_PER_BLOCK);
 	res += DIV_ROUND_UP(res * sizeof(struct bm_block),

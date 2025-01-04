@@ -138,7 +138,26 @@ static ssize_t power_supply_store_property(struct device *dev,
 
 /* Must be in the same order as POWER_SUPPLY_PROP_* */
 static struct device_attribute power_supply_attrs[] = {
-	/* Properties of type `int' */
+#ifdef VENDOR_EDIT//Fanhong.Kong@ProDrv.CHG,2012/03/08, Add for low battery in sleep
+//	POWER_SUPPLY_ATTR(battery_vol),
+//	POWER_SUPPLY_ATTR(battery_current),
+//	POWER_SUPPLY_ATTR(battery_temp),
+//	POWER_SUPPLY_ATTR(charge_vol),
+	POWER_SUPPLY_ATTR(authenticate),
+	POWER_SUPPLY_ATTR(charge_timeout),
+	POWER_SUPPLY_ATTR(battery_request_poweroff),
+	POWER_SUPPLY_ATTR(charge_technology),
+	POWER_SUPPLY_ATTR(fastcharger),
+	POWER_SUPPLY_ATTR(mmi_charging_enable),
+	POWER_SUPPLY_ATTR(otg_switch),
+	POWER_SUPPLY_ATTR(otg_online),
+	POWER_SUPPLY_ATTR(batt_fcc),
+	POWER_SUPPLY_ATTR(batt_soh),
+	POWER_SUPPLY_ATTR(batt_cc),
+	POWER_SUPPLY_ATTR(batt_rm),
+	POWER_SUPPLY_ATTR(notify_code),
+	POWER_SUPPLY_ATTR(charger_ic),	
+#endif	
 	POWER_SUPPLY_ATTR(status),
 	POWER_SUPPLY_ATTR(charge_type),
 	POWER_SUPPLY_ATTR(health),
@@ -217,6 +236,24 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(present_smb),
 	/* ADB CMD Discharging */
 	POWER_SUPPLY_ATTR(adjust_power),
+#ifdef VENDOR_EDIT//Fuchun.Liao@Mobile.BSP.CHG 2015-08-24 add for adapter fw update
+	POWER_SUPPLY_ATTR(adapter_fw_update),
+#endif
+#ifdef VENDOR_EDIT
+//Fuchun.Liao@Mobile.BSP.CHG 2016-02-04 add for voocchg_ing
+	POWER_SUPPLY_ATTR(voocchg_ing),
+#endif
+#ifdef VENDOR_EDIT
+// wenbin.liu@SW.Bsp.Driver, 2016/07/05  Add for for critical log 
+	POWER_SUPPLY_ATTR(primal_type),
+#endif /*VENDOR_EDIT*/
+#ifdef VENDOR_EDIT//Fanhong.Kong@PSW.BSP.CHG, 2017/10/20, Add for battery info collect
+#ifdef CONFIG_OPPO_SHORT_C_BATT_CHECK
+	POWER_SUPPLY_ATTR(short_c_batt_update_change),
+	POWER_SUPPLY_ATTR(short_c_batt_in_idle),
+	POWER_SUPPLY_ATTR(short_c_batt_cv_status),
+#endif	
+#endif /*VENDOR_EDIT*/
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_ATTR(model_name),
 	POWER_SUPPLY_ATTR(manufacturer),

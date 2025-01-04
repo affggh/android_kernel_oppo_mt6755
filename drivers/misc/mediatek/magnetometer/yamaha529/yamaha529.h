@@ -54,17 +54,10 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 
-/*
-#define YLOGD(...) 
-#define YLOGI(...) 
-#define YLOGW(...) printk(KERN_WARNING __VA_ARGS__)
-#define YLOGE(...) printk(KERN_ERR __VA_ARGS__)
-*/
-
 #define MSE_TAG                  "MSENSOR"
-#define MSE_FUN(f)               printk(KERN_INFO MSE_TAG" %s\r\n", __FUNCTION__)
-#define MSE_ERR(fmt, args...)    printk(KERN_ERR MSE_TAG" %s %d : \r\n"fmt, __FUNCTION__, __LINE__, ##args)
-#define MSE_LOG(fmt, args...)    printk(KERN_INFO MSE_TAG fmt, ##args)
+#define MSE_FUN(f)               pr_debug(MSE_TAG" %s\r\n", __FUNCTION__)
+#define MSE_ERR(fmt, args...)    pr_err(MSE_TAG" %s %d : \r\n"fmt, __FUNCTION__, __LINE__, ##args)
+#define MSE_LOG(fmt, args...)    pr_debug(MSE_TAG fmt, ##args)
 #define MSE_VER(fmt, args...)   ((void)0)
 
 #else

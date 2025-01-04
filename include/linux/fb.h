@@ -23,7 +23,14 @@ struct dma_buf;
 struct videomode;
 struct device_node;
 
+#ifdef VENDOR_EDIT
+/*yan.chen@Swdp.shanghai, 2015/11/26, remove replicated macro definition */
+#ifndef CONFIG_DMA_SHARED_BUFFER
 #define CONFIG_DMA_SHARED_BUFFER
+#endif
+#else
+#define CONFIG_DMA_SHARED_BUFFER
+#endif
 
 /* Definitions below are used in the parsed monitor specs */
 #define FB_DPMS_ACTIVE_OFF	1
@@ -640,6 +647,13 @@ extern int num_registered_fb;
 extern struct class *fb_class;
 
 extern int lock_fb_info(struct fb_info *info);
+
+#ifdef VENDOR_EDIT
+//xiaocheng.li@swdp.shanghai, 2016-1-18, export kernel symbol
+extern struct fb_info *get_fb_info(unsigned int idx);
+extern unsigned int get_frame_cnt(void);
+extern unsigned int get_display_state(void);
+#endif
 
 static inline void unlock_fb_info(struct fb_info *info)
 {

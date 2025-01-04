@@ -72,7 +72,7 @@ void tpd_button_init(void)
 	if (properties_kobj)
 		ret = sysfs_create_group(properties_kobj, &mtk_properties_attr_group);
 	if (!properties_kobj || ret)
-		printk("failed to create board_properties\n");
+		pr_err("failed to create board_properties\n");
 }
 
 void tpd_button(unsigned int x, unsigned int y, unsigned int down)
@@ -89,7 +89,7 @@ void tpd_button(unsigned int x, unsigned int y, unsigned int down)
 				input_sync(tpd->kpd);
 				tpd->btn_state |= (1 << i);
 				TPD_DEBUG("[mtk-tpd] press key %d (%d)\n", i, tpd_keys[i]);
-				printk("[mtk-tpd] press key %d (%d)\n", i, tpd_keys[i]);
+				pr_info("[mtk-tpd] press key %d (%d)\n", i, tpd_keys[i]);
 			}
 		}
 	} else {
@@ -98,7 +98,7 @@ void tpd_button(unsigned int x, unsigned int y, unsigned int down)
 				input_report_key(tpd->kpd, tpd_keys[i], 0);
 				input_sync(tpd->kpd);
 				TPD_DEBUG("[mtk-tpd] release key %d (%d)\n", i, tpd_keys[i]);
-				printk("[mtk-tpd] release key %d (%d)\n", i, tpd_keys[i]);
+				pr_info("[mtk-tpd] release key %d (%d)\n", i, tpd_keys[i]);
 			}
 		}
 		tpd->btn_state = 0;

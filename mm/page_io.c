@@ -251,7 +251,9 @@ int swap_writepage(struct page *page, struct writeback_control *wbc)
 out:
 	return ret;
 }
-
+#ifdef CONFIG_ZRAM
+extern int swap_make_request(struct bio *bio);
+#endif /*CONFIG_ZRAM*/
 int __swap_writepage(struct page *page, struct writeback_control *wbc,
 	void (*end_write_func)(struct bio *, int))
 {
@@ -318,6 +320,11 @@ int __swap_writepage(struct page *page, struct writeback_control *wbc,
 	count_vm_event(PSWPOUT);
 	set_page_writeback(page);
 	unlock_page(page);
+#ifdef CONFIG_ZRAM
+	bio->bi_rw |= rw;
+	if (!swap_make_request(bio))
+		return 0;
+#endif
 	submit_bio(rw, bio);
 out:
 	return ret;
@@ -362,6 +369,11 @@ int swap_readpage(struct page *page)
 	current->swap_in++;
 #endif
 	count_vm_event(PSWPIN);
+#ifdef CONFIG_ZRAM
+	bio->bi_rw |= READ;
+	if (!swap_make_request(bio))
+		return 0;
+#endif /*CONFIG_ZRAM*/
 	submit_bio(READ, bio);
 out:
 	return ret;

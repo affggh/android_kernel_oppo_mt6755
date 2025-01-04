@@ -19,9 +19,6 @@
  *
  *---------------------------------------------------------------------------
 ---
- * $Revision: #1 $
- * $Modtime:$
- * $Log:$
  *
  *
 
@@ -88,7 +85,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/pcm.h>
 #include <sound/jack.h>
-//#include <asm/mach-types.h>
+/* #include <asm/mach-types.h> */
 #include <sound/mt_soc_audio.h>
 
 /*
@@ -130,18 +127,18 @@ define for PCM settings
 #define AWB_MAX_PERIOD_SIZE     AWB_MAX_BUFFER_SIZE
 
 
-#define HDMI_MAX_BUFFER_SIZE     (384*1024*8)
+#define HDMI_MAX_BUFFER_SIZE     (192*1024*4)
 
-#define HDMI_MULTI_MAX_BUFFER_SIZE     (384*1024*8)
+#define HDMI_MULTI_MAX_BUFFER_SIZE     (192*1024*4)
 #define HDMI_STEREO_MAX_BUFFER_SIZE     (24*1024)
 
 
 #define HDMI_MIN_PERIOD_SIZE       1
 #define HDMI_MAX_PERIODBYTE_SIZE     HDMI_MAX_BUFFER_SIZE
-#define HDMI_MAX_2CH_16BIT_PERIOD_SIZE     (HDMI_STEREO_MAX_BUFFER_SIZE/(2*2)) // 2 channels , 16bits
-#define HDMI_MAX_8CH_16BIT_PERIOD_SIZE     (HDMI_MAX_PERIODBYTE_SIZE/(8*2)) // 8 channels , 16bits
-#define HDMI_MAX_2CH_24BIT_PERIOD_SIZE     (HDMI_STEREO_MAX_BUFFER_SIZE/(2*2*2)) // 2 channels , 24bits
-#define HDMI_MAX_8CH_24BIT_PERIOD_SIZE     (HDMI_MAX_PERIODBYTE_SIZE/(8*2*2)) // 8 channels , 24bits
+#define HDMI_MAX_2CH_16BIT_PERIOD_SIZE     (HDMI_STEREO_MAX_BUFFER_SIZE/(2*2))	/* 2 channels , 16bits */
+#define HDMI_MAX_8CH_16BIT_PERIOD_SIZE     (HDMI_MAX_PERIODBYTE_SIZE/(8*2))	/* 8 channels , 16bits */
+#define HDMI_MAX_2CH_24BIT_PERIOD_SIZE     (HDMI_STEREO_MAX_BUFFER_SIZE/(2*2*2))	/* 2 channels , 24bits */
+#define HDMI_MAX_8CH_24BIT_PERIOD_SIZE     (HDMI_MAX_PERIODBYTE_SIZE/(8*2*2))	/* 8 channels , 24bits */
 
 
 
@@ -161,8 +158,8 @@ define for PCM settings
 			       SNDRV_PCM_FMTBIT_U24_BE |\
 			       SNDRV_PCM_FMTBIT_S32_LE |\
 			       SNDRV_PCM_FMTBIT_S32_BE |\
-                                  SNDRV_PCM_FMTBIT_U32_LE |\
-                                  SNDRV_PCM_FMTBIT_U32_BE)
+				  SNDRV_PCM_FMTBIT_U32_LE |\
+				  SNDRV_PCM_FMTBIT_U32_BE)
 
 #define SND_SOC_STD_MT_FMTS (\
 			       SNDRV_PCM_FMTBIT_S16_LE |\
@@ -170,17 +167,17 @@ define for PCM settings
 			       SNDRV_PCM_FMTBIT_U16_LE |\
 			       SNDRV_PCM_FMTBIT_U16_BE)
 
-#define SOC_NORMAL_USE_RATE        SNDRV_PCM_RATE_CONTINUOUS | SNDRV_PCM_RATE_8000_48000
+#define SOC_NORMAL_USE_RATE       (SNDRV_PCM_RATE_CONTINUOUS | SNDRV_PCM_RATE_8000_48000)
 #define SOC_NORMAL_USE_RATE_MIN        8000
 #define SOC_NORMAL_USE_RATE_MAX       48000
 #define SOC_NORMAL_USE_CHANNELS_MIN    1
 #define SOC_NORMAL_USE_CHANNELS_MAX    2
 #define SOC_NORMAL_USE_PERIODS_MIN     1
 #define SOC_NORMAL_USE_PERIODS_MAX     4
-#define SOC_NORMAL_USE_BUFFERSIZE_MAX     24*1024
+#define SOC_NORMAL_USE_BUFFERSIZE_MAX     (24*1024)
 
 
-#define SOC_HIGH_USE_RATE        SNDRV_PCM_RATE_CONTINUOUS | SNDRV_PCM_RATE_8000_192000
+#define SOC_HIGH_USE_RATE        (SNDRV_PCM_RATE_CONTINUOUS | SNDRV_PCM_RATE_8000_192000)
 #define SOC_HIGH_USE_RATE_MIN        8000
 #define SOC_HIGH_USE_RATE_MAX       192000
 #define SOC_HIGH_USE_CHANNELS_MIN    1
@@ -192,9 +189,9 @@ extern const unsigned int soc_voice_supported_sample_rates[3];
 extern const unsigned int soc_normal_supported_sample_rates[9];
 extern const unsigned int soc_high_supported_sample_rates[13];
 
-unsigned long audio_frame_to_bytes(struct snd_pcm_substream *substream,unsigned long count);
-unsigned long audio_bytes_to_frame(struct snd_pcm_substream *substream,unsigned long count);
+unsigned long audio_frame_to_bytes(struct snd_pcm_substream *substream, unsigned long count);
+unsigned long audio_bytes_to_frame(struct snd_pcm_substream *substream, unsigned long count);
 
+extern void *AFE_BASE_ADDRESS;
 
 #endif
-

@@ -132,10 +132,10 @@ struct bmp_i2c_data {
 };
 
 #define BAR_TAG                  "[barometer] "
-#define BAR_FUN(f)               printk(KERN_INFO BAR_TAG"%s\n", __func__)
+#define BAR_FUN(f)               pr_info(BAR_TAG"%s\n", __func__)
 #define BAR_ERR(fmt, args...) \
-	printk(KERN_ERR BAR_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
-#define BAR_LOG(fmt, args...)    printk(KERN_ERR BAR_TAG fmt, ##args)
+	pr_err(BAR_TAG"%s %d : "fmt, __func__, __LINE__, ##args)
+#define BAR_LOG(fmt, args...)    pr_info(BAR_TAG fmt, ##args)
 
 static struct i2c_driver bmp_i2c_driver;
 static struct bmp_i2c_data *obj_i2c_data;
@@ -242,6 +242,7 @@ static int bmp_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 
 
 static void bmp_power(struct baro_hw *hw, unsigned int on)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	static unsigned int power_on;
 
 	if (hw->power_id != POWER_NONE_MACRO) {/* have externel LDO */
@@ -257,6 +258,7 @@ static void bmp_power(struct baro_hw *hw, unsigned int on)
 		}
 	}
 	power_on = on;
+#endif
 }
 
 /* get chip type */
@@ -302,10 +304,10 @@ static int bmp_get_calibration_data(struct i2c_client *client)
 		u16 cali_data[BMP180_CALIBRATION_DATA_LENGTH] = {0};
 		for(i = 0; i < 11; i++)
 		{
-			status = bmp_i2c_read_block(client, (BMP180_CALIBRATION_DATA_START+(i*2)), tmp, 0x02);
+			status = bmp_i2c_read_block(client, (BMP180_CALIBRATION_DATA_START+(i*2)), (u8 *)&cali_data[i], 0x02);
 			if (status < 0)
 				return status;
-			cali_data[i] = tmp[0]|(tmp[1]>>8);
+			//cali_data[i] = tmp[0]|(tmp[1]>>8);
 			BAR_LOG("[%s] read data = 0x%x, 0x%x, i = %d \n", __func__, tmp[0], tmp[1], i);
 			BAR_LOG("[%s] read address = 0x%x\n", __func__, (BMP180_CALIBRATION_DATA_START+(i*2)));
 		}
@@ -338,6 +340,7 @@ static int bmp_set_powermode(struct i2c_client *client, enum BMP_POWERMODE_ENUM 
 
 	if (power_mode == obj->power_mode)
 		return 0;
+	mutex_lock(&bmp180_op_mutex);
 
 	if (obj->sensor_type == BMP180_TYPE) {/* BMP180 */
 		/* BMP180 only support forced mode */
@@ -350,6 +353,7 @@ static int bmp_set_powermode(struct i2c_client *client, enum BMP_POWERMODE_ENUM 
 			err, obj->sensor_name);
 	else
 		obj->power_mode = power_mode;
+	mutex_unlock(&bmp180_op_mutex);
 
 	return err;
 }
@@ -405,9 +409,9 @@ static int bmp_read_raw_temperature(struct i2c_client *client, s32 *temperature)
 	}
 	mutex_lock(&bmp180_op_mutex);
 	if (obj->sensor_type == BMP180_TYPE) {/* BMP180 */
-		err = bmp_i2c_read_block(client, BMP180_CTRLMEAS_REG_MC__REG, &data, 1);
-		data = BMP_SET_BITSLICE(data, BMP180_CTRLMEAS_REG_MC, BMP180_TEMP_MEASUREMENT);
-		err += bmp_i2c_write_block(client, BMP180_CTRLMEAS_REG_MC__REG, &data, 1);
+		data = BMP180_TEMP_MEASUREMENT;
+		err += bmp_i2c_write_block(client,
+			BMP180_CTRLMEAS_REG_MC__REG, &data, 1);
 		if (err < 0) {
 			BAR_ERR("start measure temperature failed, err = %d\n",
 				err);
@@ -415,7 +419,7 @@ static int bmp_read_raw_temperature(struct i2c_client *client, s32 *temperature)
 			return err;
 		}
 		/* wait for the end of conversion */
-		msleep(20);
+		msleep(5);
 
 		err = bmp_i2c_read_block(client, BMP180_CONVERSION_REGISTER_MSB, (u8 *)&tmp, sizeof(tmp));
 		if (err < 0) {
@@ -446,9 +450,9 @@ static int bmp_read_raw_pressure(struct i2c_client *client, s32 *pressure)
 	}
 	mutex_lock(&bmp180_op_mutex);
 	if (priv->sensor_type == BMP180_TYPE) {/* BMP180 */
-		err = bmp_i2c_read_block(client, BMP180_CTRLMEAS_REG_MC__REG, &data, 1);
-		data = BMP_SET_BITSLICE(data, BMP180_CTRLMEAS_REG_MC, BMP180_PRESSURE_MEASUREMENT);
-		err += bmp_i2c_write_block(client, BMP180_CTRLMEAS_REG_MC__REG, &data, 1);
+		data = BMP180_PRESSURE_MEASUREMENT + ((priv->oversampling_p-1) << 6);
+		err += bmp_i2c_write_block(client,
+			BMP180_CTRLMEAS_REG_MC__REG, &data, 1);
 		if (err < 0) {
 			BAR_ERR("start measure pressure failed, err = %d\n",
 				err);
@@ -456,7 +460,7 @@ static int bmp_read_raw_pressure(struct i2c_client *client, s32 *pressure)
 			return err;
 		}
 		/* wait for the end of conversion */
-		msleep(2+(3 << (priv->oversampling_p - 1)) + 10);
+		msleep(2+(3 << (priv->oversampling_p-1)));
 
 		/* copy data into a u32 (4 bytes), but skip the first byte. */
 		err = bmp_i2c_read_block(client,
@@ -547,7 +551,9 @@ static int bmp_get_temperature(struct i2c_client *client,
 		x1 = ((utemp - obj->bmp180_cali.AC6) *
 			obj->bmp180_cali.AC5) >> 15;
 		x2 = (obj->bmp180_cali.MC << 11) / (x1 + obj->bmp180_cali.MD);
+		mutex_lock(&bmp180_op_mutex);
 		obj->t_fine = x1 + x2 - 4000;
+		mutex_unlock(&bmp180_op_mutex);
 		temperature = (x1+x2+8) >> 4;
 	}
 
@@ -658,7 +664,7 @@ static int bmp_init_client(struct i2c_client *client)
 		return err;
 	}
 
-	err = bmp_set_oversampling_p(client, BMP_OVERSAMPLING_2X);
+	err = bmp_set_oversampling_p(client, BMP_OVERSAMPLING_8X);
 	if (err < 0) {
 		BAR_ERR("set pressure oversampling failed, err = %d\n", err);
 		return err;
@@ -1394,7 +1400,7 @@ static int bmp180_remove(void)
 static int  bmp180_local_init(void)
 {
     struct baro_hw *hw = get_cust_baro_hw();
-	//printk("fwq loccal init+++\n");
+	//BAR_LOG("fwq loccal init+++\n");
 
 	bmp_power(hw, 1);
 	if(i2c_add_driver(&bmp_i2c_driver))
@@ -1406,7 +1412,7 @@ static int  bmp180_local_init(void)
 	{
 	   return -1;
 	}
-	//printk("fwq loccal init---\n");
+	//BAR_LOG("fwq loccal init---\n");
 	return 0;
 }
 

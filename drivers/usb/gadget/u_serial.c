@@ -27,6 +27,7 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 #include <linux/module.h>
+#include <asm/memory.h>
 
 #include "u_serial.h"
 
@@ -363,12 +364,21 @@ __releases(&port->port_lock)
 __acquires(&port->port_lock)
 */
 {
-	struct list_head	*pool = &port->write_pool;
-	struct usb_ep		*in = port->port_usb->in;
+	struct list_head	*pool;
+	struct usb_ep		*in;
 	int			status = 0;
 	bool			do_tty_wake = false;
-	static unsigned int	skip = 0;
+	static unsigned int	skip;
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 10);
+
+	if (!port || !port->port_usb) {
+		pr_err("Error - port or port->usb is NULL.");
+		return -EIO;
+	}
+
+	in = port->port_usb->in;
+	pool = &port->write_pool;
+	skip = 0;
 
 	while (!list_empty(pool)) {
 		struct usb_request	*req;

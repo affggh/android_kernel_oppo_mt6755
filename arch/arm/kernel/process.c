@@ -342,31 +342,32 @@ void machine_power_off(void)
 	else
 	{
 		tsk = current;
+		dump_stack();
 	}
-
+	pr_warn("machine_power_off: reboot_pid(%d)\n", reboot_pid);
 	if(tsk->real_parent)
 	{
 	 if(tsk->real_parent->real_parent)
 	 {
-	   printk("machine_shutdown: start, Proess(%s:%d). father %s:%d. grandfather %s:%d.\n",
-		tsk->comm, tsk->pid,tsk->real_parent->comm,tsk->real_parent->pid,
-		tsk->real_parent->real_parent->comm,tsk->real_parent->real_parent->pid);
+		pr_warn("machine_power_off: start, Proess(%s:%d). father %s:%d. grandfather %s:%d.\n",
+			tsk->comm, tsk->pid, tsk->real_parent->comm, tsk->real_parent->pid,
+			tsk->real_parent->real_parent->comm, tsk->real_parent->real_parent->pid);
 	 }
 	 else
 	 {
-	   printk("machine_shutdown: start, Proess(%s:%d). father %s:%d.\n", 
-		tsk->comm, tsk->pid,tsk->real_parent->comm,tsk->real_parent->pid);
+		pr_warn("machine_power_off: start, Proess(%s:%d). father %s:%d.\n",
+			tsk->comm, tsk->pid, tsk->real_parent->comm, tsk->real_parent->pid);
 	 }
 	}
 	else
 	{
-	  printk("machine_shutdown: start, Proess(%s:%d)\n", tsk->comm, tsk->pid);	  
+		pr_warn("machine_power_off: start, Proess(%s:%d)\n", tsk->comm, tsk->pid);
 	}
-
-#ifdef CONFIG_MTK_EMMC_SUPPORT 
+#if 0
+#ifdef CONFIG_MTK_EMMC_SUPPORT
 	last_kmsg_store_to_emmc();
 #endif
-
+#endif
 	if (pm_power_off)
 		pm_power_off();
 }
@@ -401,25 +402,26 @@ void machine_restart(char *cmd)
 	else
 	{
 		tsk = current;
+		dump_stack();
 	}
-
+	pr_warn("machine_restart: reboot_pid(%d)\n", reboot_pid);
 	if(tsk->real_parent)
 	{
 	 if(tsk->real_parent->real_parent)
 	 {
-	   printk("machine_shutdown: start, Proess(%s:%d). father %s:%d. grandfather %s:%d.\n",
-		tsk->comm, tsk->pid,tsk->real_parent->comm,tsk->real_parent->pid,
-		tsk->real_parent->real_parent->comm,tsk->real_parent->real_parent->pid);
+		pr_warn("machine_restart: start, Proess(%s:%d). father %s:%d. grandfather %s:%d.\n",
+			tsk->comm, tsk->pid, tsk->real_parent->comm, tsk->real_parent->pid,
+			tsk->real_parent->real_parent->comm, tsk->real_parent->real_parent->pid);
 	 }
 	 else
 	 {
-	   printk("machine_shutdown: start, Proess(%s:%d). father %s:%d.\n", 
-		tsk->comm, tsk->pid,tsk->real_parent->comm,tsk->real_parent->pid);
+		pr_warn("machine_restart start, Proess(%s:%d). father %s:%d.\n",
+			tsk->comm, tsk->pid, tsk->real_parent->comm, tsk->real_parent->pid);
 	 }
 	}
 	else
 	{
-	  printk("machine_shutdown: start, Proess(%s:%d)\n", tsk->comm, tsk->pid);	  
+		pr_warn("machine_restart: start, Proess(%s:%d)\n", tsk->comm, tsk->pid);
 	}
 
 	/* Flush the console to make sure all the relevant messages make it

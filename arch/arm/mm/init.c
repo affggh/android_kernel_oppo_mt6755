@@ -22,6 +22,7 @@
 #include <linux/memblock.h>
 #include <linux/dma-contiguous.h>
 #include <linux/sizes.h>
+#include <linux/mrdump.h>
 
 #include <asm/mach-types.h>
 #include <asm/memblock.h>
@@ -36,6 +37,10 @@
 #include <mach/mtk_memcfg.h>
 
 #include "mm.h"
+
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP)
+#include <linux/sh_svp.h>
+#endif
 
 static unsigned long phys_initrd_start __initdata = 0;
 static unsigned long phys_initrd_size __initdata = 0;
@@ -385,7 +390,7 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 	/* reserve any platform specific memblock areas */
 	if (mdesc->reserve)
 		mdesc->reserve();
-
+	
 	early_init_fdt_scan_reserved_mem();
 
     //reserve for ion_carveout_heap
@@ -397,6 +402,10 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 	 */
 	dma_contiguous_reserve(min(arm_dma_limit, arm_lowmem_limit));
 
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP)
+	svp_contiguous_reserve(CONFIG_MTK_SVP_RAM_DRAM_ADDR_LIMIT);
+#endif
+	mrdump_rsvmem();
 	arm_memblock_steal_permitted = false;
 	memblock_allow_resize();
 	memblock_dump_all();

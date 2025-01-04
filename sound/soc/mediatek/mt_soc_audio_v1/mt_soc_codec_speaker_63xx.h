@@ -32,9 +32,6 @@
  * Chipeng Chang
  *
  *------------------------------------------------------------------------------
- * $Revision: #1 $
- * $Modtime:$
- * $Log:$
  *
  *
  *******************************************************************************/
@@ -49,6 +46,7 @@ void Speaker_ClassAB_close(void);
 void Speaker_ReveiverMode_Open(void);
 void Speaker_ReveiverMode_close(void);
 bool GetSpeakerOcFlag(void);
+extern int mt6332_OpenBoost4Audio(void);
+extern int mt6332_CloseBoost4Audio(void);
 
 #endif
-

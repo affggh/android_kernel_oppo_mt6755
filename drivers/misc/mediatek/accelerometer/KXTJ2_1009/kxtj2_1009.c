@@ -79,6 +79,7 @@ typedef enum {
     ADX_TRC_IOCTL   = 0x04,
     ADX_TRC_CALI	= 0X08,
     ADX_TRC_INFO	= 0X10,
+	ADX_TRC_LP		= 0x80,
 } ADX_TRC;
 /*----------------------------------------------------------------------------*/
 struct scale_factor{
@@ -154,12 +155,11 @@ static char selftestRes[8]= {0};
 static DEFINE_MUTEX(kxtj2_1009_mutex);
 static bool enable_status = false;
 
-
 /*----------------------------------------------------------------------------*/
 #define GSE_TAG                  "[Gsensor] "
-#define GSE_FUN(f)               printk( GSE_TAG"%s\n", __FUNCTION__)
-#define GSE_ERR(fmt, args...)    printk(KERN_ERR GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define GSE_LOG(fmt, args...)    printk( GSE_TAG fmt, ##args)
+#define GSE_FUN(f)               pr_debug(GSE_TAG"%s\n", __FUNCTION__)
+#define GSE_ERR(fmt, args...)    pr_err(GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define GSE_LOG(fmt, args...)    pr_debug(GSE_TAG fmt, ##args)
 /*----------------------------------------------------------------------------*/
 static struct data_resolution kxtj2_1009_data_resolution[1] = {
  /* combination by {FULL_RES,RANGE}*/
@@ -211,7 +211,7 @@ static int KXTJ2_1009_SetDataResolution(struct kxtj2_1009_i2c_data *obj)
 
 	if(hwmsen_read_block(obj->client, KXTJ2_1009_REG_DATA_RESOLUTION, databuf, 0x01))
 	{
-		printk("kxtj2_1009 read Dataformat failt \n");
+		GSE_ERR("kxtj2_1009 read Dataformat failt \n");
 		return KXTJ2_1009_ERR_I2C;
 	}
 
@@ -266,10 +266,10 @@ static int KXTJ2_1009_ReadData(struct i2c_client *client, s16 data[KXTJ2_1009_AX
 			if ( data[i] == 0x0800 )	//so we want to calculate actual number here
 				data[i]= -2048;			//10bit resolution, 512= 2^(12-1)
 			else if ( data[i] & 0x0800 )//transfor format
-			{							//printk("data 0 step %x \n",data[i]);
-				data[i] -= 0x1; 		//printk("data 1 step %x \n",data[i]);
-				data[i] = ~data[i]; 	//printk("data 2 step %x \n",data[i]);
-				data[i] &= 0x07ff;		//printk("data 3 step %x \n\n",data[i]);
+			{							//GSE_LOG("data 0 step %x \n",data[i]);
+				data[i] -= 0x1; 		//GSE_LOG("data 1 step %x \n",data[i]);
+				data[i] = ~data[i]; 	//GSE_LOG("data 2 step %x \n",data[i]);
+				data[i] &= 0x07ff;		//GSE_LOG("data 3 step %x \n\n",data[i]);
 				data[i] = -data[i]; 	
 			}
 		}	
@@ -340,7 +340,7 @@ static int KXTJ2_1009_ReadOffset(struct i2c_client *client, s8 ofs[KXTJ2_1009_AX
 
 	ofs[1]=ofs[2]=ofs[0]=0x00;
 
-	printk("offesx=%x, y=%x, z=%x",ofs[0],ofs[1],ofs[2]);
+	GSE_LOG("offesx=%x, y=%x, z=%x",ofs[0],ofs[1],ofs[2]);
 	
 	return err;
 }
@@ -498,12 +498,12 @@ static int KXTJ2_1009_CheckDeviceID(struct i2c_client *client)
 
 	if(false)
 	{
-		printk("KXTJ2_1009_CheckDeviceID 0x%x failt!\n ", databuf[0]);
+		GSE_ERR("KXTJ2_1009_CheckDeviceID 0x%x failt!\n ", databuf[0]);
 		return KXTJ2_1009_ERR_IDENTIFICATION;
 	}
 	else
 	{
-		printk("KXTJ2_1009_CheckDeviceID 0x%x pass!\n ", databuf[0]);
+		GSE_LOG("KXTJ2_1009_CheckDeviceID 0x%x pass!\n ", databuf[0]);
 	}
 	
 	exit_KXTJ2_1009_CheckDeviceID:
@@ -513,6 +513,20 @@ static int KXTJ2_1009_CheckDeviceID(struct i2c_client *client)
 	}
 	
 	return KXTJ2_1009_SUCCESS;
+}
+/*----------------------------------------------------------------------------*/
+static void KXTJ2_1009_GetPowerMode(struct i2c_client *client)
+{
+	u8 databuf[2];
+	int res = 0;
+	u8 addr = KXTJ2_1009_REG_POWER_CTL;
+
+	if (hwmsen_read_block(client, addr, databuf, 0x01))	{
+		GSE_ERR("read power ctl register err!\n");
+	} else{
+		GSE_LOG("reg[0x%x] = 0x%x, bit[7] should be 0. (%c)\n",
+			KXTJ2_1009_REG_POWER_CTL, databuf[0], (databuf[0]&0x80) == 0x00?'O':'X');
+	}
 }
 /*----------------------------------------------------------------------------*/
 static int KXTJ2_1009_SetPowerMode(struct i2c_client *client, bool enable)
@@ -577,7 +591,7 @@ static int KXTJ2_1009_SetDataFormat(struct i2c_client *client, u8 dataformat)
 
 	if(hwmsen_read_block(client, KXTJ2_1009_REG_DATA_FORMAT, databuf, 0x01))
 	{
-		printk("kxtj2_1009 read Dataformat failt \n");
+		GSE_ERR("kxtj2_1009 read Dataformat failt \n");
 		return KXTJ2_1009_ERR_I2C;
 	}
 
@@ -596,7 +610,7 @@ static int KXTJ2_1009_SetDataFormat(struct i2c_client *client, u8 dataformat)
 
 	KXTJ2_1009_SetPowerMode(client, cur_sensor_power/*true*/);
 	
-	printk("KXTJ2_1009_SetDataFormat OK! \n");
+	GSE_LOG("KXTJ2_1009_SetDataFormat OK! \n");
 	
 
 	return KXTJ2_1009_SetDataResolution(obj);    
@@ -615,7 +629,7 @@ static int KXTJ2_1009_SetBWRate(struct i2c_client *client, u8 bwrate)
 
 	if(hwmsen_read_block(client, KXTJ2_1009_REG_BW_RATE, databuf, 0x01))
 	{
-		printk("kxtj2_1009 read rate failt \n");
+		GSE_ERR("kxtj2_1009 read rate failt \n");
 		return KXTJ2_1009_ERR_I2C;
 	}
 
@@ -634,7 +648,7 @@ static int KXTJ2_1009_SetBWRate(struct i2c_client *client, u8 bwrate)
 
 	
 	KXTJ2_1009_SetPowerMode(client, cur_sensor_power/*true*/);
-	printk("KXTJ2_1009_SetBWRate OK! \n");
+	GSE_LOG("KXTJ2_1009_SetBWRate OK! \n");
 	
 	return KXTJ2_1009_SUCCESS;    
 }
@@ -706,7 +720,7 @@ static int kxtj2_1009_init_client(struct i2c_client *client, int reset_cali)
 			return res;
 		}
 	}
-	printk("kxtj2_1009_init_client OK!\n");
+	GSE_LOG("kxtj2_1009_init_client OK!\n");
 #ifdef CONFIG_KXTJ2_1009_LOWPASS
 	memset(&obj->fir, 0x00, sizeof(obj->fir));  
 #endif
@@ -773,24 +787,24 @@ static int KXTJ2_1009_ReadSensorData(struct i2c_client *client, char *buf, int b
 	}
 	else
 	{
-		//printk("raw data x=%d, y=%d, z=%d \n",obj->data[KXTJ2_1009_AXIS_X],obj->data[KXTJ2_1009_AXIS_Y],obj->data[KXTJ2_1009_AXIS_Z]);
+		//GSE_LOG("raw data x=%d, y=%d, z=%d \n",obj->data[KXTJ2_1009_AXIS_X],obj->data[KXTJ2_1009_AXIS_Y],obj->data[KXTJ2_1009_AXIS_Z]);
 		obj->data[KXTJ2_1009_AXIS_X] += obj->cali_sw[KXTJ2_1009_AXIS_X];
 		obj->data[KXTJ2_1009_AXIS_Y] += obj->cali_sw[KXTJ2_1009_AXIS_Y];
 		obj->data[KXTJ2_1009_AXIS_Z] += obj->cali_sw[KXTJ2_1009_AXIS_Z];
 		
-		//printk("cali_sw x=%d, y=%d, z=%d \n",obj->cali_sw[KXTJ2_1009_AXIS_X],obj->cali_sw[KXTJ2_1009_AXIS_Y],obj->cali_sw[KXTJ2_1009_AXIS_Z]);
+		//GSE_LOG("cali_sw x=%d, y=%d, z=%d \n",obj->cali_sw[KXTJ2_1009_AXIS_X],obj->cali_sw[KXTJ2_1009_AXIS_Y],obj->cali_sw[KXTJ2_1009_AXIS_Z]);
 		
 		/*remap coordinate*/
 		acc[obj->cvt.map[KXTJ2_1009_AXIS_X]] = obj->cvt.sign[KXTJ2_1009_AXIS_X]*obj->data[KXTJ2_1009_AXIS_X];
 		acc[obj->cvt.map[KXTJ2_1009_AXIS_Y]] = obj->cvt.sign[KXTJ2_1009_AXIS_Y]*obj->data[KXTJ2_1009_AXIS_Y];
 		acc[obj->cvt.map[KXTJ2_1009_AXIS_Z]] = obj->cvt.sign[KXTJ2_1009_AXIS_Z]*obj->data[KXTJ2_1009_AXIS_Z];
-		//printk("cvt x=%d, y=%d, z=%d \n",obj->cvt.sign[KXTJ2_1009_AXIS_X],obj->cvt.sign[KXTJ2_1009_AXIS_Y],obj->cvt.sign[KXTJ2_1009_AXIS_Z]);
+		//GSE_LOG("cvt x=%d, y=%d, z=%d \n",obj->cvt.sign[KXTJ2_1009_AXIS_X],obj->cvt.sign[KXTJ2_1009_AXIS_Y],obj->cvt.sign[KXTJ2_1009_AXIS_Z]);
 
 
 		//GSE_LOG("Mapped gsensor data: %d, %d, %d!\n", acc[KXTJ2_1009_AXIS_X], acc[KXTJ2_1009_AXIS_Y], acc[KXTJ2_1009_AXIS_Z]);
 
 		//Out put the mg
-		//printk("mg acc=%d, GRAVITY=%d, sensityvity=%d \n",acc[KXTJ2_1009_AXIS_X],GRAVITY_EARTH_1000,obj->reso->sensitivity);
+		//GSE_LOG("mg acc=%d, GRAVITY=%d, sensityvity=%d \n",acc[KXTJ2_1009_AXIS_X],GRAVITY_EARTH_1000,obj->reso->sensitivity);
 		acc[KXTJ2_1009_AXIS_X] = acc[KXTJ2_1009_AXIS_X] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;
 		acc[KXTJ2_1009_AXIS_Y] = acc[KXTJ2_1009_AXIS_Y] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;
 		acc[KXTJ2_1009_AXIS_Z] = acc[KXTJ2_1009_AXIS_Z] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;		
@@ -854,7 +868,7 @@ static int KXTJ2_1009_InitSelfTest(struct i2c_client *client)
 	{
 		return res;
 	}
-	printk("step1: result = %x",result);
+	GSE_LOG("step1: result = %x",result);
 	if(result != 0xaa)
 		return -EINVAL;
 
@@ -870,7 +884,7 @@ static int KXTJ2_1009_InitSelfTest(struct i2c_client *client)
 	{
 		return res;
 	}
-	printk("step3: result = %x",result);
+	GSE_LOG("step3: result = %x",result);
 	if(result != 0xAA)
 		return -EINVAL;
 		
@@ -880,7 +894,7 @@ static int KXTJ2_1009_InitSelfTest(struct i2c_client *client)
 	{
 		return res;
 	}
-	printk("step4: result = %x",result);
+	GSE_LOG("step4: result = %x",result);
 	if(result != 0x55)
 		return -EINVAL;
 	else
@@ -896,7 +910,7 @@ static int KXTJ2_1009_JudgeTestResult(struct i2c_client *client, s32 prv[KXTJ2_1
     if(0 != (res = hwmsen_read_byte(client, 0x0c, &test_result)))
         return res;
 
-	printk("test_result = %x \n",test_result);
+	GSE_LOG("test_result = %x \n",test_result);
     if ( test_result != 0xaa ) 
 	{
         GSE_ERR("KXTJ2_1009_JudgeTestResult failt\n");
@@ -1294,9 +1308,9 @@ static ssize_t show_power_status_value(struct device_driver *ddri, char *buf)
 	}
     
 	if(sensor_power)
-		printk("G sensor is in work mode, sensor_power = %d\n", sensor_power);
+		GSE_LOG("G sensor is in work mode, sensor_power = %d\n", sensor_power);
 	else
-		printk("G sensor is in standby mode, sensor_power = %d\n", sensor_power);
+		GSE_LOG("G sensor is in standby mode, sensor_power = %d\n", sensor_power);
 
 	return snprintf(buf, PAGE_SIZE, "%x\n", databuf[0]);
 }
@@ -1318,7 +1332,7 @@ static u8 i2c_dev_reg =0 ;
 
 static ssize_t show_register(struct device_driver *pdri, char *buf)
 {
-	printk("i2c_dev_reg is 0x%2x \n", i2c_dev_reg);
+	GSE_LOG("i2c_dev_reg is 0x%2x \n", i2c_dev_reg);
 
 	return 0;
 }
@@ -1326,7 +1340,7 @@ static ssize_t show_register(struct device_driver *pdri, char *buf)
 static ssize_t store_register(struct device_driver *ddri, const char *buf, size_t count)
 {
 	i2c_dev_reg = simple_strtoul(buf, NULL, 16);
-	printk("set i2c_dev_reg = 0x%2x \n", i2c_dev_reg);
+	GSE_LOG("set i2c_dev_reg = 0x%2x \n", i2c_dev_reg);
 
 	return 0;
 }
@@ -1340,7 +1354,7 @@ static ssize_t store_register_value(struct device_driver *ddri, const char *buf,
 	memset(databuf, 0, sizeof(u8)*2);    
 
 	input_value = simple_strtoul(buf, NULL, 16);
-	printk("input_value = 0x%2x \n", (unsigned int)input_value);
+	GSE_LOG("input_value = 0x%2x \n", (unsigned int)input_value);
 
 	if(NULL == obj)
 	{
@@ -1350,7 +1364,7 @@ static ssize_t store_register_value(struct device_driver *ddri, const char *buf,
 
 	databuf[0] = i2c_dev_reg;
 	databuf[1] = input_value;
-	printk("databuf[0]=0x%2x  databuf[1]=0x%2x \n", databuf[0],databuf[1]);
+	GSE_LOG("databuf[0]=0x%2x  databuf[1]=0x%2x \n", databuf[0],databuf[1]);
 
 	res = i2c_master_send(obj->client, databuf, 0x2);
 
@@ -1381,7 +1395,7 @@ static ssize_t show_register_value(struct device_driver *ddri, char *buf)
 			return KXTJ2_1009_ERR_I2C;
 		}
 
-		printk("i2c_dev_reg=0x%2x  data=0x%2x \n", i2c_dev_reg,databuf[0]);
+		GSE_LOG("i2c_dev_reg=0x%2x  data=0x%2x \n", i2c_dev_reg,databuf[0]);
 	
 		return 0;
 		
@@ -1783,6 +1797,7 @@ static int kxtj2_1009_suspend(struct i2c_client *client, pm_message_t msg)
 		if(0 != (err = KXTJ2_1009_SetPowerMode(obj->client, false)))
 		{
 			GSE_ERR("write power control fail!!\n");
+			mutex_unlock(&kxtj2_1009_mutex);
 			return -1;
 		}
         mutex_unlock(&kxtj2_1009_mutex);
@@ -1790,6 +1805,10 @@ static int kxtj2_1009_suspend(struct i2c_client *client, pm_message_t msg)
 		//sensor_power = false;      
 		KXTJ2_1009_power(obj->hw, 0);
 	}
+	if (atomic_read(&obj->trace) & ADX_TRC_LP) {
+		KXTJ2_1009_GetPowerMode(obj->client);
+	}
+
 	return err;
 }
 /*----------------------------------------------------------------------------*/
@@ -1806,10 +1825,14 @@ static int kxtj2_1009_resume(struct i2c_client *client)
 	}
 
 	KXTJ2_1009_power(obj->hw, 1);
+	if (atomic_read(&obj->trace) & ADX_TRC_LP) {
+		KXTJ2_1009_GetPowerMode(client);
+	}
     mutex_lock(&kxtj2_1009_mutex);
 	if(0 != (err = kxtj2_1009_init_client(client, 0)))
 	{
 		GSE_ERR("initialize client fail!!\n");
+		mutex_unlock(&kxtj2_1009_mutex);
 		return err;        
 	}
 	atomic_set(&obj->suspend, 0);
@@ -1836,6 +1859,7 @@ static void kxtj2_1009_early_suspend(struct early_suspend *h)
 	if(err = KXTJ2_1009_SetPowerMode(obj->client, false))
 	{
 		GSE_ERR("write power control fail!!\n");
+		mutex_unlock(&kxtj2_1009_mutex);
 		return;
 	}
 	mutex_unlock(&kxtj2_1009_mutex);
@@ -1862,6 +1886,7 @@ static void kxtj2_1009_late_resume(struct early_suspend *h)
 	if(err = kxtj2_1009_init_client(obj->client, 0))
 	{
 		GSE_ERR("initialize client fail!!\n");
+		mutex_unlock(&kxtj2_1009_mutex);
 		return;        
 	}
 	atomic_set(&obj->suspend, 0); 
@@ -2043,6 +2068,11 @@ static int __init kxtj2_1009_init(void)
 	struct acc_hw *hw = get_cust_acc_hw();
     GSE_FUN();
 	GSE_LOG("%s: i2c_number=%d\n", __func__,hw->i2c_num);
+	if (hw->i2c_addr[0])
+	{
+		GSE_LOG("%s: i2c_slave_addr=%d\n", __func__,hw->i2c_addr[0]);
+		i2c_kxtj2_1009.addr = hw->i2c_addr[0]>>1;
+	}
 	i2c_register_board_info(hw->i2c_num, &i2c_kxtj2_1009, 1);
 	if(platform_driver_register(&kxtj2_1009_gsensor_driver))
 	{

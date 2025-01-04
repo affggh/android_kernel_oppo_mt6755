@@ -161,6 +161,27 @@ void __thaw_task(struct task_struct *p)
 		wake_up_process(p);
 	spin_unlock_irqrestore(&freezer_lock, flags);
 }
+#ifndef VENDOR_EDIT//Fanhong.Kong@ProDrv.CHG,delete 2015.12.14 for mc_fastcall suspend cpu0
+//#if defined(CONFIG_MICROTRUST_TEE_SUPPORT)
+#endif/*VENDOR_EDIT*/
+/**
+ * set_nofreezable - make current process NON_freezable
+ *
+ */
+bool set_nofreezable(void)
+{
+        might_sleep();
+
+        spin_lock_irq(&freezer_lock);
+        current->flags |= PF_NOFREEZE;
+        spin_unlock_irq(&freezer_lock);
+
+        return true;
+}
+EXPORT_SYMBOL(set_nofreezable);
+#ifndef VENDOR_EDIT//Fanhong.Kong@ProDrv.CHG,delete 2015.12.14 for mc_fastcall suspend cpu0
+//#endif
+#endif/*VENDOR_EDIT*/
 
 /**
  * set_freezable - make %current freezable

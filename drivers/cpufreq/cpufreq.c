@@ -442,7 +442,10 @@ static ssize_t show_##file_name				\
 }
 
 show_one(cpuinfo_min_freq, cpuinfo.min_freq);
-show_one(cpuinfo_max_freq, cpuinfo.max_freq);
+//#ifdef VENDOR_EDIT
+//Zongjun.Li@Swdp.Android.MTK.Patch, 2016/01/12, Remove for fix one scaling_max_freq
+//show_one(cpuinfo_max_freq, cpuinfo.max_freq);
+//#endif /* VENDOR_EDIT */
 show_one(cpuinfo_transition_latency, cpuinfo.transition_latency);
 show_one(scaling_min_freq, min);
 show_one(scaling_max_freq, max);
@@ -490,7 +493,22 @@ static ssize_t show_cpuinfo_cur_freq(struct cpufreq_policy *policy,
 	return sprintf(buf, "%u\n", cur_freq);
 }
 
-
+//#ifdef VENDOR_EDIT
+//Zongjun.Li@Swdp.Android.MTK.Patch, 2016/01/12, Add for fix one scaling_max_freq
+/*
+ * show_cpuinfo_max_freq- current CPU frequency as detected by hardware
+ */
+static ssize_t show_cpuinfo_max_freq(struct cpufreq_policy *policy,
+					char *buf)
+{
+#ifdef OPPO_6750_PROJECT
+	unsigned int max_freq = 1508000;
+#else
+	unsigned int max_freq = 1950000;
+#endif
+  return sprintf(buf, "%u\n", max_freq);
+}
+//#endif /* VENDOR_EDIT */
 /**
  * show_scaling_governor - show the current policy for the specified CPU
  */
@@ -666,7 +684,10 @@ cpufreq_freq_attr_rw(scaling_setspeed);
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
-	&cpuinfo_max_freq.attr,
+//#ifdef VENDOR_EDIT
+//Zongjun.Li@Swdp.Android.MTK.Patch, 2016/01/12, Remove for fix one scaling_max_freq
+	//&cpuinfo_max_freq.attr,
+//#endif /* VENDOR_EDIT */
 	&cpuinfo_transition_latency.attr,
 	&scaling_min_freq.attr,
 	&scaling_max_freq.attr,
@@ -808,6 +829,14 @@ static int cpufreq_add_dev_interface(unsigned int cpu,
 		if (ret)
 			goto err_out_kobj_put;
 	}
+//#ifdef VENDOR_EDIT
+//Zongjun.Li@Swdp.Android.MTK.Patch, 2016/01/12, Add for fix one scaling_max_freq
+	if (cpufreq_driver->get) {
+		ret = sysfs_create_file(&policy->kobj, &cpuinfo_max_freq.attr);
+		if (ret)
+			goto err_out_kobj_put;
+	}
+//#endif /* VENDOR_EDIT */
 	if (cpufreq_driver->target) {
 		ret = sysfs_create_file(&policy->kobj, &scaling_cur_freq.attr);
 		if (ret)
@@ -1001,6 +1030,8 @@ static int cpufreq_add_dev(struct device *dev, struct subsys_interface *sif)
 	ret = cpufreq_add_dev_interface(cpu, policy, dev);
 	if (ret)
 		goto err_out_unregister;
+	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
+		CPUFREQ_CREATE_POLICY, policy);
 
 	kobject_uevent(&policy->kobj, KOBJ_ADD);
 	module_put(cpufreq_driver->owner);
@@ -1129,6 +1160,8 @@ static int __cpufreq_remove_dev(struct device *dev, struct subsys_interface *sif
 		if (cpufreq_driver->target)
 			__cpufreq_governor(data, CPUFREQ_GOV_POLICY_EXIT);
 
+		blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
+			CPUFREQ_REMOVE_POLICY, data);
 		lock_policy_rwsem_read(cpu);
 		kobj = &data->kobj;
 		cmp = &data->kobj_unregister;
@@ -1753,8 +1786,13 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 
 	memcpy(&policy->cpuinfo, &data->cpuinfo,
 				sizeof(struct cpufreq_cpuinfo));
-
+#ifdef VENDOR_EDIT
+//xiaocheng.li@Swdp.shanghai, 2016/1/25, Update cpufreq limit checking logic
+	if (policy->min > data->user_policy.max
+	    || policy->max < data->user_policy.min) {
+#else
 	if (policy->min > data->max || policy->max < data->min) {
+#endif
 		ret = -EINVAL;
 		goto error_out;
 	}
@@ -1793,6 +1831,19 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 		pr_debug("setting range\n");
 		ret = cpufreq_driver->setpolicy(policy);
 	} else {
+#ifdef VENDOR_EDIT
+//xiaocheng.li@Swdp.shanghai, 2016/5/13, Add safety check for governor data.
+/* There's race condition between cpufreq policy updating and cpu online/offline
+ * in some particular case. E.g. Null pointer (policy->governor) crash may accur
+ * if cpufreq policy updating comes before governor data is allocated during
+ * cpu online process.
+ */
+		if (!policy->governor) {
+			ret = -EAGAIN;
+			pr_err("%s governor is not ready yet!\n", __func__);
+			goto error_out;
+		}
+#endif
 		if (policy->governor != data->governor) {
 			/* save old, working values */
 			struct cpufreq_governor *old_gov = data->governor;
@@ -1900,6 +1951,50 @@ no_policy:
 }
 EXPORT_SYMBOL(cpufreq_update_policy);
 
+static void setup_cpu0_symlink(struct device *dev, bool is_remove)
+{
+	static unsigned int root_cpu = 0; // <-XXX
+
+	/* remove cpu0 symlink */
+	if (is_remove) {
+		if (dev->id == 0) {
+			sysfs_remove_link(&dev->kobj, "cpufreq");
+			root_cpu = 0;
+			pr_debug("%s()#%d: remove cpu0 symlink\n", __func__, __LINE__);
+		}
+	/* create or modify cpu0 symlink */
+	} else {
+		if (dev->id == root_cpu) {
+			struct device *cpu0_dev;
+			struct cpufreq_policy *policy;
+			unsigned int next_root_cpu;
+			int ret = -1;
+
+			cpu0_dev = get_cpu_device(0);
+
+			for_each_online_cpu(next_root_cpu) {
+				if (next_root_cpu == root_cpu)
+					continue;
+				else
+					break;
+			}
+
+			policy = cpufreq_cpu_get(next_root_cpu);
+
+			if (policy) {
+				if (root_cpu != 0)
+					sysfs_remove_link(&cpu0_dev->kobj, "cpufreq");
+				ret = sysfs_create_link(&cpu0_dev->kobj, &policy->kobj, "cpufreq");
+				if (!ret) {
+					pr_debug("%s()#%d: create/modify cpu0 symlink (from root_cpu = %d to next_root_cpu = %d)\n", __func__, __LINE__, root_cpu, next_root_cpu);
+					root_cpu = next_root_cpu;
+				}
+				cpufreq_cpu_put(policy);
+			}
+		}
+	}
+}
+
 static int __cpuinit cpufreq_cpu_callback(struct notifier_block *nfb,
 					unsigned long action, void *hcpu)
 {
@@ -1911,14 +2006,20 @@ static int __cpuinit cpufreq_cpu_callback(struct notifier_block *nfb,
 		switch (action) {
 		case CPU_ONLINE:
 		case CPU_ONLINE_FROZEN:
+			setup_cpu0_symlink(dev, true); /* remove cpu0 symlink */
 			cpufreq_add_dev(dev, NULL);
 			break;
 		case CPU_DOWN_PREPARE:
 		case CPU_DOWN_PREPARE_FROZEN:
+			if (dev->id != 0) {
+				setup_cpu0_symlink(dev, false); /* modify cpu0 symlink */
+			}
 			__cpufreq_remove_dev(dev, NULL);
+			setup_cpu0_symlink(dev, false); /* create cpu0 symlink */
 			break;
 		case CPU_DOWN_FAILED:
 		case CPU_DOWN_FAILED_FROZEN:
+			setup_cpu0_symlink(dev, true); /* remove cpu0 symlink */
 			cpufreq_add_dev(dev, NULL);
 			break;
 		}

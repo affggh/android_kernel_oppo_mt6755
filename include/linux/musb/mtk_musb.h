@@ -70,7 +70,7 @@ extern void pmic_chrdet_int_en(int is_on);
 extern void musb_platform_reset(struct musb *musb);
 extern void musb_sync_with_bat(struct musb *musb, int usb_state);
 
-extern bool is_saving_mode();
+extern bool is_saving_mode(void);
 
 /* USB switch charger */
 extern bool is_switch_charger(void);

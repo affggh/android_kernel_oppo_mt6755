@@ -65,10 +65,10 @@ struct REE_THREAD_INFO {
 
 struct ree_service_irq
 {
+    uint64_t token64;
     unsigned int irq;
     int enable;
     unsigned int flags;
-    unsigned int token;
 };
 
 struct ree_service_clock

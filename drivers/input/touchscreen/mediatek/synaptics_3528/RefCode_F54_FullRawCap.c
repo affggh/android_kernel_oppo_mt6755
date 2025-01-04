@@ -60,18 +60,18 @@ unsigned char F54_FullRawCap(int mode)
     readRMI(F01_Query_Base+11, &product_id[0], sizeof(product_id));
 
     if(!strncmp(product_id, "PLG245", 6)) {
-        printk("set limit array to PLG245 value.\n");
+        pr_debug("set limit array to PLG245 value.\n");
         //memcpy(Limit, Limit_PLG245, sizeof(Limit_PLG245));
     } else if(!strncmp(product_id, "PLG260", 6)) {
-        printk("set limit array to PLG260 value.\n");
+        pr_debug("set limit array to PLG260 value.\n");
         //memcpy(Limit, Limit_PLG260, sizeof(Limit_PLG260));
     } else {
-        printk("set limit array to LGIT value.\n");
+        pr_debug("set limit array to LGIT value.\n");
     }
 
     //set limit array
     if(call_cnt == 0){
-        printk("Backup Limit to LimitBack array\n");
+        pr_debug("Backup Limit to LimitBack array\n");
         memset(LimitBack, 0, sizeof(LimitBack));
 //        memcpy(LimitBack, Limit, sizeof(LimitBack));
 #if defined(LGE_USE_DOME_KEY)
@@ -81,7 +81,7 @@ unsigned char F54_FullRawCap(int mode)
 #endif
     }
     if(get_limit(numberOfTx, numberOfRx) > 0) {
-        printk("Get limit from file success!!Use Limit array from file data.\n");
+        pr_debug("Get limit from file success!!Use Limit array from file data.\n");
 //        memcpy(Limit, LimitFile, sizeof(Limit));
 #if defined(LGE_USE_DOME_KEY)
         memcpy(Limit_PLG260, LimitFile, sizeof(Limit_PLG260));
@@ -89,7 +89,7 @@ unsigned char F54_FullRawCap(int mode)
         memcpy(Limit_PLG245, LimitFile, sizeof(Limit_PLG260));
 #endif
     } else {
-        printk("Get limit from file fail!!Use Limit array from image data\n");
+        pr_debug("Get limit from file fail!!Use Limit array from image data\n");
         //memcpy(Limit, LimitBack, sizeof(Limit));
 #if defined(LGE_USE_DOME_KEY)
         memcpy(Limit_PLG260, LimitBack, sizeof(Limit_PLG260));
@@ -159,7 +159,7 @@ unsigned char F54_FullRawCap(int mode)
     longReadRMI(F54_Data_Buffer, &ImageBuffer[0], length);
 
     if( (numberOfTx > 29) || (numberOfRx > 45) ) {
-        printk("Limit Index overflow. Test result: Fail\n");
+        pr_debug("Limit Index overflow. Test result: Fail\n");
         return 0;
     }
 
@@ -174,10 +174,10 @@ unsigned char F54_FullRawCap(int mode)
 
             ret += sprintf(buf+ret, "\n#3.03    Full raw capacitance Test\n");
 #else
-            printk("#ofTx\t%d\n", numberOfTx);
-            printk("#ofRx\t%d\n", numberOfRx);
+            pr_debug("#ofTx\t%d\n", numberOfTx);
+            pr_debug("#ofRx\t%d\n", numberOfRx);
 
-            printk("\n#3.03    Full raw capacitance Test\n");
+            pr_debug("\n#3.03    Full raw capacitance Test\n");
 #endif
             k = 0;
             for (i = 0; i < numberOfTx; i++)
@@ -185,7 +185,7 @@ unsigned char F54_FullRawCap(int mode)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "%d\t", i);
 #else
-                printk("%d\t", i);
+                pr_debug("%d\t", i);
 #endif
                 for (j = 0; j < numberOfRx; j++)
                 {
@@ -209,14 +209,14 @@ unsigned char F54_FullRawCap(int mode)
 #ifdef F54_Porting
                                     ret += sprintf(buf+ret, "%d\t", temp); //It's for getting log for limit set
 #else
-                                    printk("%d\t", temp); //It's for getting log for limit set
+                                    pr_debug("%d\t", temp); //It's for getting log for limit set
 #endif
                                 }
                                 else {
 #ifdef F54_Porting
                                     ret += sprintf(buf+ret, "%d\t", temp); //It's for getting log for limit set
 #else
-                                    printk("%d\t", temp); //It's for getting log for limit set
+                                    pr_debug("%d\t", temp); //It's for getting log for limit set
 #endif
                                 }
                             }
@@ -228,14 +228,14 @@ unsigned char F54_FullRawCap(int mode)
 #ifdef F54_Porting
                                     ret += sprintf(buf+ret, "%d\t", temp); //It's for getting log for limit set
 #else
-                                    printk("%d\t", temp); //It's for getting log for limit set
+                                    pr_debug("%d\t", temp); //It's for getting log for limit set
 #endif
                                 }
                                 else {
 #ifdef F54_Porting
                                     ret += sprintf(buf+ret, "%d\t", temp); //It's for getting log for limit set
 #else
-                                    printk("%d\t", temp); //It's for getting log for limit set
+                                    pr_debug("%d\t", temp); //It's for getting log for limit set
 #endif
                                 }
                             }
@@ -246,7 +246,7 @@ unsigned char F54_FullRawCap(int mode)
 #ifdef F54_Porting
                             ret += sprintf(buf+ret, "%d\t", temp); //It's for getting log for limit set
 #else
-                            printk("%d\t", temp); //It's for getting log for limit set
+                            pr_debug("%d\t", temp); //It's for getting log for limit set
 #endif
                         }
                   k = k + 2;
@@ -254,7 +254,7 @@ unsigned char F54_FullRawCap(int mode)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "\n");
 #else
-                printk("\n"); //It's for getting log for limit set
+                pr_debug("\n"); //It's for getting log for limit set
 #endif
             }
 
@@ -265,24 +265,24 @@ unsigned char F54_FullRawCap(int mode)
             // Print Capacitance Imgae for getting log for Excel format
             ret += sprintf(buf+ret, "\t");
 #else
-            printk("#3.04    Full raw capacitance Test END\n");
+            pr_debug("#3.04    Full raw capacitance Test END\n");
 
-            printk("\n#3.01    Full raw capacitance Test Limit\n");
+            pr_debug("\n#3.01    Full raw capacitance Test Limit\n");
             // Print Capacitance Imgae for getting log for Excel format
-            printk("\t");
+            pr_debug("\t");
 #endif
             for (j = 0; j < numberOfRx; j++) {
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "%d-Min\t%d-Max\t", j, j);
 #else
-                printk("%d-Min\t%d-Max\t", j, j);
+                pr_debug("%d-Min\t%d-Max\t", j, j);
 #endif
             }
 
 #ifdef F54_Porting
             ret += sprintf(buf+ret, "\n");
 #else
-            printk("\n");
+            pr_debug("\n");
 #endif
 
             for (i = 0; i < numberOfTx; i++)
@@ -290,40 +290,40 @@ unsigned char F54_FullRawCap(int mode)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "%d\t", i);
 #else
-                printk("%d\t", i);
+                pr_debug("%d\t", i);
 #endif
                 for (j = 0; j < numberOfRx; j++)
                 {
                     if(mode==0) {
 #ifdef F54_Porting
 #if defined(LGE_USE_DOME_KEY)
-                        //printk("%d\t%d\t", Limit[i][j*2], Limit[i][j*2+1]);
+                        //pr_debug("%d\t%d\t", Limit[i][j*2], Limit[i][j*2+1]);
                         //ret += sprintf(buf+ret, "%d\t%d\t", Limit[i][j*2], Limit[i][j*2+1]);
                         ret += sprintf(buf+ret, "%d\t%d\t", Limit_PLG260[i][j*2], Limit_PLG260[i][j*2+1]);
 #else
                         ret += sprintf(buf+ret, "%d\t%d\t", Limit_PLG245[i][j*2], Limit_PLG245[i][j*2+1]);
 #endif
 #else
-                        printk("%d\t%d\t", Limit[i][j*2]*1000, Limit[i][j*2+1]*1000);
+                        pr_debug("%d\t%d\t", Limit[i][j*2]*1000, Limit[i][j*2+1]*1000);
 #endif
                     } else {
 #ifdef F54_Porting
                         ret += sprintf(buf+ret, "%d\t%d\t", Flex_LowerLimit, Flex_UpperLimit);
 #else
-                        printk("%d\t%d\t", Flex_LowerLimit, Flex_UpperLimit);
+                        pr_debug("%d\t%d\t", Flex_LowerLimit, Flex_UpperLimit);
 #endif
                     }
                 }
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "\n");
 #else
-                printk("\n");
+                pr_debug("\n");
 #endif
             }
 #ifdef F54_Porting
             ret += sprintf(buf+ret, "#3.02    Full raw cap Limit END\n");
 #else
-            printk("#3.02    Full raw cap Limit END\n");
+            pr_debug("#3.02    Full raw cap Limit END\n");
 #endif
             break;
 
@@ -357,20 +357,20 @@ unsigned char F54_FullRawCap(int mode)
                  ret += sprintf(ret+buf, "\n\t");
 #else
                  // Print Capacitance Imgae for getting log for Excel format
-                 printk("\n\t");
+                 pr_debug("\n\t");
 #endif
                  for (j = 0; j < numberOfRx; j++) {
 #ifdef F54_Porting
                     ret += sprintf(ret+buf, "RX%d\t", RxChannelUsed[j]);
 #else
-                     printk("RX%d\t", RxChannelUsed[j]);
+                     pr_debug("RX%d\t", RxChannelUsed[j]);
 #endif
                  }
 
 #ifdef F54_Porting
                  ret += sprintf(buf+ret, "\n");
 #else
-                 printk("\n");
+                 pr_debug("\n");
 #endif
 
                  for (i = 0; i < numberOfTx; i++)
@@ -378,7 +378,7 @@ unsigned char F54_FullRawCap(int mode)
 #ifdef F54_Porting
                      ret += sprintf(buf+ret, "TX%d\t", TxChannelUsed[i]);
 #else
-                     printk("TX%d\t", TxChannelUsed[i]);
+                     pr_debug("TX%d\t", TxChannelUsed[i]);
 #endif
                      for (j = 0; j < numberOfRx; j++)
                      {
@@ -386,17 +386,17 @@ unsigned char F54_FullRawCap(int mode)
                         if(mode == 3)        ret += sprintf(buf+ret, "%d\t", (ImageArray[i][j]) / 1000);
                         else if(mode == 4)    ret += sprintf(buf+ret, "%d\t", ImageArray[i][j]);
 #else
-                        if(mode == 3)       printk("%d\t", (ImageArray[i][j]) / 1000);
-                        else if(mode == 4) printk("%d\t", ImageArray[i][j]);
-                        //if(mode == 3)       printk("%1.3f\t", (float)(ImageArray[i][j]) / 1000);
-                        //else if(mode == 4) printk("%d\t", ImageArray[i][j]);
+                        if(mode == 3)       pr_debug("%d\t", (ImageArray[i][j]) / 1000);
+                        else if(mode == 4) pr_debug("%d\t", ImageArray[i][j]);
+                        //if(mode == 3)       pr_debug("%1.3f\t", (float)(ImageArray[i][j]) / 1000);
+                        //else if(mode == 4) pr_debug("%d\t", ImageArray[i][j]);
 #endif
 
                       }
 #ifdef F54_Porting
                   ret += sprintf(ret+buf, "\n");
 #else
-                  printk("\n");
+                  pr_debug("\n");
 #endif
                  }
             break;
@@ -422,7 +422,7 @@ unsigned char F54_FullRawCap(int mode)
             ret += sprintf(buf+ret, "Test Result: Pass\n");
             write_log(buf);
 #else
-            printk("Test Result: Pass\n");
+            pr_debug("Test Result: Pass\n");
 #endif
             return 1; //Pass
         }
@@ -432,7 +432,7 @@ unsigned char F54_FullRawCap(int mode)
             ret += sprintf(buf+ret, "Test Result: Fail\n");
             write_log(buf);
 #else
-            printk("Test Result: Fail\n");
+            pr_debug("Test Result: Fail\n");
 #endif
             return 0; //Fail
         }

@@ -1659,7 +1659,6 @@ static enum print_line_t trace_mt65xx_mon_print(struct trace_iterator *iter,
 		goto partial;
 
     mt65xx_mon_print_entry(field, iter);
-    //mt65xx_mon_print_log(field->log, iter);
 
 	return TRACE_TYPE_HANDLED;
 

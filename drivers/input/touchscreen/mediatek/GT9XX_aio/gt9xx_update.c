@@ -3863,10 +3863,8 @@ s32 gup_recovery_main_system(void)
     
     if(gtp_chip_type == CHIP_TYPE_GT9)
     {
-   /*lenovo-sw xuwen1 modify 20140805 for HotKnot package flow begin*/
-                load_fw_process = 0;
+        load_fw_process = 0;
         gtp_reset_guitar(i2c_client_point,10);
-   /*lenovo-sw xuwen1 modify 20140805 for HotKnot package flow end*/
         return SUCCESS;
     }
 	firmware = gtp_default_FW_fl;

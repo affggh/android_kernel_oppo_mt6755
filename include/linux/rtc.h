@@ -55,6 +55,7 @@ struct rtc_class_ops {
 	int (*open)(struct device *);
 	void (*release)(struct device *);
 	int (*ioctl)(struct device *, unsigned int, unsigned long);
+	long (*compat_ioctl) (struct file *, unsigned int, unsigned long);
 	int (*read_time)(struct device *, struct rtc_time *);
 	int (*set_time)(struct device *, struct rtc_time *);
 	int (*read_alarm)(struct device *, struct rtc_wkalrm *);

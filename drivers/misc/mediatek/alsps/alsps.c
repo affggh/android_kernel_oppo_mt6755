@@ -2,12 +2,16 @@
 #include "alsps.h"
 #include "aal_control.h"
 struct alsps_context *alsps_context_obj = NULL;
-
-
+struct platform_device *pltfm_dev;
+#ifdef VENDOR_EDIT
+//zhihong.lu@Prd.BSP.sensor,2016/6/12,add als_only device
+int als_only = 0;
+#endif
 static struct alsps_init_info* alsps_init_list[MAX_CHOOSE_ALSPS_NUM]= {0}; //modified
 static void alsps_early_suspend(struct early_suspend *h);
 static void alsps_late_resume(struct early_suspend *h);
 
+static bool alsps_misc_dev_init = false;
 
 int als_data_report(struct input_dev *dev, int value, int status)
 {
@@ -36,6 +40,94 @@ int ps_data_report(struct input_dev *dev, int value,int status)
 	return 0;
 }
 
+#ifdef VENDOR_EDIT
+//zhihong.lu@Prd.BSP.sensor add for prox parm debugging
+static char para_buf[500]={0};
+int prox_show_adjust_para(struct ps_adjust_para *para,char *_buff){
+
+	if(para == NULL){
+		return -2;
+	}
+	sprintf(para_buf,"[0]ps_up:%d\n",para->ps_up);
+	sprintf(para_buf,"%s[1]ps_thd_low_notrend:%d\n",para_buf,para->ps_thd_low_notrend);
+	sprintf(para_buf,"%s[2]ps_thd_high_notrend:%d\n",para_buf,para->ps_thd_high_notrend);
+	sprintf(para_buf,"%s[3]ps_thd_low_trend:%d\n",para_buf,para->ps_thd_low_trend);
+	sprintf(para_buf,"%s[4]ps_thd_high_trend:%d\n",para_buf,para->ps_thd_high_trend);
+	sprintf(para_buf,"%s[5]ps_thd_low_highlight:%d\n",para_buf,para->ps_thd_low_highlight);
+	sprintf(para_buf,"%s[6]ps_thd_high_highlight:%d\n",para_buf,para->ps_thd_high_highlight);
+	sprintf(para_buf,"%s[7]ps_adjust_min:%d\n",para_buf,para->ps_adjust_min);
+	sprintf(para_buf,"%s[8]ps_adjust_max:%d\n",para_buf,para->ps_adjust_max);
+	sprintf(para_buf,"%s[9]highlight_limit:%d\n",para_buf,para->highlight_limit);
+	sprintf(para_buf,"%s[10]sampling_time:%d\n",para_buf,para->sampling_time);
+	sprintf(para_buf,"%s[11]sampling_count:%d\n",para_buf,para->sampling_count);
+	sprintf(para_buf,"%s[12]dirty_adjust_limit:%d\n",para_buf,para->dirty_adjust_limit);
+	sprintf(para_buf,"%s[13]dirty_adjust_low_thd:%d\n",para_buf,para->dirty_adjust_low_thd);
+	sprintf(para_buf,"%s[14]dirty_adjust_high_thd:%d\n",para_buf,para->dirty_adjust_high_thd);
+	ALSPS_ERR("%s",para_buf);
+	sprintf(_buff,"%s",para_buf);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(prox_show_adjust_para);
+
+int prox_set_adjust_para(struct ps_adjust_para *para, int index, int value){
+	if(para == NULL){
+		return -2;
+	}
+	ALSPS_ERR("%d %d\n",index,value);
+	switch(index){
+		case 0:
+			para->ps_up = value;
+			break;
+		case 1:
+			para->ps_thd_low_notrend = value;
+			break;
+		case 2:
+			para->ps_thd_high_notrend = value;
+			break;
+		case 3:
+			para->ps_thd_low_trend = value;
+			break;
+		case 4:
+			para->ps_thd_high_trend = value;
+			break;
+		case 5:
+			para->ps_thd_low_highlight = value;
+			break;
+		case 6:
+			para->ps_thd_high_highlight = value;
+			break;
+		case 7:
+			para->ps_adjust_min = value;
+			break;
+		case 8:
+			para->ps_adjust_max = value;
+			break;
+		case 9:
+			para->highlight_limit = value;
+			break;
+		case 10:
+			para->sampling_time = value;
+			break;
+		case 11:
+			para->sampling_count = value;
+			break;
+		case 12:
+			para->dirty_adjust_limit = value;
+			break;
+		case 13:
+			para->dirty_adjust_low_thd = value;
+			break;
+		case 14:
+			para->dirty_adjust_high_thd = value;
+			break;
+		default:
+			return -1;
+	}
+	return 0;
+}
+EXPORT_SYMBOL_GPL(prox_set_adjust_para);
+#endif /*VENDOR_EDIT*/
+
 static void als_work_func(struct work_struct *work)
 {
 
@@ -54,6 +146,13 @@ static void als_work_func(struct work_struct *work)
         ALSPS_ERR("alsps driver not register data path\n");
         return;
 	}
+#ifdef VENDOR_EDIT
+//zhihong.lu@BSP.sensor,2016/7/29,avoid to run work fun when als disable
+	if(cxt->is_als_active_data == false){
+		ALSPS_ERR("als already disable\n");
+        //return;
+	}
+#endif /*VENDOR_EDIT*/
 
 	
 	time.tv_sec = time.tv_nsec = 0;    
@@ -80,17 +179,18 @@ static void als_work_func(struct work_struct *work)
     
 	if(true ==  cxt->is_als_first_data_after_enable)
 	{
-		cxt->is_als_first_data_after_enable = false;
 		//filter -1 value
 	    if(ALSPS_INVALID_VALUE == cxt->drv_data.als_data.values[0] )
 	    {
-	        	ALSPS_LOG(" read invalid data \n");
+	        ALSPS_LOG(" read invalid data \n");
 	       	goto als_loop;
 			
 	    }
+		cxt->is_als_first_data_after_enable = false;
+		printk("report first als data [%d]  \n" ,cxt->drv_data.als_data.values[0]);
 	}
 	//report data to input device
-	//printk("new alsps work run....\n");
+	//ALSPS_LOG("new alsps work run....\n");
 	//ALSPS_LOG("als data[%d]  \n" ,cxt->drv_data.als_data.values[0]);
 
 	als_data_report(cxt->idev,
@@ -168,7 +268,7 @@ static void ps_work_func(struct work_struct *work)
     }
     
 	//report data to input device
-	//printk("new alsps work run....\n");
+	//ALSPS_LOG("new alsps work run....\n");
 	//ALSPS_LOG("ps data[%d]  \n" ,cxt->drv_data.ps_data.values[0]);
 
 	ps_data_report(cxt->idev,
@@ -289,17 +389,16 @@ static int als_real_enable(int enable)
 static int als_enable_data(int enable)
 {
     struct alsps_context *cxt = NULL;
-	//int err =0;
 	cxt = alsps_context_obj;
 	if(NULL  == cxt->als_ctl.open_report_data)
 	{
 	  ALSPS_ERR("no als control path\n");
 	  return -1;
 	}
-	
-    	if(1 == enable)
-    	{
-       	ALSPS_LOG("ALSPS enable data\n");
+
+    if(1 == enable)
+    {
+       	ALSPS_ERR("ALSPS enable data\n");
 	   	cxt->is_als_active_data =true;
       	cxt->is_als_first_data_after_enable = true;
 	   	cxt->als_ctl.open_report_data(1);
@@ -308,15 +407,20 @@ static int als_enable_data(int enable)
 	   	{
 	      		if(false == cxt->als_ctl.is_report_input_direct)
 	      		{
-                        cxt->is_get_valid_als_data_after_enable = false;
-	      			mod_timer(&cxt->timer_als, jiffies + atomic_read(&cxt->delay_als)/(1000/HZ));
-		  		cxt->is_als_polling_run = true;
+					cxt->is_get_valid_als_data_after_enable = false;
+					#ifndef VENDOR_EDIT
+					//zhihong.lu@Prd.BSP.sensor  add to fix the first data report time
+					mod_timer(&cxt->timer_als, jiffies + atomic_read(&cxt->delay_als)/(1000/HZ));
+					#else /*VENDOR_EDIT*/
+					mod_timer(&cxt->timer_als, jiffies + 40/(1000/HZ));
+					#endif /*VENDOR_EDIT*/
+					cxt->is_als_polling_run = true;
 	      		}
 	   	}
-    	}
+    }
 	if(0 == enable)
 	{
-	   	ALSPS_LOG("ALSPS disable \n");
+        ALSPS_ERR("ALSPS disable \n");
 	   	cxt->is_als_active_data =false;
 	   	cxt->als_ctl.open_report_data(0);
 	   	if(true == cxt->is_als_polling_run)
@@ -583,7 +687,17 @@ static ssize_t als_show_devnum(struct device* dev,
                                  struct device_attribute *attr, char *buf) 
 {
 	const char *devname =NULL;
-	devname = dev_name(&alsps_context_obj->idev->dev);
+	struct input_handle *handle;
+
+	list_for_each_entry(handle, &alsps_context_obj->idev->h_list, d_node)
+		if (strncmp(handle->name, "event", 5) == 0) {
+			devname = handle->name;
+			break;
+		}
+
+	if (devname == NULL)
+		return -1;
+	else
 	return snprintf(buf, PAGE_SIZE, "%s\n", devname+5); 
 }
 static ssize_t ps_store_active(struct device* dev, struct device_attribute *attr,
@@ -776,10 +890,14 @@ static struct platform_driver als_ps_driver = {
 	}
 };
 
-static int alsps_real_driver_init(void) 
+static int alsps_real_driver_init(void)
 {
     int i =0;
 	int err=0;
+	#ifdef VENDOR_EDIT
+	//zhihong.lu@Prd.BSP.sensor,2016/6/12,add als_only device
+	int probe_ok=0;
+	#endif
 	ALSPS_LOG(" alsps_real_driver_init +\n");
 	for(i = 0; i < MAX_CHOOSE_ALSPS_NUM; i++)
 	{
@@ -791,11 +909,23 @@ static int alsps_real_driver_init(void)
 		if(0 == err)
 		{
 		   ALSPS_LOG(" alsps real driver %s probe ok\n", alsps_init_list[i]->name);
+		#ifndef VENDOR_EDIT
+		//zhihong.lu@Prd.BSP.sensor,2016/6/12,add als_only device
 		   break;
+		#else
+		   probe_ok=1;
+		}else{
+			ALSPS_LOG(" alsps real driver %s probe fail\n", alsps_init_list[i]->name);
+		#endif /*VENDOR_EDIT*/
 		}
 	  }
 	}
-
+	#ifdef VENDOR_EDIT
+	//zhihong.lu@Prd.BSP.sensor,2016/6/12,add als_only device
+	if(probe_ok==1){
+		return 0;
+	}
+	#endif /*VENDOR_EDIT*/
 	if(i == MAX_CHOOSE_ALSPS_NUM)
 	{
 	   ALSPS_LOG(" alsps_real_driver_init fail\n");
@@ -829,7 +959,6 @@ static int alsps_real_driver_init(void)
 	    {
 	      obj->platform_diver_addr = &als_ps_driver;
 	      alsps_init_list[i] = obj;
-		  printk("%s, %d \n", __func__, __LINE__);
 		  break;
 	    }
 	}
@@ -842,6 +971,11 @@ static int alsps_real_driver_init(void)
 	return err;
 }
 EXPORT_SYMBOL_GPL(alsps_driver_add);
+struct platform_device *get_alsps_platformdev(void)
+{
+    return pltfm_dev;
+}
+
 
 int ps_report_interrupt_data(int value) 
 {
@@ -860,8 +994,9 @@ int ps_report_interrupt_data(int value)
             cancel_work_sync(&cxt->report_ps);
         }
     }
-    
-	ps_data_report(cxt->idev,value,3);
+
+    if (cxt->is_ps_batch_enable == false)
+        ps_data_report(cxt->idev,value,3);
 	
 	return 0;
 }
@@ -989,7 +1124,7 @@ int als_register_control_path(struct als_control_path *ctl)
 	cxt->als_ctl.enable_nodata = ctl->enable_nodata;
 	cxt->als_ctl.is_support_batch = ctl->is_support_batch;
 	cxt->als_ctl.is_report_input_direct= ctl->is_report_input_direct;
-    cxt->als_ctl.is_use_common_factory = ctl->is_use_common_factory;
+	cxt->als_ctl.is_use_common_factory = ctl->is_use_common_factory;
 	
 	if(NULL==cxt->als_ctl.set_delay || NULL==cxt->als_ctl.open_report_data
 		|| NULL==cxt->als_ctl.enable_nodata)
@@ -998,31 +1133,32 @@ int als_register_control_path(struct als_control_path *ctl)
 	 	return -1;
 	}
 	
-	
-	//add misc dev for sensor hal control cmd
-	err = alsps_misc_init(alsps_context_obj);
-	if(err)
-	{
-	   ALSPS_ERR("unable to register alsps misc device!!\n");
-	   return -2;
-	}
-	err = sysfs_create_group(&alsps_context_obj->mdev.this_device->kobj,
-			&alsps_attribute_group);
-	if (err < 0)
-	{
-	   ALSPS_ERR("unable to create alsps attribute file\n");
-	   return -3;
-	}
-
-		
-	kobject_uevent(&alsps_context_obj->mdev.this_device->kobj, KOBJ_ADD);
-	
+	if(!alsps_misc_dev_init)
+	{	
+		//add misc dev for sensor hal control cmd
+		err = alsps_misc_init(alsps_context_obj);
+		if(err)
+		{
+		   ALSPS_ERR("unable to register alsps misc device!!\n");
+		   return -2;
+		}
+		err = sysfs_create_group(&alsps_context_obj->mdev.this_device->kobj,
+				&alsps_attribute_group);
+		if (err < 0)
+		{
+		   ALSPS_ERR("unable to create alsps attribute file\n");
+		   return -3;
+		}
+		kobject_uevent(&alsps_context_obj->mdev.this_device->kobj, KOBJ_ADD);
+		alsps_misc_dev_init = true;
+	}	
 	return 0;	
 }
 
 int ps_register_control_path(struct ps_control_path *ctl)
 {
 	struct alsps_context *cxt = NULL;
+	int err =0;
 	cxt = alsps_context_obj;
 	cxt->ps_ctl.set_delay = ctl->set_delay;
 	cxt->ps_ctl.open_report_data= ctl->open_report_data;
@@ -1032,6 +1168,7 @@ int ps_register_control_path(struct ps_control_path *ctl)
 	cxt->ps_ctl.ps_calibration = ctl->ps_calibration;
 	cxt->ps_ctl.ps_threshold_setting = ctl->ps_threshold_setting;
 	cxt->ps_ctl.is_use_common_factory = ctl->is_use_common_factory;
+	cxt->ps_ctl.is_polling_mode = ctl->is_polling_mode;
 	
 	if(NULL==cxt->ps_ctl.set_delay || NULL==cxt->ps_ctl.open_report_data
 		|| NULL==cxt->ps_ctl.enable_nodata)
@@ -1040,25 +1177,25 @@ int ps_register_control_path(struct ps_control_path *ctl)
 	 	return -1;
 	}
 
-	/*
-	//add misc dev for sensor hal control cmd
-	err = alsps_misc_init(alsps_context_obj);
-	if(err)
+	if(!alsps_misc_dev_init)
 	{
-	   ALSPS_ERR("unable to register alsps misc device!!\n");
-	   return -2;
+		//add misc dev for sensor hal control cmd
+		err = alsps_misc_init(alsps_context_obj);
+		if(err)
+		{
+		   ALSPS_ERR("unable to register alsps misc device!!\n");
+		   return -2;
+		}
+		err = sysfs_create_group(&alsps_context_obj->mdev.this_device->kobj,
+				&alsps_attribute_group);
+		if (err < 0)
+		{
+		   ALSPS_ERR("unable to create alsps attribute file\n");
+		   return -3;
+		}
+		kobject_uevent(&alsps_context_obj->mdev.this_device->kobj, KOBJ_ADD);
+		alsps_misc_dev_init = true;
 	}
-	err = sysfs_create_group(&alsps_context_obj->mdev.this_device->kobj,
-			&alsps_attribute_group);
-	if (err < 0)
-	{
-	   ALSPS_ERR("unable to create alsps attribute file\n");
-	   return -3;
-	}
-
-		
-	kobject_uevent(&alsps_context_obj->mdev.this_device->kobj, KOBJ_ADD);
-	*/
 	return 0;	
 }
 
@@ -1126,7 +1263,10 @@ static int alsps_probe(struct platform_device *pdev)
 {
 
 	int err;
+	
 	ALSPS_LOG("+++++++++++++alsps_probe!!\n");
+	
+	pltfm_dev= pdev;
 
 	alsps_context_obj = alsps_context_alloc_object();
 	if (!alsps_context_obj)
@@ -1158,7 +1298,7 @@ static int alsps_probe(struct platform_device *pdev)
 		goto exit_alloc_input_dev_failed;
 	}
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_EARLYSUSPEND)
     atomic_set(&(alsps_context_obj->early_suspend), 0);
 	alsps_context_obj->early_drv.level    = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1,
 	alsps_context_obj->early_drv.suspend  = alsps_early_suspend,
@@ -1222,12 +1362,37 @@ static void alsps_late_resume(struct early_suspend *h)
 
 static int alsps_suspend(struct platform_device *dev, pm_message_t state) 
 {
-	return 0;
+    //#ifdef VENDOR_EDIT
+    //zhihong.lu@BSP.sensor,2016/08/10,try to upodate a new light event when resume
+    struct alsps_context *cxt = NULL;
+    cxt = alsps_context_obj;
+    ALSPS_FUN();
+    if(true == cxt->is_als_polling_run){
+        if(false == cxt->als_ctl.is_report_input_direct){
+            smp_mb();
+            del_timer_sync(&cxt->timer_als);
+            smp_mb();
+            cancel_work_sync(&cxt->report_als);
+        }
+    }
+    //#endif
+    return 0;
 }
 /*----------------------------------------------------------------------------*/
 static int alsps_resume(struct platform_device *dev)
 {
-	return 0;
+    //#ifdef VENDOR_EDIT
+    //zhihong.lu@BSP.sensor,2016/08/10,try to upodate a new light event when resume
+    struct alsps_context *cxt = NULL;
+    cxt = alsps_context_obj;
+    ALSPS_FUN();
+    if(true == cxt->is_als_polling_run){
+        if(false == cxt->als_ctl.is_report_input_direct){
+            mod_timer(&cxt->timer_als, jiffies + 20/(1000/HZ));
+        }
+    }
+    //#endif
+    return 0;
 }
 
 #ifdef CONFIG_OF
@@ -1260,9 +1425,7 @@ static int __init alsps_init(void)
 	{
 		ALSPS_ERR("failed to register alsps driver\n");
 		return -ENODEV;
-	}else{
-	printk("%s, %d, \n", __func__, __LINE__);
-}
+	}
 	
 	return 0;
 }

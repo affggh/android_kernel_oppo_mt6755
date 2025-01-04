@@ -786,6 +786,8 @@ static int bmg_init_client(struct i2c_client *client, int reset_cali)
 
 	return 0;
 }
+static int g_enable_flag =0;
+static int g_drop_count=5;
 
 /*
 *Returns compensated and mapped value. unit is :degree/second
@@ -811,6 +813,22 @@ static int bmg_read_sensor_data(struct i2c_client *client,
 	}
 
 	err = bmg_read_raw_data(client, databuf);
+	if(1==g_enable_flag)
+	{
+		if(g_drop_count>0)
+		{
+			sprintf(buf, "%04x %04x %04x",0, 0, 0);
+			g_drop_count--;
+		}
+		else
+		{
+			g_drop_count=5;
+			g_enable_flag =0;
+		}
+		sprintf(buf, "%04x %04x %04x",0, 0, 0);
+		//GYRO_ERR("fwq  drop data %d\n",g_drop_count);
+		return 0;
+	}
 	if (err) {
 		GYRO_ERR("bmg read raw data failed, err = %d\n", err);
 		return -3;
@@ -829,9 +847,9 @@ static int bmg_read_sensor_data(struct i2c_client *client,
 			obj->cvt.sign[BMG_AXIS_Z]*databuf[BMG_AXIS_Z];
 
 		/* convert: LSB -> degree/second(o/s) */
-		gyro[BMG_AXIS_X] = gyro[BMG_AXIS_X] / obj->sensitivity;
-		gyro[BMG_AXIS_Y] = gyro[BMG_AXIS_Y] / obj->sensitivity;
-		gyro[BMG_AXIS_Z] = gyro[BMG_AXIS_Z] / obj->sensitivity;
+        gyro[BMG_AXIS_X] = gyro[BMG_AXIS_X] * BMG160_OUT_MAGNIFY *10;
+        gyro[BMG_AXIS_Y] = gyro[BMG_AXIS_Y] * BMG160_OUT_MAGNIFY *10;
+        gyro[BMG_AXIS_Z] = gyro[BMG_AXIS_Z] * BMG160_OUT_MAGNIFY *10;
 
 		sprintf(buf, "%04x %04x %04x",
 			gyro[BMG_AXIS_X], gyro[BMG_AXIS_Y], gyro[BMG_AXIS_Z]);
@@ -1388,7 +1406,10 @@ int gyroscope_operate(void *self, uint32_t command, void *buff_in, int size_in,
 		value = *(int *)buff_in;
 		GYRO_LOG("sensor enable/disable command: %s\n",
 			value ? "enable" : "disable");
-
+		if(1==value)
+		{
+			g_enable_flag =1;
+		}
 		err = bmg_set_powermode(priv->client,
 			(enum BMG_POWERMODE_ENUM)(!!value));
 		if (err)
@@ -1446,6 +1467,7 @@ static long bmg_unlocked_ioctl(struct file *file, unsigned int cmd,
 	SENSOR_DATA sensor_data;
 	long err = 0;
 	int cali[BMG_AXES_NUM];
+	int smtRes=0;
 
 	if (obj == NULL)
 		return -EFAULT;
@@ -1480,6 +1502,10 @@ static long bmg_unlocked_ioctl(struct file *file, unsigned int cmd,
 	}
 
 	bmg_read_sensor_data(client, strbuf, BMG_BUFSIZE);
+	/* Data divide 164 before send to factory/engineer mode */
+	signed int gyro[3];
+	sscanf(strbuf, "%08x %08x %08x",&gyro[0], &gyro[1],&gyro[2]);
+	sprintf(strbuf, "%08x %08x %08x", gyro[0]/164, gyro[1]/164,gyro[2]/164);
 	if (copy_to_user(data, strbuf, strlen(strbuf) + 1)) {
 		err = -EFAULT;
 		break;
@@ -1501,12 +1527,32 @@ static long bmg_unlocked_ioctl(struct file *file, unsigned int cmd,
 		err = -EINVAL;
 	} else {
 		/* convert: degree/second -> LSB */
-		cali[BMG_AXIS_X] = sensor_data.x * obj->sensitivity;
-		cali[BMG_AXIS_Y] = sensor_data.y * obj->sensitivity;
-		cali[BMG_AXIS_Z] = sensor_data.z * obj->sensitivity;
+		GYRO_LOG("GYROSCOPE_IOCTL_SET_CALI(%+3d %+3d %+3d)\n",
+		sensor_data.x, sensor_data.y, sensor_data.z);
+		cali[BMG_AXIS_X] = sensor_data.x * obj->sensitivity / BMG160_OUT_MAGNIFY;
+		cali[BMG_AXIS_Y] = sensor_data.y * obj->sensitivity / BMG160_OUT_MAGNIFY;
+		cali[BMG_AXIS_Z] = sensor_data.z * obj->sensitivity / BMG160_OUT_MAGNIFY;
+	
 		err = bmg_write_calibration(client, cali);
 	}
 	break;
+	
+	case GYROSCOPE_IOCTL_SMT_DATA:
+		data = (void __user *) arg;
+		if(data == NULL)
+		{
+			err = -EINVAL;
+			break;	  
+		}
+		smtRes = 0;
+		err = copy_to_user(data, &smtRes,sizeof(smtRes));
+		if(err)
+		{
+			GYRO_ERR("copy gyro data to user failed!\n");
+		}
+		GYRO_LOG("copy gyro data to user OK: %d!\n", (unsigned int)err);
+	break;
+
 	case GYROSCOPE_IOCTL_CLR_CALI:
 	err = bmg_reset_calibration(client);
 	break;
@@ -1520,9 +1566,9 @@ static long bmg_unlocked_ioctl(struct file *file, unsigned int cmd,
 	if (err)
 		break;
 
-	sensor_data.x = cali[BMG_AXIS_X] * obj->sensitivity;
-	sensor_data.y = cali[BMG_AXIS_Y] * obj->sensitivity;
-	sensor_data.z = cali[BMG_AXIS_Z] * obj->sensitivity;
+	sensor_data.x = cali[BMG_AXIS_X] * BMG160_OUT_MAGNIFY / obj->sensitivity;
+	sensor_data.y = cali[BMG_AXIS_Y] * BMG160_OUT_MAGNIFY / obj->sensitivity;
+	sensor_data.z = cali[BMG_AXIS_Z] * BMG160_OUT_MAGNIFY / obj->sensitivity;
 	if (copy_to_user(data, &sensor_data, sizeof(sensor_data))) {
 		err = -EFAULT;
 		break;
@@ -1818,27 +1864,7 @@ static struct i2c_driver bmg_i2c_driver = {
 #endif
 	.id_table = bmg_i2c_id,
 };
-#if 1
-#ifdef CONFIG_OF
-static const struct of_device_id gyroscope_of_match[] = {
-	{ .compatible = "mediatek,gyroscope", },
-	{},
-};
-#endif
 
-static struct platform_driver bmg_gyroscope_driver = {
-	.probe      = bmg_probe,
-	.remove     = bmg_remove,    
-	.driver     = 
-	{
-		.name  = "gyroscope",
-		.owner  = THIS_MODULE,
-        #ifdef CONFIG_OF
-		.of_match_table = gyroscope_of_match,
-		#endif
-	}
-};
-#else
 static struct platform_driver bmg_gyroscope_driver = {
 	.probe      = bmg_probe,
 	.remove     = bmg_remove,
@@ -1847,7 +1873,7 @@ static struct platform_driver bmg_gyroscope_driver = {
 		.owner  = THIS_MODULE,
 	}
 };
-#endif
+
 static int __init bmg_init(void)
 {
 	struct gyro_hw *hw = get_cust_gyro_hw();

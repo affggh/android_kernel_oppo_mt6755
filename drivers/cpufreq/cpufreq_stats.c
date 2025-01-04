@@ -237,10 +237,12 @@ static struct kobj_attribute _attr_all_time_in_state = __ATTR(all_time_in_state,
 static int freq_table_get_index(struct cpufreq_stats *stat, unsigned int freq)
 {
 	int index;
+
 	for (index = 0; index < stat->max_state; index++)
 		if (stat->freq_table[index] == freq)
 			return index;
-	return -1;
+	return 0;
+	//return -1;
 }
 
 /* should be called late in the CPU removal sequence so that the stats

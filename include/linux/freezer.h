@@ -7,9 +7,7 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/atomic.h>
-#ifdef CONFIG_CGROUP_FREEZER
-#include <linux/cgroup.h>
-#endif
+
 #ifdef CONFIG_FREEZER
 extern atomic_t system_freezing_cnt;	/* nr of freezing conds in effect */
 extern bool pm_freezing;		/* PM freezing in effect */
@@ -42,6 +40,7 @@ static inline bool freezing(struct task_struct *p)
 
 /* Takes and releases task alloc lock using task_lock() */
 extern void __thaw_task(struct task_struct *t);
+
 extern bool __refrigerator(bool check_kthr_stop);
 extern int freeze_processes(void);
 extern int freeze_kernel_threads(void);
@@ -69,17 +68,17 @@ static inline bool try_to_freeze(void)
 
 extern bool freeze_task(struct task_struct *p);
 extern bool set_freezable(void);
+#ifndef VENDOR_EDIT//Fanhong.Kong@ProDrv.CHG,delete 2015.12.14 for mc_fastcall suspend cpu0
+#if defined(CONFIG_MICROTRUST_TEE_SUPPORT)
+extern bool set_nofreezable(void);
+#endif
+#else/*VENDOR_EDIT*/
+extern bool set_nofreezable(void);
+#endif/*VENDOR_EDIT*/
 
 #ifdef CONFIG_CGROUP_FREEZER
 extern bool cgroup_freezing(struct task_struct *task);
-/* set cgroup state thawed */
-extern void cgroup_thawed_by_pid(int pid_nr);
-extern void freezer_change_state_to_thawed(struct cgroup *cgroup);
 #else /* !CONFIG_CGROUP_FREEZER */
-static inline void cgroup_thawed_by_pid(int pid_nr)
-{
-	return;
-}
 static inline bool cgroup_freezing(struct task_struct *task)
 {
 	return false;
@@ -320,7 +319,13 @@ static inline void freezer_do_not_count(void) {}
 static inline void freezer_count(void) {}
 static inline int freezer_should_skip(struct task_struct *p) { return 0; }
 static inline void set_freezable(void) {}
-
+#ifndef VENDOR_EDIT//Fanhong.Kong@ProDrv.CHG,delete 2015.12.14 for mc_fastcall suspend cpu0
+#if defined(CONFIG_MICROTRUST_TEE_SUPPORT)
+static inline void set_nofreezable(void) {}
+#endif
+#else/*VENDOR_EDIT*/
+static inline void set_nofreezable(void) {}
+#endif/*VENDOR_EDIT*/
 #define freezable_schedule()  schedule()
 
 #define freezable_schedule_unsafe()  schedule()

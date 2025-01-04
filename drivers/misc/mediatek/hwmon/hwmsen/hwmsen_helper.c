@@ -563,7 +563,12 @@ struct hwmsen_convert map[] = {
     { {-1, 1,-1}, {0, 1, 2} },
     { { 1, 1,-1}, {1, 0, 2} },
     { { 1,-1,-1}, {0, 1, 2} },
-    { {-1,-1,-1}, {1, 0, 2} },      
+    { {-1,-1,-1}, {1, 0, 2} },
+
+#ifdef VENDOR_EDIT//zhihong.lu@BSP.sensor
+    { {-1,-1,-1}, {0, 1, 2} },
+    { { 1,-1,-1}, {1, 0, 2} },
+#endif
 
 };
 /*----------------------------------------------------------------------------*/
@@ -580,3 +585,40 @@ int hwmsen_get_convert(int direction, struct hwmsen_convert *cvt)
 /*----------------------------------------------------------------------------*/
 EXPORT_SYMBOL_GPL(hwmsen_get_convert); 
 /*----------------------------------------------------------------------------*/
+#ifdef VENDOR_EDIT
+//zhihong.lu@BSP.sensor,2016/7/14,add common api
+int hwmsen_create_driver_attr(struct device_driver *driver, struct driver_attribute **list,int num)
+{
+	int idx, err = 0;
+	if (driver == NULL  || list == NULL)
+	{
+		return -EINVAL;
+	}
+	for(idx = 0; idx < num; idx++)
+	{
+		if((err = driver_create_file(driver, list[idx])))
+		{
+			HWM_ERR("driver_create_file (%s) = %d\n", list[idx]->attr.name, err);
+			break;
+		}
+	}
+	return err;
+}
+EXPORT_SYMBOL_GPL(hwmsen_create_driver_attr);
+int hwmsen_delete_driver_attr(struct device_driver *driver, struct driver_attribute **list,int num)
+{
+	int idx ,err = 0;
+
+	if (driver == NULL  || list == NULL)
+	{
+		return -EINVAL;
+	}
+
+	for(idx = 0; idx < num; idx++){
+		driver_remove_file(driver, list[idx]);
+	}
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(hwmsen_delete_driver_attr);
+#endif /*VENDOR_EDIT*/

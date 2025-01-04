@@ -883,6 +883,7 @@ static long af7133e_af8133i_unlocked_ioctl(struct file *file, unsigned int cmd,
     void __user *argp = (void __user *)arg;
 	int valuebuf[10] = {0};
 	int magbuf[3] = {0};
+	char fabuff[32];
 	char strbuf[AF7133E_AF8133I_BUFSIZE] = {0};
 	void __user *data;
 	long retval=0;
@@ -891,7 +892,7 @@ static long af7133e_af8133i_unlocked_ioctl(struct file *file, unsigned int cmd,
 	short sensor_status;		/* for Orientation and Msensor status */
 	char version[10];
 	unsigned char reg;
-
+    hwm_sensor_data* osensor_data=NULL;
     struct mag_hw *hw = get_cust_mag_hw();
 	
 #if DEBUG
@@ -1023,8 +1024,9 @@ static long af7133e_af8133i_unlocked_ioctl(struct file *file, unsigned int cmd,
 				}
 #endif			
 			
-			
-			if(copy_to_user(data, magbuf, sizeof(magbuf)))
+			sprintf(fabuff, "%04x %04x %04x",  magbuf[0], magbuf[1], magbuf[2]);
+			if(copy_to_user(data, fabuff, sizeof(fabuff)))
+			//if(copy_to_user(data, magbuf, sizeof(magbuf)))
 			{
 				retval = -EFAULT;
 				goto err_out;
@@ -1032,6 +1034,29 @@ static long af7133e_af8133i_unlocked_ioctl(struct file *file, unsigned int cmd,
 			break;
 
 		case MSENSOR_IOCTL_READ_FACTORY_SENSORDATA:
+			data = (void __user *) arg;			
+			if(data == NULL)			
+			{			  
+				MSE_ERR("IO parameter pointer is NULL!\r\n");			  
+				break;    			
+			}	
+			printk("af7133i MSENSOR_IOCTL_READ_FACTORY_SENSORDATA line ==%d\n", __LINE__);
+			osensor_data = (hwm_sensor_data *)fabuff; 
+			
+			osensor_data->values[0] = af7133e_af8133i_mid_data.yaw;
+			osensor_data->values[1] = af7133e_af8133i_mid_data.pitch;
+			osensor_data->values[2] = af7133e_af8133i_mid_data.roll;	
+			osensor_data->status = SENSOR_STATUS_ACCURACY_HIGH;
+			osensor_data->value_divide = 1000;
+			
+			sprintf(fabuff, "%x %x %x %x %x", osensor_data->values[0], osensor_data->values[1],
+				osensor_data->values[2],osensor_data->status,osensor_data->value_divide);
+			if(copy_to_user(argp, fabuff, strlen(fabuff)+1))
+			{
+				return -EFAULT;
+			} 
+			// kxd wzm
+			break; 
 			break;                
 
 		case MSENSOR_IOCTL_READ_POSTUREDATA:             

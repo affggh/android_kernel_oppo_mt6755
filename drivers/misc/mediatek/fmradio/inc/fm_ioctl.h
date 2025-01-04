@@ -89,4 +89,4 @@
 
 #define FM_IOCTL_DUMP_REG   _IO(FM_IOC_MAGIC, 0xFF)
 
-#endif				/* __FM_IOCTL_H__ */
+#endif /* __FM_IOCTL_H__ */

@@ -48,7 +48,7 @@ void tpd_debug_no_response(struct i2c_client *i2c_client)
 		if (i == wakeup_count)
 			tpd_fail_count++;
 		tpd_trial_count++;
-		printk("trial: %d    /    fail: %d\n", tpd_trial_count, tpd_fail_count);
+		pr_info("trial: %d    /    fail: %d\n", tpd_trial_count, tpd_fail_count);
 		delay_index = ((delay_index + 1) % delay_max);
 	}
 	trial_index = ((trial_index + 1) % trial_max);
@@ -245,21 +245,21 @@ static int tpd_debug_log_open(struct inode *inode, struct file *file)
 	memset(&tpd_buf, 0, sizeof(struct tpd_debug_log_buf));
 	tpd_buf.buffer = vmalloc(tpd_log_line_cnt * tpd_log_line_buffer);
 	if (tpd_buf.buffer == NULL) {
-		printk("tpd_log: nomem for tpd_buf->buffer\n");
+		pr_err("tpd_log: nomem for tpd_buf->buffer\n");
 		return -ENOMEM;
 	}
 	tpd_buf.head = tpd_buf.tail = 0;
 	spin_lock_init(&tpd_buf.buffer_lock);
 
 	file->private_data = &tpd_buf;
-	printk("[tpd_em_log]: open log file\n");
+	pr_info("[tpd_em_log]: open log file\n");
 	return 0;
 }
 
 static int tpd_debug_log_release(struct inode *inode, struct file *file)
 {
 	/* struct tpd_debug_log_buf *tpd_buf = (tpd_debug_log_buf *)file->private_data; */
-	printk("[tpd_em_log]: close log file\n");
+	pr_info("[tpd_em_log]: close log file\n");
 	vfree(tpd_buf.buffer);
 	/* free(tpd_buf); */
 	return 0;
@@ -289,12 +289,12 @@ static ssize_t tpd_debug_log_read(struct file *file, char __user *buffer,
 			tmp_buf = &tpd_buf->buffer[tpd_buf->tail++ * unit];
 			tpd_buf->tail &= tpd_log_line_cnt - 1;
 		} else {
-			/* printk("*******************tpd_debug_log is empty **************************************\n"); */
+			/* pr_info("*******************tpd_debug_log is empty **************************************\n"); */
 			spin_unlock_irq(&tpd_buf->buffer_lock);
 			break;
 		}
 		spin_unlock_irq(&tpd_buf->buffer_lock);
-		/* printk("%s, tmp_buf:0x%x\n", tmp_buf, tmp_buf); */
+		/* pr_info("%s, tmp_buf:0x%x\n", tmp_buf, tmp_buf); */
 		if (copy_to_user(buffer + retval, tmp_buf, unit))
 			return -EFAULT;
 
@@ -312,7 +312,7 @@ static unsigned char *tpd_log_find_buffer(void)
 	unsigned char *buffer = NULL;
 	unsigned unit = tpd_log_line_buffer;
 	if (tpd_buf.buffer == NULL) {
-		printk("[tpd_em_log] :tpd_buf.buffer is NULL\n");
+		pr_err("[tpd_em_log] :tpd_buf.buffer is NULL\n");
 		return NULL;
 	}
 	spin_lock(&tpd_buf.buffer_lock);
@@ -344,34 +344,34 @@ static struct miscdevice tpd_debug_log_dev = {
 void tpd_em_log_output(int raw_x, int raw_y, int cal_x, int cal_y, int p, int down)
 {
 	if (down == TPD_TYPE_INT_DOWN) {
-		printk("[tpd_em_log] int trigger down\n");
+		pr_info("[tpd_em_log] int trigger down\n");
 	} else if (down == TPD_TYPE_INT_UP) {
-		printk("[tpd_em_log] int trigger up\n");
+		pr_info("[tpd_em_log] int trigger up\n");
 	} else if (down == TPD_TYPE_TIMER) {
-		printk("[tpd_em_log] timer trigger\n");
+		pr_info("[tpd_em_log] timer trigger\n");
 	} else if (down == TPD_TYPE_RAW_DATA) {
 		if (tpd_em_log == TPD_TYPE_RAW_DATA) {
-			printk("[tpd_em_log] rx=%d,ry=%d,rz1=%d,rz2=%d,p=%d,r\n",
+			pr_info("[tpd_em_log] rx=%d,ry=%d,rz1=%d,rz2=%d,p=%d,r\n",
 			       raw_x, raw_y, cal_x, cal_y, p);
 		}
 	} else if (down == TPD_TYPE_REJECT1) {
-		printk("[tpd_em_log] the first or last point is rejected\n");
+		pr_info("[tpd_em_log] the first or last point is rejected\n");
 	} else if (down == TPD_TYPE_REJECT2) {
-		printk
+		pr_info
 		    ("[tpd_em_log] pressure(%d) > NICE_PRESSURE(%d), debounce debt0:%d ms, debt1:%d ms, spl_num:%d\n",
 		     raw_x, raw_y, cal_x, cal_y, p);
 	} else if (down == TPD_TYPE_FIST_LATENCY) {
-		printk("[tpd_em_log] The first touch latency is %d ms\n", raw_x / 1000);
+		pr_info("[tpd_em_log] The first touch latency is %d ms\n", raw_x / 1000);
 	} else if (down && tpd_down_status == 0) {
-		printk("[tpd_em_log] rx=%d,ry=%d,cx=%d,cy=%d,p=%d,d(+%ld ms)\n",
+		pr_info("[tpd_em_log] rx=%d,ry=%d,cx=%d,cy=%d,p=%d,d(+%ld ms)\n",
 		       raw_x, raw_y, cal_x, cal_y, p,
 		       (tpd_last_2_int_time[1] - tpd_last_2_int_time[0]) / 1000);
 	} else if (down && tpd_down_status != 0) {
-		printk("[tpd_em_log] rx=%d,ry=%d,cx=%d,cy=%d,p=%d,m(+%ld ms)\n",
+		pr_info("[tpd_em_log] rx=%d,ry=%d,cx=%d,cy=%d,p=%d,m(+%ld ms)\n",
 		       raw_x, raw_y, cal_x, cal_y, p,
 		       (tpd_last_2_int_time[1] - tpd_last_2_int_time[0]) / 1000);
 	} else {
-		printk("[tpd_em_log] rx=%d,ry=%d,cx=%d,cy=%d,p=%d,u(+%ld ms)\n",
+		pr_info("[tpd_em_log] rx=%d,ry=%d,cx=%d,cy=%d,p=%d,u(+%ld ms)\n",
 		       raw_x, raw_y, cal_x, cal_y, p,
 		       (tpd_last_2_int_time[1] - tpd_last_2_int_time[0]) / 1000);
 	}
@@ -399,12 +399,12 @@ void tpd_em_log_store(int raw_x, int raw_y, int cal_x, int cal_y, int p, int dow
 	unsigned char *buffer = NULL;
 	/* unsigned int unit = tpd_log_line_buffer; */
 
-	/* printk("[tpd_em_log]: start register log file"); */
+	/* pr_info("[tpd_em_log]: start register log file"); */
 
 #endif
 	buffer = tpd_log_find_buffer();
 	if (buffer == NULL) {
-		printk("not buffer\n");
+		pr_err("not buffer\n");
 		return;
 	}
 	do_gettimeofday(&t);
@@ -475,10 +475,10 @@ void tpd_em_log_release(void)
 static int __init tpd_log_init(void)
 {
 	if (misc_register(&tpd_debug_log_dev) < 0) {
-		printk("[tpd_em_log] :register device failed\n");
+		pr_err("[tpd_em_log] :register device failed\n");
 		return -1;
 	}
-	printk("[tpd_em_log] :register device successfully\n");
+	pr_info("[tpd_em_log] :register device successfully\n");
 	return 0;
 }
 

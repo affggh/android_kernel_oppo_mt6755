@@ -4980,6 +4980,7 @@ static void xhci_hcd_driver_cleanup(void)
     xhci_attrs_exit();
 }
 #else
+
 static int xhci_hcd_driver_init(void)
 {
 	// init in mt_devs.c
@@ -5158,14 +5159,27 @@ static void __exit xhci_hcd_cleanup(void)
 }
 module_exit(xhci_hcd_cleanup);
 #else
+
+#ifdef VENDOR_EDIT
+//Fuchun.Liao@Mobile.BSP.CHG 2015-12-22 add for otg_switch
+extern void mtk_xhci_init_delaywork(void);
+extern void mtk_xhci_eint_iddig_gpio_mode(void);
+#endif
 static int __init xhci_hcd_init(void)
 {
-    mtk_xhci_eint_iddig_init();
+#ifndef VENDOR_EDIT
+//Fuchun.Liao@Mobile.BSP.CHG 2015-12-22 add for otg_switch
+	mtk_xhci_eint_iddig_init();
+#else
+	mtk_xhci_init_delaywork();
+	mtk_xhci_eint_iddig_gpio_mode();
+#endif
     mtk_xhci_switch_init();
     mtk_xhci_wakelock_init();
 	return 0;
 }
-module_init(xhci_hcd_init);
+//module_init(xhci_hcd_init);
+late_initcall(xhci_hcd_init);
 
 static void __exit xhci_hcd_cleanup(void)
 {

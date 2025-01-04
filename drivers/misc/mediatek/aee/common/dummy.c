@@ -13,11 +13,6 @@ struct proc_dir_entry;
 
 #ifndef CONFIG_MTK_AEE_FEATURE
 void *aee_excp_regs;
-__weak void aee_rr_last(struct last_reboot_reason *lrr)
-{
-	return;
-}
-
 __weak void aee_sram_printk(const char *fmt, ...)
 {
 	return;
@@ -178,7 +173,7 @@ __weak  void aee_kernel_wdt_kick_Powkey_api(const char *module, int msg)
 
 __weak  int aee_kernel_wdt_kick_api(int kinterval)
  {
-  return;
+  return 0;
  }
 
 __weak  void aee_powerkey_notify_press(unsigned long pressed)
@@ -188,7 +183,7 @@ __weak  void aee_powerkey_notify_press(unsigned long pressed)
 
 __weak  int aee_kernel_Powerkey_is_press(void)
 {
- return;
+ return 0;
 }
 
 

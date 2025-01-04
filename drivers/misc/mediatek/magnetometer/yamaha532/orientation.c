@@ -75,7 +75,7 @@ static int
 suspend(void)
 {
     /* implement suspend of the sensor */
-    printk("%s: suspend\n", SENSOR_NAME);
+    pr_info("%s: suspend\n", SENSOR_NAME);
 
     if (strcmp(SENSOR_NAME, "gyroscope") == 0) {
         /* suspend gyroscope */
@@ -100,7 +100,7 @@ static int
 resume(void)
 {
     /* implement resume of the sensor */
-    printk("%s: resume\n", SENSOR_NAME);
+    pr_info("%s: resume\n", SENSOR_NAME);
 
     if (strcmp(SENSOR_NAME, "gyroscope") == 0) {
         /* resume gyroscope */
@@ -533,13 +533,13 @@ int yamaha530_orientation_operate(void* self, uint32_t command, void* buff_in, i
 	struct input_dev *input_data = this_data;
 
 
-	//printk("yamaha530_orientation_operate!\n");
+	//pr_info("yamaha530_orientation_operate!\n");
 	switch (command)
 	{
 		case SENSOR_DELAY:
 			if((buff_in == NULL) || (size_in < sizeof(int)))
 			{
-				printk("Set delay parameter error!\n");
+				pr_err("Set delay parameter error!\n");
 				err = -EINVAL;
 			}
 			else
@@ -558,7 +558,7 @@ int yamaha530_orientation_operate(void* self, uint32_t command, void* buff_in, i
 		case SENSOR_ENABLE:
 			if((buff_in == NULL) || (size_in < sizeof(int)))
 			{
-				printk("Enable sensor parameter error!\n");
+				pr_err("Enable sensor parameter error!\n");
 				err = -EINVAL;
 			}
 			else
@@ -572,7 +572,7 @@ int yamaha530_orientation_operate(void* self, uint32_t command, void* buff_in, i
 		case SENSOR_GET_DATA:
 			if((buff_out == NULL) || (size_out< sizeof(hwm_sensor_data)))
 			{
-				printk("get sensor data parameter error!\n");
+				pr_err("get sensor data parameter error!\n");
 				err = -EINVAL;
 			}
 			else
@@ -595,13 +595,13 @@ int yamaha530_orientation_operate(void* self, uint32_t command, void* buff_in, i
 			    //osensor_data->values[3] = input_abs_get_val(input_data, ABS_STATUS);
 			    osensor_data->status = input_abs_get_val(input_data, ABS_STATUS);
 #endif
-				printk(" \n Sidney debug osensor_data->values[0] is %d \n",osensor_data->values[0]);
+				pr_info(" \n Sidney debug osensor_data->values[0] is %d \n",osensor_data->values[0]);
 				osensor_data->value_divide = 1000;				
 			}
 
 			break;
 		default:
-			printk("orientation operate function no this parameter %d!\n", command);
+			pr_err("orientation operate function no this parameter %d!\n", command);
 			err = -1;
 			break;
 	}
@@ -635,8 +635,7 @@ sensor_probe(struct platform_device *pdev)
     input_data = input_allocate_device();
     if (!input_data) {
         rt = -ENOMEM;
-        printk(KERN_ERR
-               "sensor_probe: Failed to allocate input_data device\n");
+        pr_err("sensor_probe: Failed to allocate input_data device\n");
         goto err;
     }
 
@@ -654,8 +653,7 @@ sensor_probe(struct platform_device *pdev)
 
     rt = input_register_device(input_data);
     if (rt) {
-        printk(KERN_ERR
-               "sensor_probe: Unable to register input_data device: %s\n",
+        pr_err("sensor_probe: Unable to register input_data device: %s\n",
                input_data->name);
         goto err;
     }
@@ -665,8 +663,7 @@ sensor_probe(struct platform_device *pdev)
     rt = sysfs_create_group(&input_data->dev.kobj,
             &sensor_attribute_group);
     if (rt) {
-        printk(KERN_ERR
-               "sensor_probe: sysfs_create_group failed[%s]\n",
+        pr_err("sensor_probe: sysfs_create_group failed[%s]\n",
                input_data->name);
         goto err;
     }
@@ -679,7 +676,7 @@ sensor_probe(struct platform_device *pdev)
     sobj.sensor_operate = yamaha530_orientation_operate;
 	if((rt = hwmsen_attach(ID_ORIENTATION, &sobj)))
 	{
-		printk("attach fail = %d\n", rt);
+		pr_err("attach fail = %d\n", rt);
 		goto err;
 	}
 
@@ -758,7 +755,7 @@ static int __init sensor_init(void)
     
 	if(platform_driver_register(&sensor_driver))
 	{
-		printk("failed to register driver");
+		pr_err("failed to register driver");
 		return -ENODEV;
 	}
 	return 0;    

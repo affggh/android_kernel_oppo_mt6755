@@ -4,7 +4,7 @@
 ifneq ($(KERNELRELEASE),)
     
     include $(srctree)/drivers/misc/mediatek/Makefile.custom
-    ccflags-y += -I$(MTK_CUSTOM_PATH)/eemcs/ -I$(MTK_CUSTOM_PATH)/eccci/
+    ccflags-y += -I$(MTK_CUSTOM_PATH)/eemcs/ -I$(MTK_CUSTOM_PATH)/eccci/ -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
     ccflags-y += -I$(src)/include/
     
     obj-y	+= conn_md_bridge.o

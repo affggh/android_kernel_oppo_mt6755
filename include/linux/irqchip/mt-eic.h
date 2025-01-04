@@ -39,7 +39,7 @@
 #define EINT_DBNC_EN_BIT           (0x1)
 #define EINT_DBNC_RST_BIT          (0x1)
 #define EINT_DBNC_0_MS             (0x7)
-#define EINT_DBNC                  (0x7)
+#define EINT_DBNC                  (0xF)
 #define EINT_DBNC_SET_EN           (0x1)
 #define EINT_DBNC_CLR_EN           (0x1)
 #define EINT_STA_DEFAULT	0x00000000
@@ -62,14 +62,9 @@
 /*
  * Define constants.
  */
-//#define EINT_IRQ_BASE            NR_MT_IRQ_LINE
-//#define EINT_AP_MAXNUMBER       64 
-//#define EINT_MAX_CHANNEL        64
-#define DEINT_MAX_CHANNEL       4
 #define MT_EINT_POL_NEG         0
 #define MT_EINT_POL_POS         1
-#define MAX_HW_DEBOUNCE_CNT     32
-#define MAX_DEINT_CNT           4
+#define MAX_HW_DEBOUNCE_CNT     16
 #define EINTF_TRIGGER_RISING    0x00000001
 #define EINTF_TRIGGER_FALLING   0x00000002
 #define EINTF_TRIGGER_HIGH      0x00000004
@@ -90,14 +85,17 @@
  */
 extern void mt_eint_mask(unsigned int eint_num);
 extern void mt_eint_unmask(unsigned int eint_num);
-extern void mt_eint_set_hw_debounce(unsigned int eint_num, unsigned int ms);
+extern void mt_eint_set_hw_debounce(unsigned int eint_num, unsigned int us);
 extern void mt_eint_set_polarity(unsigned int eint_num, unsigned int pol);
 extern unsigned int mt_eint_set_sens(unsigned int eint_num, unsigned int sens);
 extern void mt_eint_registration(unsigned int eint_num, unsigned int flow, void (EINT_FUNC_PTR)(void), unsigned int is_auto_umask);
 extern void mt_eint_print_status(void);
 extern int mt_gpio_set_debounce(unsigned gpio, unsigned debounce);
 extern unsigned int mt_gpio_to_irq(unsigned gpio);
-
+extern void mt_eint_virq_soft_clr(unsigned int virq);
+extern void dump_eint_trigger_history(void);
+extern int mt_eint_clr_deint(u32 eint_num);
+extern int mt_eint_set_deint(u32 eint_num, u32 irq_num);
 
 /*
  * Define structure prototypes

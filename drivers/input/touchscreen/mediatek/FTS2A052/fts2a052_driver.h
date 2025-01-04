@@ -21,7 +21,7 @@
 #define FTS_ID0                             0x39
 #define FTS_ID1                             0x80
 
-#define FTS_FIFO_MAX                        32
+#define FTS_FIFO_MAX                        40
 #define FTS_EVENT_SIZE                      8
 #define READ_EVENT_SIZE			    3
 #if 0 //define in tpd_custom_fts2a052.h

@@ -1,10 +1,10 @@
 /*
 * Copyright (C) 2011-2014 MediaTek Inc.
-* 
-* This program is free software: you can redistribute it and/or modify it under the terms of the 
+*
+* This program is free software: you can redistribute it and/or modify it under the terms of the
 * GNU General Public License version 2 as published by the Free Software Foundation.
-* 
-* This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; 
+*
+* This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
 * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 * See the GNU General Public License for more details.
 *
@@ -23,8 +23,9 @@
 #undef ERR
 #endif
 
-#define MSG(fmt, arg ...) printk(KERN_INFO "[BGW] %s: " fmt, __FUNCTION__ ,##arg)
-#define ERR(fmt, arg ...) printk(KERN_ERR "[BGW] %s: " fmt, __FUNCTION__ ,##arg)
+#define PFX1                         "[BWG] "
+#define MSG(fmt, arg ...) pr_debug(PFX1 "[D]%s: "  fmt, __func__ , ##arg)
+#define ERR(fmt, arg ...) pr_debug(PFX1 "[D]%s: "  fmt, __func__ , ##arg)
 
 #ifdef NETLINK_TEST
 #undef NETLINK_TEST
@@ -56,7 +57,8 @@
 /*
 used send command to native process
 
-parameter: command could be macro ON: enable co-exist; OFF: disable co-exist; ACK: after get native process init message send ACK
+parameter: command could be macro ON: enable co-exist; OFF: disable co-exist;
+ACK: after get native process init message send ACK
 
 */
 extern void send_command_to_daemon(const int command);
@@ -67,6 +69,6 @@ return value: 0: ok; -1: fail
 */
 extern int bgw_init_socket(void);
 
-extern void bgw_destory_netlink_kernel(void);
+extern void bgw_destroy_netlink_kernel(void);
 
 #endif

@@ -52,6 +52,31 @@ __weak struct vm_struct *find_vm_area(const void *addr)
 				(void*)(kaddr) < (void *)high_memory && \
 				pfn_valid(__pa(kaddr) >> PAGE_SHIFT))
 
+void check_addr_valid(unsigned long addr, unsigned long *low, unsigned long *high)
+{
+	unsigned long l = *low;
+	unsigned long h = *high;
+
+	while (l < addr) {
+		if (!virt_addr_valid(l)) {
+			*low += PAGE_SIZE;
+			LOGE("address(0x%lx), low is invalid(0x%lx), new low is 0x%lx\n", addr, l, *low);
+		}
+		l += PAGE_SIZE;
+	}
+	if (*low > addr)
+		*low = addr;
+	while (h > addr) {
+		if (!virt_addr_valid(h)) {
+			*high -= PAGE_SIZE;
+			LOGE("address(0x%lx), high is invalid(0x%lx), new high is 0x%lx\n", addr, l, *high);
+		}
+		h -= PAGE_SIZE;
+	}
+	if (*high < addr)
+		*high = addr;
+}
+
 /* copy from fs/binfmt_elf.c */
 static void fill_elf_header(struct elfhdr *elf, int segs)
 {
@@ -237,6 +262,7 @@ void mrdump_mini_add_entry(unsigned long addr, unsigned long size)
 		hnew = lnew + PAGE_SIZE;
 		paddr = __pfn_to_phys(vmalloc_to_pfn((void*)lnew));
 	} else {
+		check_addr_valid(addr, &lnew, &hnew);
 		lnew = max(lnew, PAGE_OFFSET);
 		hnew = min(hnew, (unsigned long)high_memory);
 		paddr = __pa(lnew);
@@ -394,23 +420,34 @@ void mrdump_mini_build_task_info(struct pt_regs *regs)
 	struct task_struct *tsk, *cur;
 	struct aee_process_info *cur_proc;
 
-	if (!virt_addr_valid(current_thread_info()))
+	if (!virt_addr_valid(current_thread_info())) {
+		LOGE("current thread info invalid\n");
 		return;
+	}
 	cur = current_thread_info()->task;
 	tsk = cur;
-	if (!virt_addr_valid(tsk))
+	if (!virt_addr_valid(tsk)) {
+		LOGE("tsk invalid\n");
 		return;
+	}
 	cur_proc = (struct aee_process_info *)((void*)mrdump_mini_ehdr + MRDUMP_MINI_HEADER_SIZE);
 	
 	/* Current panic user tasks */
 	sz = 0;
-	while (tsk && (tsk->pid != 0) && (tsk->pid != 1)) {
+    do {
+        if (!tsk) {
+            LOGE("No tsk info\n");
+            memset(cur_proc, 0x0, sizeof(struct aee_process_info));
+            break;
+        }
 		/* FIXME: Check overflow ? */
 		sz += snprintf(symbol + sz, 128 - sz, "[%s, %d]", tsk->comm, tsk->pid);
 		tsk = tsk->real_parent;
-	}
-	if (strncmp(cur_proc->process_path, symbol, sz) == 0)
+	} while (tsk && (tsk->pid != 0) && (tsk->pid != 1));
+	if (strncmp(cur_proc->process_path, symbol, sz) == 0) {
+		LOGE("same process path\n");
 		return;
+	}
 	
 	memset(cur_proc, 0, sizeof(struct aee_process_info));
 	memcpy(cur_proc->process_path, symbol, sz);
@@ -636,7 +673,7 @@ static void __init mrdump_mini_elf_header_init(void)
 		return;
 	}
 	LOGE("mirdump: reserved %x+%lx->%p", MRDUMP_MINI_BUF_PADDR, (unsigned long)MRDUMP_MINI_HEADER_SIZE, mrdump_mini_ehdr);
-	memset(mrdump_mini_ehdr, 0, MRDUMP_MINI_HEADER_SIZE);
+	memset(mrdump_mini_ehdr, 0, MRDUMP_MINI_HEADER_SIZE + sizeof(struct aee_process_info));
 	fill_elf_header(&mrdump_mini_ehdr->ehdr, MRDUMP_MINI_NR_SECTION);
 }
 

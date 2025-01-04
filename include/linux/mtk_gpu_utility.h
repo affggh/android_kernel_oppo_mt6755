@@ -35,6 +35,23 @@ bool mtk_custom_upbound_gpu_freq(unsigned int ui32FreqLevel);
 bool mtk_get_custom_boost_gpu_freq(unsigned int *pui32FreqLevel);
 bool mtk_get_custom_upbound_gpu_freq(unsigned int *pui32FreqLevel);
 
+bool mtk_do_gpu_dvfs(unsigned long t, long phase, unsigned long ul3DFenceDoneTime);
+bool mtk_get_bottom_gpu_freq(unsigned int *pui32FreqLevel);
+
+bool mtk_get_sw_vsync_phase(long *plPhase);
+bool mtk_get_sw_vsync_time(unsigned long *pulTime);
+bool mtk_get_gpu_fence_done(unsigned long *pulTime);
+
+bool mtk_gpu_dvfs_set_mode(int eMode);
+
+bool mtk_dump_gpu_memory_usage(void);
+
+bool mtk_gpu_sodi_entry(void);
+bool mtk_gpu_sodi_exit(void);
+
+int mtk_get_gpu_power_state(void);
+bool mtk_gpu_dvfs_clock_switch(bool bSwitch);
+
 #ifdef __cplusplus
 }
 #endif

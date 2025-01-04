@@ -39,7 +39,12 @@ struct blkcg_gq;
 #define BLKDEV_MAX_RQ	128	/* Default maximum */
 
 //enable storage pid log in user load
-#if !defined(FEATURE_STORAGE_PERF_INDEX) && !defined(USER_BUILD_KERNEL)
+//#ifndef VENDOR_EDIT
+//Modified by Tong.han@Bsp.Group.Boot Added for debug mmcqd take cpu  resources,2016-4-22
+//#if !defined(FEATURE_STORAGE_PERF_INDEX) && defined(CONFIG_MT_ENG_BUILD)
+//#else
+#if !defined(FEATURE_STORAGE_PERF_INDEX) 
+//#endif /*VENDOR_EDIT*/
 //#if !defined(FEATURE_STORAGE_PERF_INDEX)
 enum METADATA_OPERATION_MODE {
 	WAIT_READ_CNT	= 0,
@@ -83,12 +88,17 @@ static inline void clear_metadata_rw_status(int mmc_index)
 #define FEATURE_STORAGE_META_LOG
 #endif
 
-
 //enable storage pid log in user load
-#if !defined(FEATURE_STORAGE_PID_LOGGER) && !defined(USER_BUILD_KERNEL)
+//#ifndef VENDOR_EDIT
+//Modified by Tong.han@Bsp.Group.Boot Added for debug mmcqd take cpu resources,2016-4-22
+//#if !defined(FEATURE_STORAGE_PID_LOGGER) && defined(CONFIG_MT_ENG_BUILD)
+//#else
+#if !defined(FEATURE_STORAGE_PID_LOGGER) 
+//#endif /*VENDOR_EDIT*/
 //#if !defined(FEATURE_STORAGE_PID_LOGGER)
 //#if !defined(CONFIG_MTK_LM_MODE)
 #define FEATURE_STORAGE_PID_LOGGER
+/*#define CONFIG_MTK_MORE_PID_LOGGER_COUNT*/
 //#endif
 struct page_pid_logger {
         unsigned short pid1;
@@ -100,8 +110,10 @@ struct page_pid_locker {
 
 #if defined(CONFIG_MTK_MORE_PID_LOGGER_COUNT)
 #define PID_LOGGER_COUNT	50
+#define PID_BUFFER_SIZE	2048
 #else
 #define PID_LOGGER_COUNT	20
+#define PID_BUFFER_SIZE	1024
 #endif
 struct struct_pid_logger {
 	unsigned short current_pid;
@@ -111,14 +123,29 @@ struct struct_pid_logger {
 	unsigned int pid_logger_length[PID_LOGGER_COUNT];
 	unsigned short pid_logger_r_counter[PID_LOGGER_COUNT];
 	unsigned int pid_logger_r_length[PID_LOGGER_COUNT];
-	char pid_buffer [1024];
+	char pid_buffer [PID_BUFFER_SIZE];
 };
 
 #define PAGE_LOCKER_SHIFT	0
 #define PID_ID_CNT 		10
-
+#define WORKLOAD_OFFSET 0
+#define WORKLOAD_LOG_LENGTH 64
+#define WRITE_DIVERSITY_OFFSET (WORKLOAD_OFFSET+WORKLOAD_LOG_LENGTH)
+#define WRITE_DIVERSITY_LOG_LENGTH 54
+#define READ_DIVERSITY_OFFSET (WRITE_DIVERSITY_OFFSET+WRITE_DIVERSITY_LOG_LENGTH)
+#define READ_DIVERSITY_LOG_LENGTH 54
+#define WRITE_THROUGHPUT_OFFSET (READ_DIVERSITY_OFFSET+READ_DIVERSITY_LOG_LENGTH)
+#define WRITE_THROUGHPUT_LOG_LENGTH 44
+#define READ_THROUGHPUT_OFFSET (WRITE_THROUGHPUT_OFFSET+WRITE_THROUGHPUT_LOG_LENGTH)
+#define READ_THROUGHPUT_LOG_LENGTH 44
+#define VMSTAT_OFFSET (READ_THROUGHPUT_OFFSET+READ_THROUGHPUT_LOG_LENGTH)
+#define VMSTAT_LOG_LENGTH 54
+#define PID_OFFSET (VMSTAT_OFFSET+VMSTAT_LOG_LENGTH)
+#define PID_LOG_LENGTH (PID_BUFFER_SIZE + 8)
+/*log size+header size 18*/
+#define BLOCK_IO_BUFFER_SIZE (64 + 54 + 54 + 44 + 44 + 54 + PID_LOG_LENGTH + 18)
+extern unsigned long long system_dram_size;
 #endif /* FEATURE_STORAGE_PID_LOGGER */
-//#endif /* USER_BUILD_KERNEL */
 /*
  * Maximum number of blkcg policies allowed to be registered concurrently.
  * Defined here to simplify include dependency.
@@ -176,6 +203,10 @@ enum rq_cmd_type_bits {
  */
 struct request {
 	struct list_head queuelist;
+#ifdef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Kernel.Performance, 2018-04-28, add foreground task io opt*/
+	struct list_head fg_list;
+#endif /*VENDOR_EDIT*/
 	struct call_single_data csd;
 
 	struct request_queue *q;
@@ -371,6 +402,15 @@ struct request_queue {
 	 * Together with queue_head for cacheline sharing
 	 */
 	struct list_head	queue_head;
+#ifdef VENDOR_EDIT
+	/*Huacai.Zhou@PSW.BSP.Kernel.Performance, 2018-04-28, add foreground task io opt*/
+	struct list_head	fg_head;
+	int fg_count;
+	int both_count;
+	int fg_count_max;
+	int both_count_max;
+#endif /*VENDOR*/
+
 	struct request		*last_merge;
 	struct elevator_queue	*elevator;
 	int			nr_rqs[2];	/* # allocated [a]sync rqs */
@@ -614,6 +654,26 @@ static inline void queue_flag_clear(unsigned int flag, struct request_queue *q)
 	queue_lockdep_assert_held(q);
 	__clear_bit(flag, &q->queue_flags);
 }
+
+#ifdef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Kernel.Performance, 2018-04-28, add foreground task io opt*/
+extern unsigned int sysctl_fg_io_opt;
+static inline void queue_throtl_add_request(struct request_queue *q,
+					    struct request *rq, bool front)
+{
+	struct list_head *head;
+	if (!sysctl_fg_io_opt)
+		return;
+
+	if (rq->cmd_flags & REQ_FG) {
+		head = &q->fg_head;
+		if (front)
+			list_add(&rq->fg_list, head);
+		else
+			list_add_tail(&rq->fg_list, head);
+	}
+}
+#endif /*VENDOR_EDIT*/
 
 #define blk_queue_tagged(q)	test_bit(QUEUE_FLAG_QUEUED, &(q)->queue_flags)
 #define blk_queue_stopped(q)	test_bit(QUEUE_FLAG_STOPPED, &(q)->queue_flags)

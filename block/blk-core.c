@@ -38,6 +38,13 @@
 #include "blk.h"
 #include "blk-cgroup.h"
 
+#if defined(FEATURE_STORAGE_PID_LOGGER)
+#include <linux/vmalloc.h>
+#include <mach/mtk_meminfo.h>
+#include <linux/memblock.h>
+unsigned long long system_dram_size = 0;
+#endif
+
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_bio_remap);
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_rq_remap);
 EXPORT_TRACEPOINT_SYMBOL_GPL(block_bio_complete);
@@ -139,6 +146,11 @@ void blk_rq_init(struct request_queue *q, struct request *rq)
 	memset(rq, 0, sizeof(*rq));
 
 	INIT_LIST_HEAD(&rq->queuelist);
+#ifdef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Kernel.Performance, 2018-04-28, add foreground task io opt*/
+	INIT_LIST_HEAD(&rq->fg_list);
+#endif /*VENDOR_EDIT*/
+
 	INIT_LIST_HEAD(&rq->timeout_list);
 	rq->cpu = -1;
 	rq->q = q;
@@ -588,6 +600,12 @@ struct request_queue *blk_alloc_queue(gfp_t gfp_mask)
 }
 EXPORT_SYMBOL(blk_alloc_queue);
 
+#ifdef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Kernel.Performance, 2018-04-28, add foreground task io opt*/
+#define FG_CNT_DEF 20
+#define BOTH_CNT_DEF 10
+#endif /*VENDOR_EDIT*/
+
 struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 {
 	struct request_queue *q;
@@ -601,6 +619,14 @@ struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 	q->id = ida_simple_get(&blk_queue_ida, 0, 0, gfp_mask);
 	if (q->id < 0)
 		goto fail_q;
+
+#ifdef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Kernel.Performance, 2018-04-28, add foreground task io opt*/
+	q->fg_count_max = FG_CNT_DEF;
+	q->both_count_max = BOTH_CNT_DEF;
+	q->fg_count = FG_CNT_DEF;
+	q->both_count = BOTH_CNT_DEF;
+#endif /*VENDOR_EDIT*/
 
 	q->backing_dev_info.ra_pages =
 			(VM_MAX_READAHEAD * 1024) / PAGE_CACHE_SIZE;
@@ -617,6 +643,11 @@ struct request_queue *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 		    laptop_mode_timer_fn, (unsigned long) q);
 	setup_timer(&q->timeout, blk_rq_timed_out_timer, (unsigned long) q);
 	INIT_LIST_HEAD(&q->queue_head);
+#ifdef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Kernel.Performance, 2018-04-28, add foreground task io opt*/
+	INIT_LIST_HEAD(&q->fg_head);
+#endif /*VENDOR_EDIT*/
+
 	INIT_LIST_HEAD(&q->timeout_list);
 	INIT_LIST_HEAD(&q->icq_list);
 #ifdef CONFIG_BLK_CGROUP
@@ -1849,6 +1880,37 @@ void generic_make_request(struct bio *bio)
 }
 EXPORT_SYMBOL(generic_make_request);
 
+#ifdef CONFIG_ZRAM
+extern void zram_make_request(struct request_queue *queue, struct bio *bio);
+
+int swap_make_request(struct bio *bio)
+{
+	struct bio_list bio_list_on_stack;
+	if (unlikely(trap_non_toi_io))
+		BUG_ON(!(bio->bi_flags & BIO_TOI));
+
+	if (!generic_make_request_checks(bio))
+		return -1;
+
+	if (current->bio_list) {
+		bio_list_add(current->bio_list, bio);
+		return -1;
+	}
+
+	BUG_ON(bio->bi_next);
+	bio_list_init(&bio_list_on_stack);
+	current->bio_list = &bio_list_on_stack;
+	do {
+		struct request_queue *q = bdev_get_queue(bio->bi_bdev);
+			zram_make_request(q, bio);
+
+		bio = bio_list_pop(current->bio_list);
+	} while (bio);
+	current->bio_list = NULL; /* deactivate */
+
+	return 0;
+}
+#endif /*CONFIG_ZRAM*/
 /**
  * submit_bio - submit a bio to the block device layer for I/O
  * @rw: whether to %READ or %WRITE, or maybe to %READA (read ahead)
@@ -1887,14 +1949,14 @@ void submit_bio(int rw, struct bio *bio)
                            int i;
                            struct bio_vec *bvec;
 
-                           //printk(KERN_INFO"submit_bio size:%d", bio->bi_size);
+
 			   bio_for_each_segment(bvec, bio, i)
                            {
 		              struct page_pid_logger *tmp_logger;
 		              extern unsigned char *page_logger;
 		              extern spinlock_t g_locker;
 		              unsigned long flags;
-		              //printk(KERN_INFO"submit_bio bvec:%p size:%d", bvec, bio->bi_size);
+
 		              if( page_logger && bvec->bv_page) {
 			         unsigned long page_index;
 	                 //#if defined(CONFIG_FLATMEM)
@@ -1902,7 +1964,7 @@ void submit_bio(int rw, struct bio *bio)
 			         //#else
 			         page_index = (unsigned long)(__page_to_pfn(bvec->bv_page))- PHYS_PFN_OFFSET;
 			         //#endif
-			         //printk(KERN_INFO"hank:submit_bio page_index:%lu", page_index);
+
 			         tmp_logger =((struct page_pid_logger *)page_logger) + page_index;
 			         spin_lock_irqsave(&g_locker, flags);
 			         if( page_index < num_physpages) {
@@ -1912,7 +1974,7 @@ void submit_bio(int rw, struct bio *bio)
 					tmp_logger->pid2 = current->pid;
 			         }
 			         spin_unlock_irqrestore(&g_locker, flags);
-			         //printk(KERN_INFO"hank tmp logger pid1:%u pid2:%u pfn:%d \n", tmp_logger->pid1, tmp_logger->pid2, (unsigned long)((page) - mem_map) );
+
 		              }
 
 
@@ -1932,7 +1994,11 @@ void submit_bio(int rw, struct bio *bio)
 				count);
 		}
 	}
-
+#ifdef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Kernel.Performance, 2018-04-28, add foreground task io opt*/
+	if (current_is_fg())
+		bio->bi_rw |= REQ_FG;
+#endif
 	generic_make_request(bio);
 }
 EXPORT_SYMBOL(submit_bio);
@@ -2244,6 +2310,11 @@ void blk_dequeue_request(struct request *rq)
 	BUG_ON(ELV_ON_HASH(rq));
 
 	list_del_init(&rq->queuelist);
+#ifdef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Kernel.Performance, 2018-04-28, add foreground task io opt*/
+	list_del_init(&rq->fg_list);
+#endif /*VENDOR_EDIT*/
+
 
 	/*
 	 * the time frame between a request being removed from the lists
@@ -3246,3 +3317,17 @@ int __init blk_dev_init(void)
 
 	return 0;
 }
+#if defined(FEATURE_STORAGE_PID_LOGGER)
+
+static int __init display_early_memory_info(void){
+int node;
+phys_addr_t start, end;
+start = memblock_start_of_DRAM();
+end = memblock_end_of_DRAM();
+system_dram_size = (unsigned long long)(end - start);
+pr_debug("DRAM: %pa - %pa, size: 0x%llx\n", &start, &end, (unsigned long long)(end - start));
+return 0;
+}
+late_initcall(display_early_memory_info);
+#endif
+

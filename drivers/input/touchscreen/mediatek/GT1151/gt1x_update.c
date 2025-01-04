@@ -29,6 +29,7 @@
 #include <asm/uaccess.h>
 
 #include "gt1x_generic.h"
+#include "include/gt1x_tpd_common.h"
 #if (GTP_HOTKNOT || GTP_HEADER_FW_UPDATE)
 #include "gt1x_firmware.h"
 #endif
@@ -266,6 +267,7 @@ int gt1x_auto_update_proc(void *data)
 		}
 	}
 #endif
+	gt1x_auto_update_done();
 	return 0;
 }
 #if !GTP_HEADER_FW_UPDATE
@@ -685,10 +687,22 @@ int gt1x_update_judge(void)
 		GTP_ERROR("Mask id is not match!");
 		return ERROR_CHECK;
 	}
+#ifndef CONFIG_GT1151_ALLOW_DOWNGRADE
 	if (fw_ver_info.patch_id <= ver_info.patch_id) {
-		GTP_ERROR("The version of the fw is not high than the IC's!");
+		GTP_ERROR("The version of the fw(%x) is not high than the IC's(%x)!",
+			fw_ver_info.patch_id, ver_info.patch_id);
 		return ERROR_CHECK;
 	}
+#else
+	if (fw_ver_info.patch_id == ver_info.patch_id) {
+		GTP_ERROR("The version of the fw(%x) is the same as the IC's(%x)!",
+			fw_ver_info.patch_id, ver_info.patch_id);
+		return ERROR_CHECK;
+	} else {
+		GTP_ERROR("The version of the fw(%x) is not the same as the IC's(%x)!",
+			fw_ver_info.patch_id, ver_info.patch_id);
+	}
+#endif
 	return 0;
 }
 
@@ -1141,11 +1155,11 @@ void read_reg(u16 addr, int len)
 	while (len > 0) {
 		cur_len = (len > 16 ? 16 : len);
 		gt1x_i2c_read(addr + read_len, buffer, cur_len);
-		printk("<<GTP-INF>> ");
+		GTP_INFO("<<GTP-INF>> ");
 		for (i = 0; i < cur_len; i++) {
-			printk("%02X ", buffer[i]);
+			GTP_INFO("%02X ", buffer[i]);
 		}
-		printk("\n");
+		GTP_INFO("\n");
 		len -= cur_len;
 		read_len += cur_len;
 	}

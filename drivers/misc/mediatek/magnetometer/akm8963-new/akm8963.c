@@ -78,6 +78,7 @@ static struct i2c_client *this_client = NULL;
 /* Addresses to scan -- protected by sense_data_mutex */
 static char sense_data[SENSOR_DATA_SIZE];
 static struct mutex sense_data_mutex;
+static bool akm8963_onoff = 1;
 // calibration msensor and orientation data
 static short sensor_data[CALIBRATION_DATA_SIZE];
 static struct mutex sensor_data_mutex;
@@ -112,7 +113,10 @@ static int akm8963_local_init(void);
 static int akm8963_remove(void);
 
 static int akm8963_init_flag =-1; // 0<==>OK -1 <==> fail
-
+#ifdef VENDOR_EDIT
+//zhihong.lu@BSP.sensor,modify the name
+extern struct mag_hw* akm8963_get_cust_mag_hw(void);
+#endif /*VENDOR_EDIT*/
 static struct mag_init_info akm8963_init_info = {
     .name = "akm8963",
     .init = akm8963_local_init,
@@ -211,7 +215,7 @@ static long AKI2C_RxData(char *rxData, int length)
 	{
 		this_client->addr = this_client->addr & I2C_MASK_FLAG;
 		this_client->addr = this_client->addr | I2C_WR_FLAG;
-		if(i2c_master_send(this_client, (const char*)rxData, ((length<<0X08) | 0X01)))
+		if(i2c_master_send(this_client, (const char*)rxData, ((length<<0X08) | 0X01)) > 0)
 		{
 			break;
 		}
@@ -414,10 +418,10 @@ static int AKECS_CheckDevice(void)
 		return ret;
 	}
 	/* Check read data */
-	//if(buffer[0] != 0x48)
-	//{
-	//	return -ENXIO;
-	//}
+	if(buffer[0] != 0x48)
+	{
+		return -ENXIO;
+	}
 	
 	return 0;
 }
@@ -1932,20 +1936,22 @@ static int akm8963_suspend(struct i2c_client *client, pm_message_t msg)
 	int err;
 	struct akm8963_i2c_data *obj = i2c_get_clientdata(client);
 	    
-
-	if(msg.event == PM_EVENT_SUSPEND)
-	{
-		if(NULL == obj)
+	if(akm8963_onoff)
+	{	
+		if(msg.event == PM_EVENT_SUSPEND)
 		{
-			AKMDBG("null pointer!!\n");
-			return -1;
+			if(NULL == obj)
+			{
+				AKMDBG("null pointer!!\n");
+				return -1;
+			}
+		if ((err = AKECS_SetMode(AK8963_MODE_POWERDOWN)) < 0) {
+			AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
+			return err;
 		}
-	if ((err = AKECS_SetMode(AK8963_MODE_POWERDOWN)) < 0) {
-		AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
-		return err;
-	}
-	
-		akm8963_power(obj->hw, 0);
+		
+			akm8963_power(obj->hw, 0);
+		}
 	}
 	return 0;
 }
@@ -1954,18 +1960,21 @@ static int akm8963_resume(struct i2c_client *client)
 {
 	int err;
 	struct akm8963_i2c_data *obj = i2c_get_clientdata(client);
-	if(NULL == obj)
-		{
-			AKMDBG(KERN_ERR "null pointer!!\n");
-			return -1;
-		}
-
-	akm8963_power(obj->hw, 1);
-		
-	if ((err = AKECS_SetMode(AK8963_MODE_SNG_MEASURE)) < 0) {
-		AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
-		return err;
-		}
+	if(akm8963_onoff)
+	{		
+		if(NULL == obj)
+			{
+				AKMDBG(KERN_ERR "null pointer!!\n");
+				return -1;
+			}
+	
+		akm8963_power(obj->hw, 1);
+			
+		if ((err = AKECS_SetMode(AK8963_MODE_SNG_MEASURE)) < 0) {
+			AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
+			return err;
+			}
+	}
 
 	return 0;
 }
@@ -1976,18 +1985,20 @@ static void akm8963_early_suspend(struct early_suspend *h)
 {
 	struct akm8963_i2c_data *obj = container_of(h, struct akm8963_i2c_data, early_drv);   
 	int err = 0;
-
-	if(NULL == obj)
-	{
-		AKMDBG("null pointer!!\n");
-		return;
-	}
-	if ((err = AKECS_SetMode(AK8963_MODE_POWERDOWN)) < 0) {
-		AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
-		return;
-	}
-
-	akm8963_power(obj->hw, 0);       
+	if(akm8963_onoff)
+	{	
+		if(NULL == obj)
+		{
+			AKMDBG("null pointer!!\n");
+			return;
+		}
+		if ((err = AKECS_SetMode(AK8963_MODE_POWERDOWN)) < 0) {
+			AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
+			return;
+		}
+	
+		akm8963_power(obj->hw, 0); 
+	}     
 }
 /*----------------------------------------------------------------------------*/
 static void akm8963_late_resume(struct early_suspend *h)
@@ -1995,18 +2006,20 @@ static void akm8963_late_resume(struct early_suspend *h)
 	struct akm8963_i2c_data *obj = container_of(h, struct akm8963_i2c_data, early_drv);         
 	int err;
 
-
-	if(NULL == obj)
-	{
-		AKMDBG("null pointer!!\n");
-		return;
-	}
-	akm8963_power(obj->hw, 1);
-
-	if ((err = AKECS_SetMode(AK8963_MODE_SNG_MEASURE)) < 0) {
-		AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
-		return;
+	if(akm8963_onoff)
+	{	
+		if(NULL == obj)
+		{
+			AKMDBG("null pointer!!\n");
+			return;
 		}
+		akm8963_power(obj->hw, 1);
+	
+		if ((err = AKECS_SetMode(AK8963_MODE_SNG_MEASURE)) < 0) {
+			AKMDBG("%s:%d Error.\n", __FUNCTION__, __LINE__);
+			return;
+			}
+	}
 }
 /*----------------------------------------------------------------------------*/
 #endif /*USE_EARLY_SUSPEND*/
@@ -2141,7 +2154,10 @@ static int akm8963_i2c_probe(struct i2c_client *client, const struct i2c_device_
 		goto exit;
 	}
 	memset(data, 0, sizeof(struct akm8963_i2c_data));
-	data->hw = get_cust_mag_hw();	
+	#ifdef VENDOR_EDIT
+	//zhihong.lu@BSP.sensor,modify the name
+	data->hw = akm8963_get_cust_mag_hw();
+	#endif /*VENDOR_EDIT*/
 	
 	atomic_set(&data->layout, data->hw->direction);
 	atomic_set(&data->trace, 0);
@@ -2285,8 +2301,10 @@ static int akm_gpio_rst_config(void)
 /*----------------------------------------------------------------------------*/
 static int akm8963_remove(void)
 {
-	struct mag_hw *hw = get_cust_mag_hw();
- 
+	#ifdef VENDOR_EDIT
+	//zhihong.lu@BSP.sensor,modify the name
+	struct mag_hw *hw = akm8963_get_cust_mag_hw();
+	#endif /*VENDOR_EDIT*/
 	akm8963_power(hw, 0);    
 	atomic_set(&dev_open_count, 0);  
 	i2c_del_driver(&akm8963_i2c_driver);
@@ -2294,7 +2312,10 @@ static int akm8963_remove(void)
 }
 static int	akm8963_local_init(void)
 {
-	struct mag_hw *hw = get_cust_mag_hw();
+	#ifdef VENDOR_EDIT
+	//zhihong.lu@BSP.sensor,modify the name
+	struct mag_hw *hw = akm8963_get_cust_mag_hw();
+	#endif /*VENDOR_EDIT*/
 	//printk("fwq loccal init+++\n");
 
 	akm8963_power(hw, 1);
@@ -2305,7 +2326,9 @@ static int	akm8963_local_init(void)
 	}
 	if(-1 == akm8963_init_flag)
 	{
-	   return -1;
+		AKMDBG("akm8963 init error\n");
+		i2c_del_driver(&akm8963_i2c_driver);
+		return -1;
 	}
 	//printk("fwq loccal init---\n");
 	return 0;
@@ -2314,7 +2337,10 @@ static int	akm8963_local_init(void)
 /*----------------------------------------------------------------------------*/
 static int __init akm8963_init(void)
 {
-    	struct mag_hw *hw = get_cust_mag_hw();
+	#ifdef VENDOR_EDIT
+	//zhihong.lu@BSP.sensor,modify the name
+	struct mag_hw *hw = akm8963_get_cust_mag_hw();
+	#endif /*VENDOR_EDIT*/
 	printk("akm8963: i2c_number=%d\n",hw->i2c_num); 
 	i2c_register_board_info(hw->i2c_num, &i2c_akm8963, 1);
 	mag_driver_add(&akm8963_init_info);
@@ -2328,6 +2354,7 @@ static void __exit akm8963_exit(void)
 /*----------------------------------------------------------------------------*/
 module_init(akm8963_init);
 module_exit(akm8963_exit);
+module_param(akm8963_onoff, bool, 0644);
 
 MODULE_AUTHOR("viral wang <viral_wang@htc.com>");
 MODULE_DESCRIPTION("AKM8963 compass driver");

@@ -7,8 +7,8 @@
  *  EXPORT FUNCTION
  ******************************************************************************/
 int sec_cipherfmt_check_cipher(ASF_FILE fp, unsigned int start_off, unsigned int *img_len);
-int sec_cipherfmt_decrypted(ASF_FILE fp, unsigned int start_off, char *buf, unsigned int buf_len, unsigned int *data_offset);
+int sec_cipherfmt_decrypted(ASF_FILE fp, unsigned int start_off, char *buf, unsigned int buf_len,
+			    unsigned int *data_offset);
 
 
 #endif
-

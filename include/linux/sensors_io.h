@@ -24,6 +24,10 @@
 
 #include <linux/ioctl.h>
 
+#ifndef CONFIG_COMPAT
+#define CONFIG_COMPAT
+#endif
+
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
@@ -53,6 +57,12 @@ typedef struct {
 #define GSENSOR_IOCTL_CLR_CALI				_IO(GSENSOR, 0x08)
 
 #ifdef CONFIG_COMPAT
+#define COMPAT_GSENSOR_IOCTL_INIT                  _IO(GSENSOR,  0x01)
+#define COMPAT_GSENSOR_IOCTL_READ_CHIPINFO         _IOR(GSENSOR, 0x02, compat_int_t)
+#define COMPAT_GSENSOR_IOCTL_READ_SENSORDATA       _IOR(GSENSOR, 0x03, compat_int_t)
+#define COMPAT_GSENSOR_IOCTL_READ_OFFSET			_IOR(GSENSOR, 0x04, GSENSOR_VECTOR3D)
+#define COMPAT_GSENSOR_IOCTL_READ_GAIN				_IOR(GSENSOR, 0x05, GSENSOR_VECTOR3D)
+#define COMPAT_GSENSOR_IOCTL_READ_RAW_DATA			_IOR(GSENSOR, 0x06, compat_int_t)
 #define COMPAT_GSENSOR_IOCTL_SET_CALI				_IOW(GSENSOR, 0x06, SENSOR_DATA)
 #define COMPAT_GSENSOR_IOCTL_GET_CALI				_IOW(GSENSOR, 0x07, SENSOR_DATA)
 #define COMPAT_GSENSOR_IOCTL_CLR_CALI				_IO(GSENSOR, 0x08)
@@ -155,6 +165,10 @@ typedef struct {
 #define MMC31XX_IOC_READ				_IOR(MSENSOR, 0x1b, int[3])
 #define MMC31XX_IOC_READXYZ				_IOR(MSENSOR, 0x1c, int[3])
 
+#define MMC3530X_IOC_READ_REG                        _IOWR(MSENSOR, 0x32, unsigned char)
+#define MMC3530X_IOC_WRITE_REG                       _IOW(MSENSOR, 0x33, unsigned char[2])
+#define MMC3530X_IOC_READ_REGS                       _IOWR(MSENSOR, 0x34, unsigned char[10])
+
 #define ECOMPASS_IOC_GET_DELAY			_IOR(MSENSOR, 0x1d, int)
 #define ECOMPASS_IOC_GET_MFLAG			_IOR(MSENSOR, 0x1e, short)
 #define	ECOMPASS_IOC_GET_OFLAG			_IOR(MSENSOR, 0x1f, short)
@@ -196,6 +210,10 @@ typedef struct {
 #define COMPAT_MMC31XX_IOC_RESET			   _IO(MSENSOR, 0x1a)
 #define COMPAT_MMC31XX_IOC_READ				   _IOR(MSENSOR, 0x1b, compat_int_t[3])
 #define COMPAT_MMC31XX_IOC_READXYZ			   _IOR(MSENSOR, 0x1c, compat_int_t[3])
+
+#define COMPAT_MMC3530X_IOC_READ_REG                        _IOWR(MSENSOR, 0x32, unsigned char)
+#define COMPAT_MMC3530X_IOC_WRITE_REG                       _IOW(MSENSOR, 0x33, unsigned char[2])
+#define COMPAT_MMC3530X_IOC_READ_REGS                       _IOWR(MSENSOR, 0x34, unsigned char[10])
 
 #define COMPAT_ECOMPASS_IOC_GET_DELAY		   _IOR(MSENSOR, 0x1d, compat_int_t)
 #define COMPAT_ECOMPASS_IOC_GET_MFLAG		   _IOR(MSENSOR, 0x1e, compat_short_t)
@@ -262,6 +280,49 @@ typedef struct {
 #define AAL_GET_ALS_MODE				_IOR(ALSPS, 0x15,int)
 #define AAL_GET_ALS_DATA				_IOR(ALSPS, 0x16,int)
 
+#ifdef VENDOR_EDIT
+//Lycan.Wang@BasicDrv.Sensor, 2012-11-15 Add for prox sensor service
+#define ALSPS_SET_PS_THRESHOLD_OPPO             _IOR(ALSPS, 0x21, int)
+#define ALSPS_GET_CUST_PS_ADJUST_PARA       _IOR(ALSPS, 0x22, int)
+#define ALSPS_GET_HIGHLIGHT_DATA       _IOR(ALSPS, 0x23, int)
+#define ALSPS_GET_WAKEUP_STATUS       _IOR(ALSPS, 0x24, int)
+#endif /* VENDOR_EDIT */
+
+#ifdef CONFIG_COMPAT
+#define COMPAT_ALSPS_SET_PS_MODE				_IOW(ALSPS, 0x01, compat_int_t)
+#define COMPAT_ALSPS_GET_PS_MODE				_IOR(ALSPS, 0x02, compat_int_t)
+#define COMPAT_ALSPS_GET_PS_DATA				_IOR(ALSPS, 0x03, compat_int_t)
+#define COMPAT_ALSPS_GET_PS_RAW_DATA			_IOR(ALSPS, 0x04, compat_int_t)
+#define COMPAT_ALSPS_SET_ALS_MODE				_IOW(ALSPS, 0x05, compat_int_t)
+#define COMPAT_ALSPS_GET_ALS_MODE				_IOR(ALSPS, 0x06, compat_int_t)
+#define COMPAT_ALSPS_GET_ALS_DATA				_IOR(ALSPS, 0x07, compat_int_t)
+#define COMPAT_ALSPS_GET_ALS_RAW_DATA			_IOR(ALSPS, 0x08, compat_int_t)
+
+/*-------------------MTK add-------------------------------------------*/
+#define COMPAT_ALSPS_GET_PS_TEST_RESULT		_IOR(ALSPS, 0x09, compat_int_t)
+#define COMPAT_ALSPS_GET_ALS_TEST_RESULT		_IOR(ALSPS, 0x0A, compat_int_t)
+#define COMPAT_ALSPS_GET_PS_THRESHOLD_HIGH		_IOR(ALSPS, 0x0B, compat_int_t)
+#define COMPAT_ALSPS_GET_PS_THRESHOLD_LOW		_IOR(ALSPS, 0x0C, compat_int_t)
+#define COMPAT_ALSPS_GET_ALS_THRESHOLD_HIGH	_IOR(ALSPS, 0x0D, compat_int_t)
+#define COMPAT_ALSPS_GET_ALS_THRESHOLD_LOW		_IOR(ALSPS, 0x0E, compat_int_t)
+#define COMPAT_ALSPS_IOCTL_CLR_CALI			_IOW(ALSPS, 0x0F, compat_int_t)
+#define COMPAT_ALSPS_IOCTL_GET_CALI			_IOR(ALSPS, 0x10, compat_int_t)
+#define COMPAT_ALSPS_IOCTL_SET_CALI			_IOW(ALSPS, 0x11, compat_int_t)
+#define COMPAT_ALSPS_SET_PS_THRESHOLD			_IOW(ALSPS, 0x12, compat_int_t)
+#define COMPAT_ALSPS_SET_ALS_THRESHOLD			_IOW(ALSPS, 0x13, compat_int_t)
+#define COMPAT_AAL_SET_ALS_MODE				_IOW(ALSPS, 0x14,compat_int_t)
+#define COMPAT_AAL_GET_ALS_MODE				_IOR(ALSPS, 0x15,compat_int_t)
+#define COMPAT_AAL_GET_ALS_DATA				_IOR(ALSPS, 0x16,compat_int_t)
+
+#ifdef VENDOR_EDIT
+//Lycan.Wang@BasicDrv.Sensor, 2012-11-15 Add for prox sensor service
+#define COMPAT_ALSPS_SET_PS_THRESHOLD_OPPO             _IOR(ALSPS, 0x21, compat_int_t)
+#define COMPAT_ALSPS_GET_CUST_PS_ADJUST_PARA       _IOR(ALSPS, 0x22, compat_int_t)
+#define COMPAT_ALSPS_GET_HIGHLIGHT_DATA       _IOR(ALSPS, 0x23, compat_int_t)
+#define COMPAT_ALSPS_GET_WAKEUP_STATUS       _IOR(ALSPS, 0x24, compat_int_t)
+#endif /* VENDOR_EDIT */
+
+#endif
 
 #define GYROSCOPE							0X86
 #define GYROSCOPE_IOCTL_INIT				_IO(GYROSCOPE, 0x01)
@@ -273,6 +334,12 @@ typedef struct {
 #define GYROSCOPE_IOCTL_READ_SENSORDATA_RAW	_IOR(GYROSCOPE, 0x07, int)
 #define GYROSCOPE_IOCTL_READ_TEMPERATURE	_IOR(GYROSCOPE, 0x08, int)
 #define GYROSCOPE_IOCTL_GET_POWER_STATUS	_IOR(GYROSCOPE, 0x09, int)
+//VENDOR_EDIT zhihong.lu@BSP.sensor
+#define GYROSCOPE_IOCTL_READ_VENDORDIV		_IOR(GYROSCOPE, 0x0A, int)
+#define GYROSCOPE_IOCTL_GET_FIFOLENGTH		_IOR(GYROSCOPE, 0x0B, int)
+#define GYROSCOPE_IOCTL_FIFO_INIT			_IOW(GYROSCOPE, 0x0C, int)
+#define GYROSCOPE_IOCTL_GET_FIFODATA		_IOR(GYROSCOPE, 0x0D, int)
+
 
 #ifdef CONFIG_COMPAT
 #define GYROSCOPE							0X86
@@ -285,14 +352,45 @@ typedef struct {
 #define COMPAT_GYROSCOPE_IOCTL_READ_SENSORDATA_RAW	_IOR(GYROSCOPE, 0x07, compat_int_t)
 #define COMPAT_GYROSCOPE_IOCTL_READ_TEMPERATURE	_IOR(GYROSCOPE, 0x08, compat_int_t)
 #define COMPAT_GYROSCOPE_IOCTL_GET_POWER_STATUS	_IOR(GYROSCOPE, 0x09, compat_int_t)
+//VENDOR_EDIT zhihong.lu@BSP.sensor
+#define COMPAT_GYROSCOPE_IOCTL_READ_VENDORDIV	_IOR(GYROSCOPE, 0x0A, compat_int_t)
+#define COMPAT_GYROSCOPE_IOCTL_GET_FIFOLENGTH	_IOR(GYROSCOPE, 0x0B, compat_int_t)
+#define COMPAT_GYROSCOPE_IOCTL_FIFO_INIT		_IOW(GYROSCOPE, 0x0C, compat_int_t)
+#define COMPAT_GYROSCOPE_IOCTL_GET_FIFODATA		_IOR(GYROSCOPE, 0x0D, compat_int_t)
 #endif
 #define BROMETER							0X87
 #define BAROMETER_IOCTL_INIT				_IO(BROMETER, 0x01)
 #define BAROMETER_GET_PRESS_DATA			_IOR(BROMETER, 0x02, int)
 #define BAROMETER_GET_TEMP_DATA			    _IOR(BROMETER, 0x03, int)
 #define BAROMETER_IOCTL_READ_CHIPINFO		_IOR(BROMETER, 0x04, int)
+#ifdef CONFIG_COMPAT
+#define COMPAT_BAROMETER_IOCTL_INIT			 _IO(BROMETER, 0x01)
+#define COMPAT_BAROMETER_GET_PRESS_DATA			_IOR(BROMETER, 0x02, compat_int_t)
+#define COMPAT_BAROMETER_GET_TEMP_DATA			_IOR(BROMETER, 0x03, compat_int_t)
+#define COMPAT_BAROMETER_IOCTL_READ_CHIPINFO		_IOR(BROMETER, 0x04, compat_int_t)
+#endif
+#define HEARTMONITOR					0x88
+#define HRM_IOCTL_INIT					_IO(HEARTMONITOR, 0x01)
+#define HRM_READ_SENSOR_DATA				_IOR(HEARTMONITOR, 0x02, int)
 
+#endif
 
+#define RGB							0x89
+#define RGB_IOCTL_READ_SENSORDATA       _IOR(RGB, 0x01, int) 	// R.G.B.W int[4]
+#define RGB_IOCTL_GET_CODE				_IOR(RGB, 0x02, int)	// Correlation Code int[1]
+#define RGB_IOCTL_GET_ENABLED			_IOR(RGB, 0x03, int)	// Get Enabled Status
+#define RGB_IOCTL_SET_ENABLED			_IOW(RGB, 0x04, int)	// Set Enabled Status
+#define RGB_IOCTL_SET_LUX       		_IOW(RGB, 0x05, int)
+#define RGB_IOCTL_SET_CCT       		_IOW(RGB, 0x06, int)
+#define RGB_IOCTL_SET_REG				_IOW(RGB, 0x07, int)	// int[2], Set Register Directly (address & data, unsigned char)
 
+#ifdef CONFIG_COMPAT
+#define COMPAT_RGB_IOCTL_READ_SENSORDATA       _IOR(RGB, 0x01, compat_int_t) 	// R.G.B.W int[4]
+#define COMPAT_RGB_IOCTL_GET_CODE				_IOR(RGB, 0x02, compat_int_t)	// Correlation Code int[1]
+#define COMPAT_RGB_IOCTL_GET_ENABLED			_IOR(RGB, 0x03, compat_int_t)	// Get Enabled Status
+#define COMPAT_RGB_IOCTL_SET_ENABLED			_IOW(RGB, 0x04, compat_int_t)	// Set Enabled Status
+#define COMPAT_RGB_IOCTL_SET_LUX       		_IOW(RGB, 0x05, compat_int_t)
+#define COMPAT_RGB_IOCTL_SET_CCT       		_IOW(RGB, 0x06, compat_int_t)
+#define COMPAT_RGB_IOCTL_SET_REG				_IOW(RGB, 0x07, compat_int_t)	// int[2], Set Register Directly (address & data, unsigned char)
 
 #endif

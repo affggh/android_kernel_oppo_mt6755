@@ -2,7 +2,10 @@
 #define __CUST_MAG_H__
 
 #include <linux/types.h>
-
+#ifdef VENDOR_EDIT
+//ye.zhang@BSP.Sensor, 2016-01-26, add for chip information
+#include <soc/oppo/device_info.h>
+#endif
 #define M_CUST_I2C_ADDR_NUM 2
 
 struct mag_hw {
@@ -17,4 +20,5 @@ struct mag_hw {
 };
 
 extern struct mag_hw* get_cust_mag_hw(void);
+struct mag_hw* get_mag_dts_func(const char *, struct mag_hw*);
 #endif 

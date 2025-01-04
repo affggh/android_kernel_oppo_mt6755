@@ -12,7 +12,9 @@
 #include <mach/mt_gpio_fpga.h>
 #else
 /* FIX-ME: marked for early porting */
+#ifdef CONFIG_MTK_LEGACY
 #include <cust_gpio_usage.h>
+#endif
 #include <mach/mt_gpio_base.h>
 #include <mach/mt_gpio_affix.h>
 #endif
@@ -147,6 +149,10 @@ int mt_get_gpio_inversion(unsigned long pin);
 
 /*input/output*/
 int mt_set_gpio_out(unsigned long pin, unsigned long output);
+#ifdef VENDOR_EDIT
+//Fuchun.Liao@Mobile.BSP.CHG 2015-08-21 add for adapter fw update by uart	
+int vooc_uart_mt_set_gpio_out(unsigned long pin, unsigned long output);
+#endif
 int mt_get_gpio_out(unsigned long pin);
 int mt_get_gpio_in(unsigned long pin);
 

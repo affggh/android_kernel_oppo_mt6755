@@ -58,20 +58,20 @@ unsigned char F54_RxOpenReport(void)
     ret = sprintf(buf, "\nBin #: 8        Name: Receiver Open Test\n");
     ret += sprintf(buf+ret, "\n\t");
 #else
-    printk("\nBin #: 8        Name: Receiver Open Test\n");
-    printk("\n\t");
+    pr_debug("\nBin #: 8        Name: Receiver Open Test\n");
+    pr_debug("\n\t");
 #endif
     for (j = 0; j < numberOfRx; j++)
 #ifdef F54_Porting
         ret += sprintf(buf+ret, "R%d\t", j);
 #else
-        printk("R%d\t", j);
+        pr_debug("R%d\t", j);
 #endif
 
 #ifdef F54_Porting
     ret += sprintf(buf+ret, "\n");
 #else
-    printk("\n");
+    pr_debug("\n");
 #endif
 
    length =  numberOfRx * numberOfTx*2;
@@ -169,7 +169,7 @@ unsigned char F54_RxOpenReport(void)
 
    /*
    // Check against test limits
-   printk("\nRxToRx Short Test Result :\n");
+   pr_debug("\nRxToRx Short Test Result :\n");
     for (i = 0; i < numberOfRx; i++)
     {
         for (j = 0; j < numberOfRx; j++)
@@ -180,7 +180,7 @@ unsigned char F54_RxOpenReport(void)
                     Result[i][j] = 'P'; //Pass
                 else
                     Result[i][j] = 'F'; //Fail
-                //printk("%3d", ImageArray[i][j]);
+                //pr_debug("%3d", ImageArray[i][j]);
             }
             else
             {
@@ -189,11 +189,11 @@ unsigned char F54_RxOpenReport(void)
                 else
                     Result[i][j] = 'F'; //Fail
             }
-            printk("%4d", ImageArray[i][j]);
+            pr_debug("%4d", ImageArray[i][j]);
         }
-        printk("\n");
+        pr_debug("\n");
     }
-    printk("\n");
+    pr_debug("\n");
     */
 
        for (i = 0; i < numberOfRx; i++)
@@ -201,7 +201,7 @@ unsigned char F54_RxOpenReport(void)
 #ifdef F54_Porting
         ret += sprintf(buf+ret, "R%d\t", i);
 #else
-        printk("R%d\t", i);
+        pr_debug("R%d\t", i);
 #endif
         for (j = 0; j < numberOfRx; j++)
         {
@@ -211,7 +211,7 @@ unsigned char F54_RxOpenReport(void)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "%d\t", ImageArray[i][j]);
 #else
-                printk("%d\t", ImageArray[i][j]);
+                pr_debug("%d\t", ImageArray[i][j]);
 #endif
             }
             else
@@ -219,14 +219,14 @@ unsigned char F54_RxOpenReport(void)
 #ifdef F54_Porting
                 ret += sprintf(buf+ret, "%d(*)\t", ImageArray[i][j]);
 #else
-                printk("%d(*)\t", ImageArray[i][j]);
+                pr_debug("%d(*)\t", ImageArray[i][j]);
 #endif
             }
         }
 #ifdef F54_Porting
         ret += sprintf(buf+ret, "\n");
 #else
-        printk("\n");
+        pr_debug("\n");
 #endif
     }
 
@@ -247,14 +247,14 @@ unsigned char F54_RxOpenReport(void)
    delayMS(200);
    readRMI(F01_Data_Base+1, &command, 1); //Read Interrupt status register to Interrupt line goes to high
 
-   //printk("Result = %d, Rx*Rx= %d\n", Result, numberOfRx * numberOfRx);
+   //pr_debug("Result = %d, Rx*Rx= %d\n", Result, numberOfRx * numberOfRx);
    if(Result == numberOfRx * numberOfRx)
     {
 #ifdef F54_Porting
         ret += sprintf(buf+ret, "Test Result: Pass\n");
         //write_log(buf);
 #else
-        printk("Test Result: Pass\n");
+        pr_debug("Test Result: Pass\n");
 #endif
         return 1; //Pass
     }
@@ -264,7 +264,7 @@ unsigned char F54_RxOpenReport(void)
         ret += sprintf(buf+ret, "Test Result: Fail\n");
         //write_log(buf);
 #else
-        printk("Test Result: Fail\n");
+        pr_debug("Test Result: Fail\n");
 #endif
         return 0; //Fail
     }

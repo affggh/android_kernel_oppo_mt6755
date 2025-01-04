@@ -73,6 +73,7 @@ typedef enum
     // 2nd I2S
     Soc_Aud_Digital_Block_I2S_OUT_2 ,
     Soc_Aud_Digital_Block_I2S_IN_2 ,
+    Soc_Aud_Digital_Block_I2S_4PIN_IN_OUT, // 4-pin I2S
     // HW gain contorl
     Soc_Aud_Digital_Block_HW_GAIN1,
     Soc_Aud_Digital_Block_HW_GAIN2,
@@ -792,7 +793,7 @@ typedef struct
     uint32 REG_AFE_IRQ1_MCU_EN_CNT_MON;
     uint32 REG_AFE_MEMIF_MAXLEN;
     uint32 REG_AFE_MEMIF_PBUF_SIZE;
-    uint32 REG_AFE_IRQ_MCU_CNT7; //K2
+    uint32 REG_AFE_IRQ_MCU_CNT7; //6752
     uint32 REG_AFE_APLL1_TUNER_CFG;
     uint32 REG_AFE_APLL2_TUNER_CFG;
     uint32 REG_AFE_GAIN1_CON0;
@@ -814,7 +815,7 @@ typedef struct
     uint32 REG_AFE_CONN7;
     uint32 REG_AFE_CONN8;
     uint32 REG_AFE_CONN9;
-    uint32 REG_AFE_CONN10; //K2
+    uint32 REG_AFE_CONN10; //6752
     uint32 REG_FPGA_CFG2;
     uint32 REG_FPGA_CFG3;;
     uint32 REG_FPGA_CFG0;
@@ -836,7 +837,7 @@ typedef struct
     uint32 REG_PCM_INTF_CON;
     uint32 REG_PCM_INTF_CON2;
     uint32 REG_PCM2_INTF_CON;
-#if 1 //K2
+#if 1 //6752
     uint32 REG_AUDIO_CLK_AUDDIV_0;
     uint32 REG_AUDIO_CLK_AUDDIV_1;
     uint32 REG_AUDIO_CLK_AUDDIV_2;
@@ -940,7 +941,7 @@ typedef struct
     uint32 REG_AFE_ASRC3_CON12;
     uint32 REG_AFE_ASRC3_CON13;
     uint32 REG_AFE_ASRC3_CON14;
-#if 1 //K2
+#if 1 //6752
     uint32 REG_AFE_ADDA4_TOP_CON0;
     uint32 REG_AFE_ADDA4_UL_SRC_CON0;
     uint32 REG_AFE_ADDA4_UL_SRC_CON1;

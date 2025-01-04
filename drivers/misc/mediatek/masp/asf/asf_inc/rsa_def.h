@@ -18,36 +18,34 @@
 /**************************************************************************
  *  CORE DATA STRUCTURE
  **************************************************************************/
-typedef struct
-{
-    int len; 
+typedef struct {
+	int len;
 
-    int pad;  
-    int h_id;  
-    int (*f_rng)(void *); 
-    void *p_rng;    
+	int pad;
+	int h_id;
+	int (*f_rng) (void *);
+	void *p_rng;
 
-    /* keys { */
-    bgn N;
-    bgn E;
-    bgn D;
+	/* keys { */
+	bgn N;
+	bgn E;
+	bgn D;
 
-    bgn RN;
-    bgn RP;
-    bgn RQ;          
-    /* keys } */    
-}
-rsa_ctx;
+	bgn RN;
+	bgn RP;
+	bgn RQ;
+	/* keys } */
+} rsa_ctx;
 
 /**************************************************************************
  *  EXPORT FUNCTIONS
- **************************************************************************/    
-int rsa_sign( rsa_ctx *ctx, int h_len, const unsigned char *hash, unsigned char *sig );
-int rsa_verify( rsa_ctx *ctx, int h_len, const unsigned char *hash, unsigned char *sig );    
+ **************************************************************************/
+int rsa_sign(rsa_ctx *ctx, int h_len, const unsigned char *hash, unsigned char *sig);
+int rsa_verify(rsa_ctx *ctx, int h_len, const unsigned char *hash, unsigned char *sig);
 
 /**************************************************************************
  *  EXPORT VARIABLES
- **************************************************************************/        
+ **************************************************************************/
 extern rsa_ctx rsa;
 
 

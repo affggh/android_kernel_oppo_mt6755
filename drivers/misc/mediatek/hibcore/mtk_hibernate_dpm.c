@@ -1,3 +1,5 @@
+#define pr_fmt(fmt) "[HIB/SwSuspHlper] " fmt
+
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -16,21 +18,21 @@
 #include <linux/suspend.h>
 
 #include <mach/mtk_hibernate_dpm.h>
-#ifdef CONFIG_MTK_SYSENV
+#if defined(CONFIG_MTK_SYSENV) || defined(CONFIG_MTK_DUM_CHAR)
 #include <mach/env.h> /* for set_env() by MTK */
 #endif
 
 #define HIB_SWSUSP_DEBUG 0
 #if (HIB_SWSUSP_DEBUG)
 #undef hib_log
-#define hib_log(fmt, args...)	pr_debug("[HIB/SwSuspHlper] " fmt, ##args);
+#define hib_log(fmt, args...)	pr_debug(fmt, ##args);
 #else
 #define hib_log(fmt, args...) ((void)0)
 #endif
 #undef hib_warn
-#define hib_warn(fmt, args...)  pr_warn("[HIB/SwSuspHlper] " fmt, ##args);
+#define hib_warn(fmt, args...)  pr_warn(fmt, ##args);
 #undef hib_err
-#define hib_err(fmt, args...)   pr_err("[HIB/SwSuspHlper] " fmt, ##args);
+#define hib_err(fmt, args...)   pr_err(fmt, ##args);
 
 #define SWSUSP_HELPER_NAME "swsusp-helper"
 
@@ -211,15 +213,19 @@ static struct platform_driver swsusp_helper_driver = {
 
 static int swsusp_pm_event(struct notifier_block *notifier, unsigned long pm_event, void *unused)
 {
+	/* skip if current process is in the fly of exiting */
+	if (current->flags & PF_EXITING)
+		return NOTIFY_DONE;
+
 	switch(pm_event) {
 	case PM_HIBERNATION_PREPARE: /* Going to hibernate */
-#ifdef CONFIG_MTK_SYSENV
+#if defined(CONFIG_MTK_SYSENV) || defined(CONFIG_MTK_DUM_CHAR)
 		/* for lk */
 		set_env("hibboot", "1");
 #endif
 		return NOTIFY_DONE;
 	case PM_POST_HIBERNATION: /* Hibernation finished */
-#ifdef CONFIG_MTK_SYSENV
+#if defined(CONFIG_MTK_SYSENV) || defined(CONFIG_MTK_DUM_CHAR)
 		/* from lk */
 		hib_log("hibboot = %s\n", get_env("hibboot"));
 		set_env("hibboot", "0");

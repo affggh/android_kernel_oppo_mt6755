@@ -30,7 +30,6 @@
 #include <trustzone/kree/mem.h>
 #include "trustzone/kree/system.h"
 #include <trustzone/tz_cross/ta_mem.h>
-#include <linux/xlog.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/blkdev.h>
@@ -71,7 +70,7 @@ static TZ_RESULT _tzmem_get_poolsize (uint32_t *size)
     ret = KREE_CreateSession(TZ_TA_MEM_UUID, &session);
     if (ret != TZ_RESULT_SUCCESS)
     {
-        xlog_printk(ANDROID_LOG_ERROR, MTEE_TZMEM_TAG, "[%s] _tzmem_get_poolsize: KREE_CreateSession Error = 0x%x\n", MODULE_NAME, ret);
+        pr_debug(MTEE_TZMEM_TAG "[%s] _tzmem_get_poolsize: KREE_CreateSession Error = 0x%x\n", MODULE_NAME, ret);
         return ret;
     } 
 
@@ -79,7 +78,7 @@ static TZ_RESULT _tzmem_get_poolsize (uint32_t *size)
     ret = KREE_GetSecurechunkReleaseSize (session, size);
     if (ret != TZ_RESULT_SUCCESS)
     {
-        xlog_printk(ANDROID_LOG_ERROR, MTEE_TZMEM_TAG, "[%s] _tzmem_get_poolsize: KREE_GetSecurechunkReleaseSize Error = 0x%x\n", MODULE_NAME, ret);
+        pr_debug(MTEE_TZMEM_TAG "[%s] _tzmem_get_poolsize: KREE_GetSecurechunkReleaseSize Error = 0x%x\n", MODULE_NAME, ret);
         KREE_CloseSession(session);
         return ret;
     }
@@ -87,7 +86,7 @@ static TZ_RESULT _tzmem_get_poolsize (uint32_t *size)
     ret = KREE_CloseSession(session);
     if (ret != TZ_RESULT_SUCCESS)
     {
-        xlog_printk(ANDROID_LOG_ERROR, MTEE_TZMEM_TAG, "[%s] _tzmem_get_poolsize: KREE_CloseSession Error = 0x%x\n", MODULE_NAME, ret);
+        pr_debug(MTEE_TZMEM_TAG "[%s] _tzmem_get_poolsize: KREE_CloseSession Error = 0x%x\n", MODULE_NAME, ret);
         return ret;
     }
 
@@ -258,7 +257,7 @@ static struct kobject *tzmem_blk_probe(dev_t dev, int *part, void *data)
         ret = KREE_CreateSession(TZ_TA_MEM_UUID, &session);
         if (ret != TZ_RESULT_SUCCESS)
         {
-            xlog_printk(ANDROID_LOG_ERROR, MTEE_TZMEM_TAG, "[%s] _tzmem_get_poolsize: KREE_CreateSession Error = 0x%x\n", MODULE_NAME, ret);
+            pr_debug(MTEE_TZMEM_TAG "[%s] _tzmem_get_poolsize: KREE_CreateSession Error = 0x%x\n", MODULE_NAME, ret);
             goto out_init;
         } 
 
@@ -297,7 +296,7 @@ static int __init tzmem_blkdev_init(void)
 
     if (register_blkdev(IO_NODE_MAJOR_TZMEM, DEV_TZMEM))
     {
-        xlog_printk(ANDROID_LOG_ERROR, MTEE_TZMEM_TAG, "[%s] tzmem_blkdev_init: register_blkdev error\n", MODULE_NAME);
+        pr_debug(MTEE_TZMEM_TAG "[%s] tzmem_blkdev_init: register_blkdev error\n", MODULE_NAME);
         return -EFAULT;
     }
 
@@ -310,7 +309,7 @@ static int __init tzmem_blkdev_init(void)
     pTzClass = class_create(THIS_MODULE, DEV_TZMEM);
     if (IS_ERR(pTzClass)) {
         int ret = PTR_ERR(pTzClass);
-        xlog_printk(ANDROID_LOG_ERROR, MTEE_TZMEM_TAG ,"[%s] could not create class for the device, ret:%d\n", MODULE_NAME, ret);
+        pr_debug(MTEE_TZMEM_TAG "[%s] could not create class for the device, ret:%d\n", MODULE_NAME, ret);
         return ret;
     }
     pTzDevice = device_create(pTzClass, NULL, tz_client_dev, NULL, DEV_TZMEM);        

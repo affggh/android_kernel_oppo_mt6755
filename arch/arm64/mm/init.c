@@ -42,6 +42,10 @@
 
 #include "mm.h"
 
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP)
+#include <linux/sh_svp.h>
+#endif
+
 static unsigned long phys_initrd_start __initdata = 0;
 static unsigned long phys_initrd_size __initdata = 0;
 
@@ -136,6 +140,8 @@ static void arm64_memory_present(void)
 }
 #endif
 
+__attribute__((weak)) extern struct ion_platform_data ion_drv_platform_data;
+__attribute__((weak)) extern void __init ion_reserve(struct ion_platform_data *data);
 
 void __init arm64_memblock_init(void)
 {
@@ -182,11 +188,20 @@ void __init arm64_memblock_init(void)
 #if defined(CONFIG_MTK_RAM_CONSOLE_USING_DRAM)
 	memblock_reserve(CONFIG_MTK_RAM_CONSOLE_DRAM_ADDR, CONFIG_MTK_RAM_CONSOLE_DRAM_SIZE);
 #endif
-        mrdump_reserve_memory();
 
         mrdump_mini_reserve_memory();
 	
 	early_init_fdt_scan_reserved_mem();
+
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP)
+	svp_contiguous_reserve(CONFIG_MTK_SVP_RAM_DRAM_ADDR_LIMIT);
+#endif
+
+       //reserve for ion_carveout_heap
+       if(ion_reserve && (&ion_drv_platform_data))
+           ion_reserve(&ion_drv_platform_data);
+
+	mrdump_rsvmem();
 	memblock_allow_resize();
 	memblock_dump_all();
 }

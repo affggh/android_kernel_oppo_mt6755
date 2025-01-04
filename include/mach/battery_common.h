@@ -9,15 +9,16 @@
 /*****************************************************************************
  *  BATTERY VOLTAGE
  ****************************************************************************/
-#define PRE_CHARGE_VOLTAGE                  3200
-#define CONSTANT_CURRENT_CHARGE_VOLTAGE     4100
-#define CONSTANT_VOLTAGE_CHARGE_VOLTAGE     4200
-#define CV_DROPDOWN_VOLTAGE                 4000
-#define CHARGER_THRESH_HOLD                 4300
-#define BATTERY_UVLO_VOLTAGE                2700
-#ifndef SHUTDOWN_SYSTEM_VOLTAGE
-#define SHUTDOWN_SYSTEM_VOLTAGE		3400
-#endif
+#define PRE_CHARGE_VOLTAGE                  (3200)
+#define SYSTEM_OFF_VOLTAGE                  (3400)
+#define CONSTANT_CURRENT_CHARGE_VOLTAGE     (4100)
+#define CONSTANT_VOLTAGE_CHARGE_VOLTAGE     (4200)
+#define CV_DROPDOWN_VOLTAGE                 (4000)
+#define CHARGER_THRESH_HOLD                 (4300)
+#define BATTERY_UVLO_VOLTAGE                (2700)
+//#ifndef SHUTDOWN_SYSTEM_VOLTAGE
+//#define SHUTDOWN_SYSTEM_VOLTAGE		(3400)
+//#endif
 
 /*****************************************************************************
  *  BATTERY TIMER
@@ -25,44 +26,47 @@
 /* #define MAX_CHARGING_TIME             1*60*60         // 1hr */
 /* #define MAX_CHARGING_TIME                   8*60*60   // 8hr */
 /* #define MAX_CHARGING_TIME                   12*60*60  // 12hr */
-#define MAX_CHARGING_TIME                   24*60*60	/* 24hr */
+#define MAX_CHARGING_TIME                   (24*60*60)	/* 24hr */
 
-#define MAX_POSTFULL_SAFETY_TIME		1*30*60	/* 30mins */
-#define MAX_PreCC_CHARGING_TIME		1*30*60	/* 0.5hr */
+#define MAX_POSTFULL_SAFETY_TIME		(1*30*60)/* 30mins */
+#define MAX_PreCC_CHARGING_TIME		(1*30*60)/* 0.5hr */
 
 /* #define MAX_CV_CHARGING_TIME                  1*30*60         // 0.5hr */
-#define MAX_CV_CHARGING_TIME			3*60*60	/* 3hr */
+#define MAX_CV_CHARGING_TIME			(3*60*60)/* 3hr */
 
 
-#define MUTEX_TIMEOUT                       5000
-#define BAT_TASK_PERIOD                     10	/* 10sec */
-#define g_free_bat_temp					1000	/* 1 s */
+#define MUTEX_TIMEOUT                       (5000)
+#ifdef VENDOR_EDIT /* OPPO 2016-01-05 sjc Modify for charging */
+#define BAT_TASK_PERIOD                     (5)/* 5sec */
+//#define BAT_TASK_PERIOD                     (10)/* 10sec */
+#endif
+#define g_free_bat_temp					(100)0	/* 1 s */
 
 /*****************************************************************************
  *  BATTERY Protection
  ****************************************************************************/
-#define Battery_Percent_100    100
-#define charger_OVER_VOL	    1
-#define BATTERY_UNDER_VOL		2
-#define BATTERY_OVER_TEMP		3
-#define ADC_SAMPLE_TIMES        5
+#define Battery_Percent_100    (100)
+#define charger_OVER_VOL	    (1)
+#define BATTERY_UNDER_VOL		(2)
+#define BATTERY_OVER_TEMP		(3)
+#define ADC_SAMPLE_TIMES        (5)
 
 /*****************************************************************************
  *  Pulse Charging State
  ****************************************************************************/
-#define  CHR_PRE                        0x1000
-#define  CHR_CC                         0x1001
-#define  CHR_TOP_OFF                    0x1002
-#define  CHR_POST_FULL                  0x1003
-#define  CHR_BATFULL                    0x1004
-#define  CHR_ERROR                      0x1005
-#define  CHR_HOLD						0x1006
+#define  CHR_PRE                        (0x1000)
+#define  CHR_CC                         (0x1001)
+#define  CHR_TOP_OFF                    (0x1002)
+#define  CHR_POST_FULL                  (0x1003)
+#define  CHR_BATFULL                    (0x1004)
+#define  CHR_ERROR                      (0x1005)
+#define  CHR_HOLD						(0x1006)
 
 /*****************************************************************************
  *  CallState
  ****************************************************************************/
-#define CALL_IDLE 0
-#define CALL_ACTIVE 1
+#define CALL_IDLE (0)
+#define CALL_ACTIVE (1)
 
 /*****************************************************************************
  *  Enum
@@ -199,6 +203,13 @@ extern kal_bool is_ta_connect;
 extern struct wake_lock TA_charger_suspend_lock;
 #endif
 
+#if defined(CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT)
+extern struct wake_lock PE20_charger_suspend_lock;
+extern kal_bool pe20_check_chr_type;
+extern kal_bool pe20_cable_out_occur;
+extern kal_bool is_pe20_connect;
+#endif
+
 
 /*****************************************************************************
  *  Extern Function
@@ -215,15 +226,20 @@ extern void set_usb_current_unlimited(bool enable);
 extern bool get_usb_current_unlimited(void);
 extern CHARGER_TYPE mt_get_charger_type(void);
 
+#if defined(CONFIG_MTK_HAFG_20)
+extern struct timespec mt_battery_get_duration_time_act(BATTERY_TIME_ENUM duration_type);
+#endif
+
 extern kal_uint32 mt_battery_get_duration_time(BATTERY_TIME_ENUM duration_type);
-extern void mt_battery_update_time(struct timespec * pre_time, BATTERY_TIME_ENUM duration_type);
-
+extern void mt_battery_update_time(struct timespec *pre_time, BATTERY_TIME_ENUM duration_type);
 extern kal_uint32 mt_battery_shutdown_check(void);
-
 extern kal_uint8 bat_is_kpoc(void);
 
 #ifdef CONFIG_MTK_SMART_BATTERY
 extern void wake_up_bat(void);
+extern void wake_up_bat2(void);
+extern void wake_up_bat3(void);
+
 extern unsigned long BAT_Get_Battery_Voltage(int polling_mode);
 extern void mt_battery_charging_algorithm(void);
 #if defined(CONFIG_MTK_JEITA_STANDARD_SUPPORT)
@@ -233,6 +249,10 @@ extern PMU_STATUS do_jeita_state_machine(void);
 #else
 
 #define wake_up_bat()			do {} while (0)
+#define wake_up_bat2()			do {} while (0)
+#define wake_up_bat3()			do {} while (0)
+
+
 #define BAT_Get_Battery_Voltage(polling_mode)	({ 0; })
 
 #endif
@@ -241,6 +261,23 @@ extern PMU_STATUS do_jeita_state_machine(void);
 extern kal_bool bat_is_ext_power(void);
 #endif
 
+extern int g_platform_boot_mode;
+extern bool mt_usb_is_device(void);
+#if defined(CONFIG_USB_MTK_HDRC) || defined(CONFIG_USB_MU3D_DRV)
+extern void mt_usb_connect(void);
+extern void mt_usb_disconnect(void);
+#else
+#define mt_usb_connect() do { } while (0)
+#define mt_usb_disconnect() do { } while (0)
+#endif
+void check_battery_exist(void);
+#ifdef DLPT_POWER_OFF_EN
+	extern int dlpt_check_power_off(void);
+#endif
 
+extern kal_bool is_usb_rdy(void);
+extern kal_uint32 upmu_get_reg_value(kal_uint32 reg);
+
+extern void mt_charger_enable_DP_voltage(int ison);
 
 #endif				/* #ifndef BATTERY_COMMON_H */

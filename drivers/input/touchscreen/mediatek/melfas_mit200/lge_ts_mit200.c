@@ -484,13 +484,10 @@ static int  print_intensity(struct mms_data *ts, char *buf) {
 	ret += sprintf(buf + ret, "Start-Intensity\n\n");
 
 	for (row = 0 ; row < MAX_ROW ; row++) {
-		printk("[Touch] [%2d]  ", row);
 		ret += sprintf(buf + ret,"[%2d]  ", row);
 		for (col = 0 ; col < MAX_COL ; col++) {
 			ret += sprintf(buf + ret,"%4d ", ts->intensity_data[row][col]);
-			printk("%4d ", ts->intensity_data[row][col]);
 		}
-		printk("\n");
 		ret += sprintf(buf + ret,"\n");
 	}
 
@@ -1014,13 +1011,11 @@ static int  print_rawdata(struct mms_data *ts, char *buf,int type)
 	for (row = 0 ; row < MAX_ROW ; row++) {
 		if (type == RAW_DATA_SHOW) {
 			ret += sprintf(buf + ret,"[%2d]  ",row);
-			printk("[Touch] [%2d]  ",row);
 		}
 
 		for (col = 0 ; col < MAX_COL ; col++) {
 
 			ret += sprintf(buf + ret,"%5d ", ts->mit_data[row][col]);
-			printk("%5d ", ts->mit_data[row][col]);
 			if (type == RAW_DATA_STORE) {
 				ret += sprintf(buf + ret,",");
 			}
@@ -1032,7 +1027,6 @@ static int  print_rawdata(struct mms_data *ts, char *buf,int type)
 
 		if (type == RAW_DATA_SHOW) {
 			ret += sprintf(buf + ret,"\n");
-			printk("\n");
 		}
 	}
 
@@ -1054,13 +1048,10 @@ static int  print_openshort_data(struct mms_data *ts, char *buf, int type)
 
 	for (row = 0 ; row < MAX_ROW ; row++) {
 		if (type == OPENSHORT) {
-			printk("[Touch] [%2d]  ", row);
 			ret += sprintf(buf + ret,"[%2d]  ", row);
 		}
 
 		for (col = 0 ; col < MAX_COL ; col++) {
-
-			printk("%5d ", ts->mit_data[row][col]);
 			ret += sprintf(buf + ret,"%5d ", ts->mit_data[row][col]);
 			if (type == OPENSHORT_STORE) {
 				ret += sprintf(buf + ret,",");
@@ -1073,12 +1064,10 @@ static int  print_openshort_data(struct mms_data *ts, char *buf, int type)
 
 		if (type == OPENSHORT) {
 			ret += sprintf(buf + ret,"\n");
-			printk("\n");
 		}
 	}
 
 	if (type == OPENSHORT) {
-		printk("\n");
 		ret += sprintf(buf + ret,"\n");
 
 		ret += sprintf(buf + ret,"MAX = %d,  MIN = %d  (MAX - MIN = %d)\n\n",ts->o_max , ts->o_min, ts->o_max - ts->o_min);
@@ -1089,19 +1078,15 @@ static int  print_openshort_data(struct mms_data *ts, char *buf, int type)
 
 		if (ts->pdata->selfdiagnostic_state[SD_OPENSHORT] == 0 || ret == 0) {
 			for (row = 0 ; row < MAX_ROW ; row++) {
-				printk("[Touch] [%2d]  ",row);
 				ret += sprintf(buf + ret,"[%2d]  ",row);
 				for (col = 0 ; col < MAX_COL ; col++) {
 					if (ts->mit_data[row][col] >= ts->pdata->limit->open_short_min ) {
-						printk(" ,");
 						ret += sprintf(buf + ret," ,");
 					}else{
-						printk("X,");
 						ret += sprintf(buf + ret,"X,");
 						ts->pdata->selfdiagnostic_state[SD_OPENSHORT] = 0;
 					}
 				}
-				printk("\n");
 				ret += sprintf(buf + ret,"\n");
 			}
 			TOUCH_INFO_MSG("OpenShort Test : Fail\n\n");
@@ -1149,21 +1134,16 @@ static int  check_slope_data(struct mms_data *ts, char *buf)
 
 	for (row = 1 ; row < MAX_ROW - 1 ; row++) {
 		ret += sprintf(buf + ret,"[%2d]  ",row);
-		printk("[Touch] [%2d]  ",row);
 
 		for (col = 0 ; col < MAX_COL ; col++) {
 			if (get_data[row][col] == 0) {
 				ret += sprintf(buf + ret,"ERR ");
-				printk("ERR ");
 			} else {
 				ret += sprintf(buf + ret,"%3d ", get_data[row][col]);
-				printk("%3d ", get_data[row][col]);
 			}
 		}
-		printk("\n");
 		ret += sprintf(buf + ret,"\n");
 	}
-	printk("\n");
 	ret += sprintf(buf + ret,"\n");
 
 	ret += sprintf(buf + ret,"MAX = %d,  MIN = %d  (MAX - MIN = %d)\n\n",ts->s_max , ts->s_min, ts->s_max - ts->s_min);
@@ -1175,17 +1155,13 @@ static int  check_slope_data(struct mms_data *ts, char *buf)
 	if (ts->pdata->selfdiagnostic_state[SD_SLOPE] == 0) {
 		for (row = 1 ; row < MAX_ROW - 1 ; row++) {
 			ret += sprintf(buf + ret,"[%2d]  ",row);
-			printk("[Touch] [%2d]  ",row);
 			for (col = 0 ; col < MAX_COL ; col++) {
 				if (get_data[row][col] >= ts->pdata->limit->slope_min && get_data[row][col] <= ts->pdata->limit->slope_max) {
 					ret += sprintf(buf + ret," ,");
-					printk(" ,");
 				} else {
 					ret += sprintf(buf + ret,"X,");
-					printk("X,");
 				}
 			}
-			printk("\n");
 			ret += sprintf(buf + ret,"\n");
 		}
 

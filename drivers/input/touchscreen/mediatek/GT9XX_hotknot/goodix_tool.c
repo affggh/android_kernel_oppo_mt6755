@@ -21,7 +21,9 @@
      
 #include "tpd.h"
 #include <linux/interrupt.h>
+#if defined(CONFIG_MTK_LEGACY)
 #include <cust_eint.h>
+#endif
 #include <linux/i2c.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
@@ -29,7 +31,9 @@
 #include <linux/wait.h>
 #include <linux/time.h>
 #include <linux/delay.h>
+#if defined(CONFIG_MTK_LEGACY)
 #include "cust_gpio_usage.h"
+#endif
 #include <linux/device.h>
 #include <linux/miscdevice.h>
 #include <asm/uaccess.h>
@@ -312,7 +316,7 @@ s32 init_wr_node(struct i2c_client *client)
 #if 1 // setting by hotknot feature 
     if (misc_register(&hotknot_misc_device))
     {
-        printk("mtk_tpd: hotknot_device register failed\n");
+        GTP_ERROR("mtk_tpd: hotknot_device register failed\n");
         return FAIL;
     }
 #endif  
@@ -517,7 +521,9 @@ static s32 goodix_tool_write(struct file *filp, const char __user *buff, unsigne
 	#ifdef CONFIG_OF_TOUCH
 		disable_irq(touch_irq);
 	#else
-		mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
+		#if !defined(CONFIG_MTK_LEGACY)
+			mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
+		#endif
 	#endif
 
     #if GTP_ESD_PROTECT
@@ -530,7 +536,9 @@ static s32 goodix_tool_write(struct file *filp, const char __user *buff, unsigne
 	#ifdef CONFIG_OF_TOUCH
 		enable_irq(touch_irq);
 	#else
-		mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+		#if !defined(CONFIG_MTK_LEGACY)
+			mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+		#endif
 	#endif 
 
     #if GTP_ESD_PROTECT

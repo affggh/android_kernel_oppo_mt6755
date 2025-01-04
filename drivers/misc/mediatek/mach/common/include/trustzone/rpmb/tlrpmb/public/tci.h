@@ -1,7 +1,7 @@
  /*
  * Copyright (c) 2013 TRUSTONIC LIMITED
  * All rights reserved
- * 
+ *
  * The present software is the confidential and proprietary information of
  * TRUSTONIC LIMITED. You shall not disclose the present software and shall
  * use it only in accordance with the terms of the license agreement you
@@ -33,15 +33,15 @@ typedef uint32_t tciReturnCode_t;
  * TCI command header.
  */
 typedef struct{
-    tciCommandId_t commandId; /**< Command ID */
+	tciCommandId_t commandId; /**< Command ID */
 } tciCommandHeader_t;
 
 /**
  * TCI response header.
  */
 typedef struct{
-    tciResponseId_t     responseId; /**< Response ID (must be command ID | RSP_ID_MASK )*/
-    tciReturnCode_t     returnCode; /**< Return code of command */
+	tciResponseId_t     responseId; /**< Response ID (must be command ID | RSP_ID_MASK )*/
+	tciReturnCode_t     returnCode; /**< Return code of command */
 } tciResponseHeader_t;
 
-#endif // TCI_H_
+#endif

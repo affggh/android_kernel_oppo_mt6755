@@ -10,12 +10,8 @@
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
 #include <linux/sched.h>
 #include <linux/sched/rt.h>
-#else
-#include <linux/sched.h>
-#endif
 #include <linux/kthread.h>
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
@@ -33,8 +29,11 @@
 #define BTIF_USER_NAME_MAX_LEN 32
 
 /*-------------Register Defination Start ---------------*/
-
+#if (defined(CONFIG_MTK_GMO_RAM_OPTIMIZE) && !defined(CONFIG_MT_ENG_BUILD))
+#define BTIF_RX_BUFFER_SIZE (1024 * 32)
+#else
 #define BTIF_RX_BUFFER_SIZE (1024 * 64)
+#endif
 #define BTIF_TX_FIFO_SIZE (1024 * 4)
 
 /*------------Register Defination End ----------------*/
@@ -86,6 +85,7 @@ these operation is not allowed in tasklet, may cause schedule_bug*/
 #define BTIF_TX_CTX BTIF_TX_USER_CTX	/* BTIF_TX_SINGLE_CTX */
 
 #define ENABLE_BTIF_RX_THREAD_RT_SCHED 0
+#define MAX_BTIF_RXD_TIME_REC 3
 
 /*Structure Defination*/
 
@@ -120,7 +120,7 @@ typedef struct _mtk_btif_register_ {
 
 typedef struct _btif_buf_str_ {
 	unsigned int size;
-	unsigned char buf[BTIF_RX_BUFFER_SIZE];
+	unsigned char *p_buf;
 	/*For Tx: next Tx data pointer to FIFO;
 	For Rx: next read data pointer from BTIF user */
 	unsigned int rd_idx;
@@ -151,7 +151,12 @@ typedef struct _mtk_btif_dma_ {
 	atomic_t entry;		/* entry count */
 } mtk_btif_dma, *p_mtk_btif_dma;
 
+#if (defined(CONFIG_MTK_GMO_RAM_OPTIMIZE) && !defined(CONFIG_MT_ENG_BUILD))
+#define BTIF_LOG_ENTRY_NUM 10
+#else
 #define BTIF_LOG_ENTRY_NUM 30
+#endif
+
 #define BTIF_LOG_SZ  1536
 
 typedef void (*MTK_BTIF_RX_NOTIFY) (void);
@@ -170,7 +175,7 @@ typedef struct _btif_log_queue_t_ {
 	unsigned int out;
 	unsigned int size;
 	spinlock_t lock;
-	BTIF_LOG_BUF_T queue[BTIF_LOG_ENTRY_NUM];
+	P_BTIF_LOG_BUF_T p_queue[BTIF_LOG_ENTRY_NUM];
 } BTIF_LOG_QUEUE_T, *P_BTIF_LOG_QUEUE_T;
 
 /*---------------------------------------------------------------------------*/
@@ -278,7 +283,7 @@ typedef struct _mtk_btif_user_ {
 } mtk_btif_user, *p_mtk_btif_user;
 
 /*---------------------------------------------------------------------------*/
-#define BBS_PTR(ptr, idx) (&((ptr)->buf[idx]))
+#define BBS_PTR(ptr, idx) ((ptr->p_buf) + idx)
 
 #define BBS_SIZE(ptr) ((ptr)->size)
 #define BBS_MASK(ptr) (BBS_SIZE(ptr) - 1)
@@ -309,14 +314,14 @@ typedef struct _mtk_btif_user_ {
 if (mutex_lock_killable(x)) {\
 	BTIF_ERR_FUNC("mutex_lock_killable return failed\n");\
 	return E_BTIF_INTR; \
-}\
+} \
 } while (0)
 
 #define BTIF_MUTEX_LOCK_RET_NONE(x) do { \
 if (mutex_lock_killable(x)) {\
 	BTIF_ERR_FUNC("mutex_lock_killable return failed\n");\
-	return ; \
-}\
+	return; \
+} \
 } while (0)
 
 #define BTIF_MUTEX_UNLOCK(x) mutex_unlock(x)
@@ -351,5 +356,7 @@ int btif_dump_reg(p_mtk_btif p_btif);
 int btif_rx_notify_reg(p_mtk_btif p_btif, MTK_BTIF_RX_NOTIFY rx_notify);
 int btif_raise_wak_signal(p_mtk_btif p_btif);
 int btif_clock_ctrl(p_mtk_btif p_btif, int en);
-
+bool btif_parser_wmt_evt(p_mtk_btif p_btif,
+				const char *sub_str,
+				unsigned int sub_len);
 #endif /*__MTK_BTIF_H_*/

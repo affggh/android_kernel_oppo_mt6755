@@ -56,10 +56,10 @@ typedef unsigned int        uint32_t;
 #if DEBUG
 #ifdef __LINUX_KERNEL_DRIVER__
 #include <linux/kernel.h>
-#define YLOGD(args) (printk args )
-#define YLOGI(args) (printk args )
-#define YLOGE(args) (printk args )
-#define YLOGW(args) (printk args )
+#define YLOGD(args) (pr_debug args )
+#define YLOGI(args) (pr_debug args )
+#define YLOGE(args) (pr_debug args )
+#define YLOGW(args) (pr_debug args )
 #elif defined __ANDROID__
 #include <cutils/log.h>
 #ifdef LOG_TAG

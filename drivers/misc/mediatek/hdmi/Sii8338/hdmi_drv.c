@@ -488,29 +488,110 @@ static void hdmi_drv_set_util_funcs(const HDMI_UTIL_FUNCS *util)
 static void hdmi_drv_get_params(HDMI_PARAMS *params)
 {
 	HDMI_FUNC();
+	HDMI_VIDEO_RESOLUTION input_resolution = params->init_config.vformat;
 	memset(params, 0, sizeof(HDMI_PARAMS));
-	params->init_config.vformat = HDMI_VIDEO_1280x720p_60Hz;
-	params->init_config.aformat = HDMI_AUDIO_44K_2CH;
+		
+	switch (input_resolution)
+	{
+		case HDMI_VIDEO_720x480p_60Hz:
+			params->clk_pol   = HDMI_POLARITY_FALLING;
+			params->de_pol	  = HDMI_POLARITY_RISING;
+			params->hsync_pol = HDMI_POLARITY_RISING;
+			params->vsync_pol = HDMI_POLARITY_RISING;;
+			
+			params->hsync_pulse_width = 62;
+			params->hsync_back_porch  = 60;
+			params->hsync_front_porch = 16;
+				
+			params->vsync_pulse_width = 6;
+			params->vsync_back_porch  = 30;
+			params->vsync_front_porch = 9;
+				
+			params->width		= 720;
+			params->height		= 480;
+			params->input_clock = 27027;
+	
+			params->init_config.vformat = HDMI_VIDEO_720x480p_60Hz;
+			break;
+		case HDMI_VIDEO_1280x720p_60Hz:
+			params->clk_pol   = HDMI_POLARITY_FALLING;
+			params->de_pol	  = HDMI_POLARITY_RISING;
+			params->hsync_pol = HDMI_POLARITY_FALLING;
+			params->vsync_pol = HDMI_POLARITY_FALLING;;
+				
+			params->hsync_pulse_width = 40;
+			params->hsync_back_porch  = 220;
+			params->hsync_front_porch = 110;
+				
+			params->vsync_pulse_width = 5;
+			params->vsync_back_porch  = 20;
+			params->vsync_front_porch = 5;
+			
+			params->width		= 1280;
+			params->height		= 720;
+#ifdef CONFIG_MTK_SMARTBOOK_SUPPORT
+			if (MHL_Connect_type == MHL_SMB_CABLE)
+			{
+				params->width  = 1366;
+				params->height = 768;
+			}
+#endif
+			params->input_clock = 74250;
+	
+			params->init_config.vformat = HDMI_VIDEO_1280x720p_60Hz;
+			break;
+		case HDMI_VIDEO_1920x1080p_30Hz:
+			params->clk_pol   = HDMI_POLARITY_FALLING;
+			params->de_pol	  = HDMI_POLARITY_RISING;
+			params->hsync_pol = HDMI_POLARITY_FALLING;
+			params->vsync_pol = HDMI_POLARITY_FALLING;;
+				
+			params->hsync_pulse_width = 44;
+			params->hsync_back_porch  = 148;
+			params->hsync_front_porch = 88;
+			
+			params->vsync_pulse_width = 5;
+			params->vsync_back_porch  = 36;
+			params->vsync_front_porch = 4;
+			
+			params->width		= 1920;
+			params->height		= 1080;
+			params->input_clock = 74250;
+	
+			params->init_config.vformat = HDMI_VIDEO_1920x1080p_30Hz;
+			break;
+		case HDMI_VIDEO_1920x1080p_60Hz:
+			params->clk_pol   = HDMI_POLARITY_FALLING;
+			params->de_pol	  = HDMI_POLARITY_RISING;
+			params->hsync_pol = HDMI_POLARITY_FALLING;
+			params->vsync_pol = HDMI_POLARITY_FALLING;;
+			
+			params->hsync_pulse_width = 44;
+			params->hsync_back_porch  = 148;
+			params->hsync_front_porch = 88;
+			
+			params->vsync_pulse_width = 5;
+			params->vsync_back_porch  = 36;
+			params->vsync_front_porch = 4;
+			
+			params->width		= 1920;
+			params->height		= 1080;
+			params->input_clock = 148500;
 
-	params->clk_pol = HDMI_POLARITY_FALLING;
-	params->de_pol = HDMI_POLARITY_RISING;
-	params->vsync_pol = HDMI_POLARITY_RISING;
-	params->hsync_pol = HDMI_POLARITY_RISING;
+			params->init_config.vformat = HDMI_VIDEO_1920x1080p_60Hz;
+			break;
+		default:
+			HDMI_LOG("Unknow support resolution\n");
+		break;
+	}
 
-	params->hsync_front_porch = 110;
-	params->hsync_pulse_width = 40;
-	params->hsync_back_porch = 220;
-
-	params->vsync_front_porch = 5;
-	params->vsync_pulse_width = 5;
-	params->vsync_back_porch = 20;
-
-	params->rgb_order = HDMI_COLOR_ORDER_RGB;
-
-	params->io_driving_current = IO_DRIVING_CURRENT_2MA;
-	params->intermediat_buffer_num = 4;
-	params->scaling_factor = 4;
-	params->cabletype = MHL_Connect_type;
+	params->init_config.aformat 		= HDMI_AUDIO_44K_2CH;
+	params->rgb_order					= HDMI_COLOR_ORDER_RGB;
+	params->io_driving_current			= IO_DRIVING_CURRENT_2MA;
+	params->intermediat_buffer_num		= 4;
+	params->scaling_factor				= 4;
+	params->cabletype					= MHL_Connect_type;
+	params->HDCPSupported				= HDCP_Supported_Info;
 }
 
 void hdmi_drv_suspend(void)

@@ -579,12 +579,12 @@ void synaptics_power ( unsigned int on )
 
 	if ( on )
 	{
-		hwPowerOn ( MT6323_POWER_LDO_VGP2, VOL_3000, "TP" );
+		//hwPowerOn ( MT6323_POWER_LDO_VGP2, VOL_3000, "TP" );
 		msleep ( 100 );
 	}
 	else
 	{
-		hwPowerDown ( MT6323_POWER_LDO_VGP2, "TP" );
+		//hwPowerDown ( MT6323_POWER_LDO_VGP2, "TP" );
 		msleep ( 10 );
 	}
 
@@ -727,7 +727,7 @@ int synaptics_ts_read_f54 ( struct i2c_client *client, u8 reg, int num, u8 *buf 
 #else
 	if (i2c_transfer(client->adapter, i2c_msgs.msg, message_count) < 0) {
 #endif
-		if ( printk_ratelimit() )
+		if ( pr_debug_ratelimit() )
 			TPD_ERR ( "transfer error\n" );
 		return -EIO;
 	}

@@ -333,7 +333,7 @@ static ssize_t hrm_show_active(struct device* dev,
 	cxt = hrm_context_obj;	
     //int len = 0;
 	HRM_LOG("hrm show active not support now\n");
-	//div=cxt->hrm_data.vender_div;
+	div=cxt->hrm_data.vender_div;
 	HRM_LOG("hrm vender_div value: %d\n", div);
 	return snprintf(buf, PAGE_SIZE, "%d\n", div); 
 	
@@ -613,7 +613,7 @@ int hrm_register_data_path(struct hrm_data_path *data)
 	//int err =0;
 	cxt = hrm_context_obj;
 	cxt->hrm_data.get_data = data->get_data;
-	//cxt->hrm_data.vender_div = data->vender_div;
+	cxt->hrm_data.vender_div = data->vender_div; 
 	//cxt->hrm_data.get_raw_data = data->get_raw_data;
 	//HRM_LOG("hrm register data path vender_div: %d\n", cxt->hrm_data.vender_div);
 	if(NULL == cxt->hrm_data.get_data)

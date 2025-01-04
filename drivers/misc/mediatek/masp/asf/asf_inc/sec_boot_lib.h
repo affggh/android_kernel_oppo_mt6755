@@ -45,25 +45,23 @@
 /******************************************************************************
  *  INTERNAL CONFIGURATION
  ******************************************************************************/
-typedef struct
-{
-    bool bKeyInitDis;
-    bool bUsifEn;  
-    char bMsg;  
+typedef struct {
+	bool bKeyInitDis;
+	bool bUsifEn;
+	char bMsg;
 } SECURE_INFO;
 
 /**************************************************************************
  *  EXTERNAL VARIABLE
  **************************************************************************/
-extern AND_ROMINFO_T                rom_info;
-extern SECURE_INFO                  sec_info;
-extern SECCFG_U                     seccfg;
-extern AND_SECROIMG_T               secroimg;
+extern AND_ROMINFO_T rom_info;
+extern SECURE_INFO sec_info;
+extern SECCFG_U seccfg;
+extern AND_SECROIMG_T secroimg;
 
 /**************************************************************************
  *  sec boot util function
  **************************************************************************/
-extern char* asf_get_build_info(void);
+extern char *asf_get_build_info(void);
 
-#endif /* SEC_BOOT_LIB_H */
-
+#endif				/* SEC_BOOT_LIB_H */

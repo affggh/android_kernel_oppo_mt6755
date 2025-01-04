@@ -65,10 +65,6 @@
 #include <asm/io.h>
 #include <asm/unistd.h>
 
-#ifdef CONFIG_MT_PRIO_TRACER
-# include <linux/prio_tracer.h>
-#endif
-
 #ifndef SET_UNALIGN_CTL
 # define SET_UNALIGN_CTL(a,b)	(-EINVAL)
 #endif
@@ -177,11 +173,7 @@ static int set_one_prio(struct task_struct *p, int niceval, int error)
 	}
 	if (error == -ESRCH)
 		error = 0;
-#ifdef CONFIG_MT_PRIO_TRACER
-	set_user_nice_syscall(p, niceval);
-#else
 	set_user_nice(p, niceval);
-#endif
 out:
 	return error;
 }
@@ -2390,6 +2382,8 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 			else
 				return -EINVAL;
 			break;
+#ifdef VENDOR_EDIT
+/* deliang.peng@Mobile Phone Software Dept.Driver, 2016/03/03  Add for wochacha animation stuck */
 		case PR_SET_TIMERSLACK_PID:
 			if (current->pid != (pid_t)arg3 &&
 					!capable(CAP_SYS_NICE))
@@ -2411,6 +2405,7 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 			error = 0;
 			break;
 		default:
+#endif /*VENDOR_EDIT*/
 			return -EINVAL;
 		}
 		break;
@@ -2429,6 +2424,29 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 	case PR_GET_TID_ADDRESS:
 		error = prctl_get_tid_address(me, (int __user **)arg2);
 		break;
+#ifndef VENDOR_EDIT
+/* deliang.peng@Mobile Phone Software Dept.Driver, 2016/03/03  Delete for wochacha animation stuck */
+	case PR_SET_TIMERSLACK_PID:
+		if (task_pid_vnr(current) != (pid_t)arg3 &&
+				!capable(CAP_SYS_NICE))
+			return -EPERM;
+		rcu_read_lock();
+		tsk = find_task_by_vpid((pid_t)arg3);
+		if (tsk == NULL) {
+			rcu_read_unlock();
+			return -EINVAL;
+		}
+		get_task_struct(tsk);
+		rcu_read_unlock();
+		if (arg2 <= 0)
+			tsk->timer_slack_ns =
+				tsk->default_timer_slack_ns;
+		else
+			tsk->timer_slack_ns = arg2;
+		put_task_struct(tsk);
+		error = 0;
+		break;
+#endif /*VENDOR_EDIT*/
 	case PR_SET_CHILD_SUBREAPER:
 		me->signal->is_child_subreaper = !!arg2;
 		break;

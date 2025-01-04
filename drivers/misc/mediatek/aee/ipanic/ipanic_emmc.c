@@ -70,7 +70,8 @@ int ipanic_msdc_info(struct ipanic_header *iheader)
 		iheader = NULL;
 		return -1;
 	}
-	reset_boot_up_device(0);
+	if (oops_in_progress)
+		reset_boot_up_device(0);
 	return 0;
 }
 EXPORT_SYMBOL(ipanic_msdc_info);

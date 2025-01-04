@@ -89,16 +89,22 @@ static inline TZ_RESULT _handleOpFunc_1 (uint32_t cmd, KREE_SESSION_HANDLE sessi
 
 
 TZ_RESULT kree_register_sharedmem (KREE_SESSION_HANDLE session, KREE_SHAREDMEM_HANDLE *mem_handle, 
-    uint32_t start, uint32_t size, uint32_t map_p)
+    void *start, uint32_t size, void *map_p)
 {
     MTEEC_PARAM p[4];
     TZ_RESULT ret;
 
-    p[0].value.a = start;
+    p[0].value.a = (unsigned long)start;
+    p[0].value.b = (unsigned long long)(unsigned long)start >> 32;
     p[1].value.a = size;
-    p[2].value.a = map_p;    
+    p[2].mem.buffer = map_p;    
+    if(map_p != NULL)
+        p[2].mem.size = ((*(uint32_t *)map_p)+1)*sizeof(uint32_t);
+    else
+        p[2].mem.size = 0;
+
     ret = KREE_TeeServiceCall(session, TZCMD_MEM_SHAREDMEM_REG, 
-            TZ_ParamTypes4(TZPT_VALUE_INPUT, TZPT_VALUE_INPUT, TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT), p);
+            TZ_ParamTypes4(TZPT_VALUE_INPUT, TZPT_VALUE_INPUT, TZPT_MEM_INPUT, TZPT_VALUE_OUTPUT), p);
     if (ret != TZ_RESULT_SUCCESS)
     {
         *mem_handle = 0;
@@ -139,10 +145,10 @@ TZ_RESULT KREE_RegisterSharedmem (KREE_SESSION_HANDLE session,
     }
 
     // only for kmalloc
-    if (((uint32_t) param->buffer >= PAGE_OFFSET) &&
-     ((uint32_t) param->buffer < (uint32_t) high_memory))
+    if ((param->buffer >= (void *)PAGE_OFFSET) &&
+        (param->buffer < high_memory))
     {
-        ret = kree_register_sharedmem (session, shm_handle, (uint32_t) param->buffer, (uint32_t) param->size, 0); // set 0 for no remap...
+        ret = kree_register_sharedmem (session, shm_handle, param->buffer, param->size, 0); // set 0 for no remap...
         if (ret != TZ_RESULT_SUCCESS)
         {
 #ifdef DBG_KREE_MEM      

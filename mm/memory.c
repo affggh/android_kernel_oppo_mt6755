@@ -2825,11 +2825,19 @@ gotten:
 		goto oom;
 
 	if (is_zero_pfn(pte_pfn(orig_pte))) {
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP)
 		new_page = alloc_zeroed_user_highpage_movable(vma, address);
+#else
+		new_page = __alloc_zeroed_user_highpage(__GFP_MOVABLE | __GFP_NOZONECMA, vma, address);
+#endif
 		if (!new_page)
 			goto oom;
 	} else {
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP)
 		new_page = alloc_page_vma(GFP_HIGHUSER_MOVABLE, vma, address);
+#else
+		new_page = alloc_page_vma(GFP_HIGHUSER_MOVABLE | __GFP_NOZONECMA, vma, address);
+#endif
 		if (!new_page)
 			goto oom;
 		cow_user_page(new_page, old_page, address, vma);
@@ -3263,6 +3271,10 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	pte_t entry;
 
 	pte_unmap(page_table);
+	
+	/* File mapping without ->vm_ops ? */
+	if (vma->vm_flags & VM_SHARED)
+		return VM_FAULT_SIGBUS;
 
 	/* Check if we need to add a guard page to the stack */
 	if (check_stack_guard_page(vma, address) < 0)
@@ -3281,7 +3293,14 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	/* Allocate our own private page. */
 	if (unlikely(anon_vma_prepare(vma)))
 		goto oom;
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP)
 	page = alloc_zeroed_user_highpage_movable(vma, address);
+#else
+	if (vma->vm_flags & VM_WRITE)
+		page = __alloc_zeroed_user_highpage(__GFP_MOVABLE | __GFP_NOZONECMA, vma, address);
+	else
+		page = alloc_zeroed_user_highpage_movable(vma, address);
+#endif
 	if (!page)
 		goto oom;
 	/*
@@ -3529,6 +3548,9 @@ static int do_linear_fault(struct mm_struct *mm, struct vm_area_struct *vma,
 			- vma->vm_start) >> PAGE_SHIFT) + vma->vm_pgoff;
 
 	pte_unmap(page_table);
+	/* The VMA was not fully populated on mmap() or missing VM_DONTEXPAND */
+	if (!vma->vm_ops->fault)
+		return VM_FAULT_SIGBUS;
 	return __do_fault(mm, vma, address, pmd, pgoff, flags, orig_pte);
 }
 
@@ -3740,13 +3762,12 @@ int handle_pte_fault(struct mm_struct *mm,
 	entry = *pte;
 	if (!pte_present(entry)) {
 		if (pte_none(entry)) {
-			if (vma->vm_ops) {
-				if (likely(vma->vm_ops->fault))
-					return do_linear_fault(mm, vma, address,
-						pte, pmd, flags, entry);
-			}
-			return do_anonymous_page(mm, vma, address,
-						 pte, pmd, flags);
+			if (vma->vm_ops)
+				return do_linear_fault(mm, vma, address, pte, pmd,
+						flags, entry);
+
+			return do_anonymous_page(mm, vma, address, pte, pmd,
+					flags);
 		}
 		if (pte_file(entry))
 			return do_nonlinear_fault(mm, vma, address,

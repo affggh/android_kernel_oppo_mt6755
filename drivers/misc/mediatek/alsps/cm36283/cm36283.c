@@ -47,10 +47,10 @@
 #define CM36283_DEV_NAME     "cm36283"
 /*----------------------------------------------------------------------------*/
 #define APS_TAG                  "[ALS/PS] "
-#define APS_FUN(f)               printk(KERN_INFO APS_TAG"%s\n", __FUNCTION__)
-#define APS_ERR(fmt, args...)    printk(KERN_ERR  APS_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define APS_LOG(fmt, args...)    printk(KERN_ERR APS_TAG fmt, ##args)
-#define APS_DBG(fmt, args...)    printk(KERN_INFO APS_TAG fmt, ##args)    
+#define APS_FUN(f)               pr_debug(APS_TAG"%s\n", __FUNCTION__)
+#define APS_ERR(fmt, args...)    pr_err(APS_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define APS_LOG(fmt, args...)    pr_debug(APS_TAG fmt, ##args)
+#define APS_DBG(fmt, args...)    pr_debug(APS_TAG fmt, ##args)    
 
 #define I2C_FLAG_WRITE	0
 #define I2C_FLAG_READ	1
@@ -161,6 +161,7 @@ static struct cm36283_priv *g_cm36283_ptr = NULL;
 static struct cm36283_priv *cm36283_obj = NULL;
 static struct platform_driver cm36283_alsps_driver;
 //static struct PS_CALI_DATA_STRUCT ps_cali={0,0,0};
+static int intr_flag = 1; //hw default away after enable.
 /*----------------------------------------------------------------------------*/
 
 static DEFINE_MUTEX(cm36283_mutex);
@@ -180,6 +181,7 @@ typedef enum {
     CMC_TRC_I2C     = 0x0010,
     CMC_TRC_CVT_ALS = 0x0020,
     CMC_TRC_CVT_PS  = 0x0040,
+	CMC_TRC_LP      = 0x0080,
     CMC_TRC_DEBUG   = 0x8000,
 } CMC_TRC;
 /*-----------------------------------------------------------------------------*/
@@ -286,6 +288,30 @@ static void cm36283_power(struct alsps_hw *hw, unsigned int on)
 	power_on = on;
 }
 /********************************************************************/
+static void cm36283_enable_status(struct i2c_client *client)
+{
+	int res;
+	u8 databuf[3];
+
+	databuf[0] = CM36283_REG_ALS_CONF;
+	res = CM36283_i2c_master_operate(client, databuf, 0x201, I2C_FLAG_READ);
+	if (res < 0) {
+		APS_ERR("i2c_master_send function err\n");
+	} else{
+		APS_LOG("reg[0x%x] = 0x%x, bit[0] should be 1. (%c)\n",
+			CM36283_REG_ALS_CONF, databuf[0], (databuf[0]&0x1) == 0x1?'O':'X');
+	}
+
+	databuf[0] = CM36283_REG_PS_CONF1_2;
+	res = CM36283_i2c_master_operate(client, databuf, 0x201, I2C_FLAG_READ);
+	if (res < 0) {
+		APS_ERR("i2c_master_send function err\n");
+	} else{
+		APS_LOG("reg[0x%x] = 0x%x, bit[0] should be 1. (%c)\n",
+			CM36283_REG_PS_CONF1_2, databuf[0], (databuf[0]&0x1) == 0x1?'O':'X');
+	}
+}
+/********************************************************************/
 int cm36283_enable_ps(struct i2c_client *client, int enable)
 {
 	struct cm36283_priv *obj = i2c_get_clientdata(client);
@@ -341,6 +367,7 @@ int cm36283_enable_ps(struct i2c_client *client, int enable)
 			}
 			atomic_set(&obj->ps_deb_on, 1);
 			atomic_set(&obj->ps_deb_end, jiffies+atomic_read(&obj->ps_debounce)/(1000/HZ));
+			intr_flag = 1; //reset hw status to away after enable.
 		}
 	else{
 			APS_LOG("cm36283_enable_ps disable_ps\n");
@@ -495,7 +522,7 @@ static int cm36283_get_ps_value(struct cm36283_priv *obj, u8 ps)
 {
 	int val, mask = atomic_read(&obj->ps_mask);
 	int invalid = 0;
-	val = 0;
+	val = intr_flag; //value between high/low threshold should sync. with hw status.
 
 	if(ps > atomic_read(&obj->ps_thd_val_high))
 	{
@@ -1001,8 +1028,6 @@ static int cm36283_create_attr(struct device_driver *driver)
 /*----------------------------------------------------------------------------*/
 
 /*----------------------------------interrupt functions--------------------------------*/
-static int intr_flag = 0;
-/*----------------------------------------------------------------------------*/
 static int cm36283_check_intr(struct i2c_client *client) 
 {
 	int res;
@@ -1152,7 +1177,7 @@ static int set_psensor_threshold(struct i2c_client *client)
 	struct cm36283_priv *obj = i2c_get_clientdata(client);
 	u8 databuf[3];    
 	int res = 0;
-	APS_ERR("set_psensor_threshold function high: 0x%x, low:0x%x\n",atomic_read(&obj->ps_thd_val_high),atomic_read(&obj->ps_thd_val_low));
+	APS_LOG("set_psensor_threshold function high: 0x%x, low:0x%x\n",atomic_read(&obj->ps_thd_val_high),atomic_read(&obj->ps_thd_val_low));
 	databuf[0] = CM36283_REG_PS_THD;
 	databuf[1] = atomic_read(&obj->ps_thd_val_low);
 	databuf[2] = atomic_read(&obj->ps_thd_val_high);//threshold value need to confirm
@@ -1361,7 +1386,7 @@ static long cm36283_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
 					err = -EFAULT;
 					goto err_out;
 				}
-				APS_ERR("%s set threshold high: 0x%x, low: 0x%x\n", __func__, threshold[0],threshold[1]); 
+				APS_LOG("%s set threshold high: 0x%x, low: 0x%x\n", __func__, threshold[0],threshold[1]); 
 				atomic_set(&obj->ps_thd_val_high,  (threshold[0]+obj->ps_cali));
 				atomic_set(&obj->ps_thd_val_low,  (threshold[1]+obj->ps_cali));//need to confirm
 
@@ -1371,7 +1396,7 @@ static long cm36283_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
 				
 			case ALSPS_GET_PS_THRESHOLD_HIGH:
 				threshold[0] = atomic_read(&obj->ps_thd_val_high) - obj->ps_cali;
-				APS_ERR("%s get threshold high: 0x%x\n", __func__, threshold[0]); 
+				APS_LOG("%s get threshold high: 0x%x\n", __func__, threshold[0]); 
 				if(copy_to_user(ptr, &threshold[0], sizeof(threshold[0])))
 				{
 					err = -EFAULT;
@@ -1381,7 +1406,7 @@ static long cm36283_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned
 				
 			case ALSPS_GET_PS_THRESHOLD_LOW:
 				threshold[0] = atomic_read(&obj->ps_thd_val_low) - obj->ps_cali;
-				APS_ERR("%s get threshold low: 0x%x\n", __func__, threshold[0]); 
+				APS_LOG("%s get threshold low: 0x%x\n", __func__, threshold[0]); 
 				if(copy_to_user(ptr, &threshold[0], sizeof(threshold[0])))
 				{
 					err = -EFAULT;
@@ -1419,7 +1444,7 @@ static void cm36283_early_suspend(struct early_suspend *h)
 {
 		struct cm36283_priv *obj = container_of(h, struct cm36283_priv, early_drv);	
 		int err;
-		APS_FUN();	  
+		APS_FUN();
 	
 		if(!obj)
 		{
@@ -1432,6 +1457,9 @@ static void cm36283_early_suspend(struct early_suspend *h)
 		{
 			APS_ERR("disable als fail: %d\n", err); 
 		}
+	if (atomic_read(&obj->trace) & CMC_TRC_LP) {
+		cm36283_enable_status(obj->client);
+	}
 }
 
 static void cm36283_late_resume(struct early_suspend *h) 
@@ -1446,6 +1474,9 @@ static void cm36283_late_resume(struct early_suspend *h)
 			APS_ERR("null pointer!!\n");
 			return;
 		}
+	if (atomic_read(&obj->trace) & CMC_TRC_LP) {
+		cm36283_enable_status(obj->client);
+	}
 	
 		atomic_set(&obj->als_suspend, 0);
 		if(test_bit(CMC_BIT_ALS, &obj->enable))
@@ -1575,7 +1606,7 @@ int cm36283_ps_operate(void* self, uint32_t command, void* buff_in, int size_in,
 		switch (command)
 		{
 			case SENSOR_DELAY:
-				//APS_ERR("cm36283 ps delay command!\n");
+				//APS_LOG("cm36283 ps delay command!\n");
 				if((buff_in == NULL) || (size_in < sizeof(int)))
 				{
 					APS_ERR("Set delay parameter error!\n");
@@ -1584,7 +1615,7 @@ int cm36283_ps_operate(void* self, uint32_t command, void* buff_in, int size_in,
 				break;
 	
 			case SENSOR_ENABLE:
-				//APS_ERR("cm36283 ps enable command!\n");
+				//APS_LOG("cm36283 ps enable command!\n");
 				if((buff_in == NULL) || (size_in < sizeof(int)))
 				{
 					APS_ERR("Enable sensor parameter error!\n");
@@ -1615,7 +1646,7 @@ int cm36283_ps_operate(void* self, uint32_t command, void* buff_in, int size_in,
 				break;
 	
 			case SENSOR_GET_DATA:
-				//APS_ERR("cm36283 ps get data command!\n");
+				//APS_LOG("cm36283 ps get data command!\n");
 				if((buff_out == NULL) || (size_out< sizeof(hwm_sensor_data)))
 				{
 					APS_ERR("get sensor data parameter error!\n");
@@ -1658,7 +1689,7 @@ int cm36283_als_operate(void* self, uint32_t command, void* buff_in, int size_in
 		switch (command)
 		{
 			case SENSOR_DELAY:
-				//APS_ERR("cm36283 als delay command!\n");
+				//APS_LOG("cm36283 als delay command!\n");
 				if((buff_in == NULL) || (size_in < sizeof(int)))
 				{
 					APS_ERR("Set delay parameter error!\n");
@@ -1667,7 +1698,7 @@ int cm36283_als_operate(void* self, uint32_t command, void* buff_in, int size_in
 				break;
 	
 			case SENSOR_ENABLE:
-				//APS_ERR("cm36283 als enable command!\n");
+				//APS_LOG("cm36283 als enable command!\n");
 				if((buff_in == NULL) || (size_in < sizeof(int)))
 				{
 					APS_ERR("Enable sensor parameter error!\n");
@@ -1699,7 +1730,7 @@ int cm36283_als_operate(void* self, uint32_t command, void* buff_in, int size_in
 				break;
 	
 			case SENSOR_GET_DATA:
-				//APS_ERR("cm36283 als get data command!\n");
+				//APS_LOG("cm36283 als get data command!\n");
 				if((buff_out == NULL) || (size_out< sizeof(hwm_sensor_data)))
 				{
 					APS_ERR("get sensor data parameter error!\n");
@@ -1881,13 +1912,23 @@ static int cm36283_i2c_detect(struct i2c_client *client, struct i2c_board_info *
 
 static int cm36283_i2c_suspend(struct i2c_client *client, pm_message_t msg)
 {
+    struct cm36283_priv *obj = i2c_get_clientdata(client);
+
 	APS_FUN();
+	if (atomic_read(&obj->trace) & CMC_TRC_LP) {
+		cm36283_enable_status(obj->client);
+	}
 	return 0;
 }
 
 static int cm36283_i2c_resume(struct i2c_client *client)
 {
+    struct cm36283_priv *obj = i2c_get_clientdata(client);
+
 	APS_FUN();
+	if (atomic_read(&obj->trace) & CMC_TRC_LP) {
+		cm36283_enable_status(obj->client);
+	}
 	return 0;
 }
 

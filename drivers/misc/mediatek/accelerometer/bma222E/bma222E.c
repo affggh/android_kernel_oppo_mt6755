@@ -160,9 +160,9 @@ static bool enable_status = false;
 
 /*----------------------------------------------------------------------------*/
 #define GSE_TAG                  "[Gsensor] "
-#define GSE_FUN(f)               printk(KERN_INFO GSE_TAG"%s\n", __FUNCTION__)
-#define GSE_ERR(fmt, args...)    printk(KERN_ERR GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define GSE_LOG(fmt, args...)    printk(KERN_INFO GSE_TAG fmt, ##args)
+#define GSE_FUN(f)               pr_info(GSE_TAG"%s\n", __FUNCTION__)
+#define GSE_ERR(fmt, args...)    pr_err(GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define GSE_LOG(fmt, args...)    pr_info(GSE_TAG fmt, ##args)
 /*----------------------------------------------------------------------------*/
 static struct data_resolution bma222_data_resolution[1] = {
  /* combination by {FULL_RES,RANGE}*/
@@ -430,7 +430,7 @@ static int BMA222_ReadOffset(struct i2c_client *client, s8 ofs[BMA222_AXES_NUM])
 		GSE_ERR("error: %d\n", err);
 	}
 #endif
-	//printk("offesx=%x, y=%x, z=%x",ofs[0],ofs[1],ofs[2]);
+	//GSE_LOG("offesx=%x, y=%x, z=%x",ofs[0],ofs[1],ofs[2]);
 	
 	return err;    
 }
@@ -663,7 +663,7 @@ static int BMA222_SetDataFormat(struct i2c_client *client, u8 dataformat)
    
 	if(bma_i2c_read_block(client, BMA222_REG_DATA_FORMAT, databuf, 0x01))
 	{
-		printk("bma222 read Dataformat failt \n");
+		GSE_ERR("bma222 read Dataformat failt \n");
 		return BMA222_ERR_I2C;
 	}
 	mdelay(1);
@@ -676,7 +676,7 @@ static int BMA222_SetDataFormat(struct i2c_client *client, u8 dataformat)
 		return BMA222_ERR_I2C;
 	}
 	
-	//printk("BMA222_SetDataFormat OK! \n");
+	//GSE_LOG("BMA222_SetDataFormat OK! \n");
 	mdelay(1);
 	return BMA222_SetDataResolution(obj);    
 }
@@ -688,7 +688,7 @@ static int BMA222_SetBWRate(struct i2c_client *client, u8 bwrate)
 
 	if(bma_i2c_read_block(client, BMA222_REG_BW_RATE, databuf, 0x01))
 	{
-		printk("bma222 read rate failt \n");
+		GSE_ERR("bma222 read rate failt \n");
 		return BMA222_ERR_I2C;
 	}
 	mdelay(1);
@@ -702,7 +702,7 @@ static int BMA222_SetBWRate(struct i2c_client *client, u8 bwrate)
 		return BMA222_ERR_I2C;
 	}
 	mdelay(1);
-	//printk("BMA222_SetBWRate OK! \n");
+	//GSE_LOG("BMA222_SetBWRate OK! \n");
 	
 	return BMA222_SUCCESS;    
 }
@@ -723,7 +723,7 @@ static int BMA222_SetIntEnable(struct i2c_client *client, u8 intenable)
 			{
 				return res;
 			}
-			//printk("BMA222 disable interrupt ...\n");
+			//GSE_LOG("BMA222 disable interrupt ...\n");
 		
 			/*for disable interrupt function*/
 			mdelay(1);
@@ -735,28 +735,28 @@ static int bma222_init_client(struct i2c_client *client, int reset_cali)
 {
 	struct bma222_i2c_data *obj = i2c_get_clientdata(client);
 	int res = 0;
-	printk("bma222_init_client \n");
+	GSE_FUN("bma222_init_client \n");
 
 	res = BMA222_CheckDeviceID(client); 
 	if(res != BMA222_SUCCESS)
 	{
 		return res;
 	}	
-	//printk("BMA222_CheckDeviceID ok \n");
+	//GSE_LOG("BMA222_CheckDeviceID ok \n");
 	
 	res = BMA222_SetBWRate(client, BMA222_BW_25HZ);
 	if(res != BMA222_SUCCESS ) 
 	{
 		return res;
 	}
-	//printk("BMA222_SetBWRate OK!\n");
+	//GSE_LOG("BMA222_SetBWRate OK!\n");
 	
 	res = BMA222_SetDataFormat(client, BMA222_RANGE_2G);
 	if(res != BMA222_SUCCESS) 
 	{
 		return res;
 	}
-	//printk("BMA222_SetDataFormat OK!\n");
+	//GSE_LOG("BMA222_SetDataFormat OK!\n");
 
 	gsensor_gain.x = gsensor_gain.y = gsensor_gain.z = obj->reso->sensitivity;
 
@@ -766,14 +766,14 @@ static int bma222_init_client(struct i2c_client *client, int reset_cali)
 	{
 		return res;
 	}
-	//printk("BMA222 disable interrupt function!\n");
+	//GSE_LOG("BMA222 disable interrupt function!\n");
 	
 	res = BMA222_SetPowerMode(client, enable_status);//false);//
 		if(res != BMA222_SUCCESS)
 		{
 			return res;
 		}
-	//printk("BMA222_SetPowerMode OK!\n");
+	//GSE_LOG("BMA222_SetPowerMode OK!\n");
 
 
 	if(0 != reset_cali)
@@ -866,19 +866,19 @@ static int BMA222_ReadSensorData(struct i2c_client *client, char *buf, int bufsi
 		obj->data[BMA222_AXIS_Y] += obj->cali_sw[BMA222_AXIS_Y];
 		obj->data[BMA222_AXIS_Z] += obj->cali_sw[BMA222_AXIS_Z];
 		
-		//printk("cali_sw x=%d, y=%d, z=%d \n",obj->cali_sw[BMA150_AXIS_X],obj->cali_sw[BMA150_AXIS_Y],obj->cali_sw[BMA150_AXIS_Z]);
+		//GSE_LOG("cali_sw x=%d, y=%d, z=%d \n",obj->cali_sw[BMA150_AXIS_X],obj->cali_sw[BMA150_AXIS_Y],obj->cali_sw[BMA150_AXIS_Z]);
 		
 		/*remap coordinate*/
 		acc[obj->cvt.map[BMA222_AXIS_X]] = obj->cvt.sign[BMA222_AXIS_X]*obj->data[BMA222_AXIS_X];
 		acc[obj->cvt.map[BMA222_AXIS_Y]] = obj->cvt.sign[BMA222_AXIS_Y]*obj->data[BMA222_AXIS_Y];
 		acc[obj->cvt.map[BMA222_AXIS_Z]] = obj->cvt.sign[BMA222_AXIS_Z]*obj->data[BMA222_AXIS_Z];
-		//printk("cvt x=%d, y=%d, z=%d \n",obj->cvt.sign[BMA150_AXIS_X],obj->cvt.sign[BMA150_AXIS_Y],obj->cvt.sign[BMA150_AXIS_Z]);
+		//GSE_LOG("cvt x=%d, y=%d, z=%d \n",obj->cvt.sign[BMA150_AXIS_X],obj->cvt.sign[BMA150_AXIS_Y],obj->cvt.sign[BMA150_AXIS_Z]);
 
 
 		//GSE_LOG("Mapped gsensor data: %d, %d, %d!\n", acc[BMA150_AXIS_X], acc[BMA150_AXIS_Y], acc[BMA150_AXIS_Z]);
 
 		//Out put the mg
-		//printk("mg acc=%d, GRAVITY=%d, sensityvity=%d \n",acc[BMA150_AXIS_X],GRAVITY_EARTH_1000,obj->reso->sensitivity);
+		//GSE_LOG("mg acc=%d, GRAVITY=%d, sensityvity=%d \n",acc[BMA150_AXIS_X],GRAVITY_EARTH_1000,obj->reso->sensitivity);
 #if 0
 		acc[BMA222_AXIS_X] = acc[BMA222_AXIS_X] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;
 		acc[BMA222_AXIS_Y] = acc[BMA222_AXIS_Y] * GRAVITY_EARTH_1000 / obj->reso->sensitivity;

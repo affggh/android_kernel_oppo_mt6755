@@ -152,3 +152,7 @@ obj-$(CONFIG_IIO)		+= iio/
 obj-$(CONFIG_VME_BUS)		+= vme/
 obj-$(CONFIG_IPACK_BUS)		+= ipack/
 obj-$(CONFIG_NTB)		+= ntb/
+obj-$(CONFIG_ANDROID)		+= android/
+#Huacai.zhou@PSW.BSP.Kernel.performance, 2018-09-29, add oppo healthinfo
+#SOC specific infrastructure drivers.
+obj-y						+= soc/

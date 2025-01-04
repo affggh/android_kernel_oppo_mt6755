@@ -36,18 +36,18 @@
 #include "../base.h"
 #include "power.h"
 
-#define LOG
+// #define LOG
 
 #define HIB_DPM_DEBUG 0
 #define _TAG_HIB_M "HIB/DPM"
 #if (HIB_DPM_DEBUG)
 #undef hib_log
-#define hib_log(fmt, ...)   pr_warn("[%s][%s]" fmt, _TAG_HIB_M, __func__, ##__VA_ARGS__);
+#define hib_log(fmt, ...)   pr_debug("[%s][%s]" fmt, _TAG_HIB_M, __func__, ##__VA_ARGS__);
 #else
 #define hib_log(fmt, ...)
 #endif
 #undef hib_warn
-#define hib_warn(fmt, ...)  pr_warn("[%s][%s]" fmt, _TAG_HIB_M, __func__, ##__VA_ARGS__);
+#define hib_warn(fmt, ...)  pr_debug("[%s][%s]" fmt, _TAG_HIB_M, __func__, ##__VA_ARGS__);
 
 typedef int (*pm_callback_t)(struct device *);
 
@@ -185,7 +185,7 @@ static ktime_t initcall_debug_start(struct device *dev)
 	ktime_t calltime = ktime_set(0, 0);
 
 	if (pm_print_times_enabled) {
-		pr_info("calling  %s+ @ %i, parent: %s\n",
+		pr_debug("calling  %s+ @ %i, parent: %s\n",
 			dev_name(dev), task_pid_nr(current),
 			dev->parent ? dev_name(dev->parent) : "none");
 		calltime = ktime_get();
@@ -202,7 +202,7 @@ static void initcall_debug_report(struct device *dev, ktime_t calltime,
 	if (pm_print_times_enabled) {
 		rettime = ktime_get();
 		delta = ktime_sub(rettime, calltime);
-		pr_info("call %s+ returned %d after %Ld usecs\n", dev_name(dev),
+		pr_debug("call %s+ returned %d after %Ld usecs\n", dev_name(dev),
 			error, (unsigned long long)ktime_to_ns(delta) >> 10);
 	}
 }
@@ -366,7 +366,7 @@ static void pm_dev_dbg(struct device *dev, pm_message_t state, char *info)
 static void pm_dev_err(struct device *dev, pm_message_t state, char *info,
 			int error)
 {
-	printk(KERN_ERR "PM: Device %s failed to %s%s: error %d\n",
+	pr_debug("PM: Device %s failed to %s%s: error %d\n",
 		dev_name(dev), pm_verb(state.event), info, error);
 }
 
@@ -669,10 +669,10 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 
 	if (dev->pm_domain) {
 #ifdef LOG
-		printk(KERN_DEBUG "[%d] power domain device_resume\n",device_resume_index);
+		pr_debug("[%d] power domain device_resume\n",device_resume_index);
 		if (dev->driver)
 			if(dev->driver->name)
-				printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+				pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif		
 		aee_sram_printk("%d\n", device_resume_index++);
 		info = "power domain ";
@@ -682,10 +682,10 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 
 	if (dev->type && dev->type->pm) {
 #ifdef LOG		
-		printk(KERN_DEBUG "[%d] type device_resume\n",device_resume_index);
+		pr_debug("[%d] type device_resume\n",device_resume_index);
 		if (dev->driver)
 			if(dev->driver->name)
-				printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+				pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif		
 		aee_sram_printk("%d\n", device_resume_index++);
 		info = "type ";
@@ -696,10 +696,10 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 	if (dev->class) {
 		if (dev->class->pm) {
 #ifdef LOG
-			printk(KERN_DEBUG "[%d] class device_resume\n",device_resume_index);
+			pr_debug("[%d] class device_resume\n",device_resume_index);
 			if (dev->driver)
 				if(dev->driver->name)
-					printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+					pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif			
 			aee_sram_printk("%d\n", device_resume_index++);
 			info = "class ";
@@ -707,10 +707,10 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 			goto Driver;
 		} else if (dev->class->resume) {
 #ifdef LOG			
-			printk(KERN_DEBUG "[%d] legacy class device_resume\n",device_resume_index);
+			pr_debug("[%d] legacy class device_resume\n",device_resume_index);
 			if (dev->driver)
 				if(dev->driver->name)
-					printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);        
+					pr_debug("dev->driver->name=%s\n", dev->driver->name);        
 #endif			
 			aee_sram_printk("%d\n", device_resume_index++); 
 			info = "legacy class ";
@@ -722,20 +722,20 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 	if (dev->bus) {
 		if (dev->bus->pm) {
 #ifdef LOG			
-			printk(KERN_DEBUG "[%d] bus device_resume\n",device_resume_index);
+			pr_debug("[%d] bus device_resume\n",device_resume_index);
 			if (dev->driver)
 				if(dev->driver->name)
-					printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+					pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif			
 			aee_sram_printk("%d\n", device_resume_index++);
 			info = "bus ";
 			callback = pm_op(dev->bus->pm, state);
 		} else if (dev->bus->resume) {
 #ifdef LOG			
-			printk(KERN_DEBUG "[%d] legacy bus device_resume\n", device_resume_index);
+			pr_debug("[%d] legacy bus device_resume\n", device_resume_index);
 			if (dev->driver)
 				if(dev->driver->name)
-					printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+					pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif			
 			aee_sram_printk("%d\n", device_resume_index++);
 			info = "legacy bus ";
@@ -747,10 +747,10 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
  Driver:
 	if (!callback && dev->driver && dev->driver->pm) {
 #ifdef LOG
-			printk(KERN_DEBUG "[%d] driver device_resume\n", device_resume_index);
+			pr_debug("[%d] driver device_resume\n", device_resume_index);
 			if (dev->driver)
 				if(dev->driver->name)
-					printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+					pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif
 			aee_sram_printk("%d\n", device_resume_index++);
 		info = "driver ";
@@ -1228,10 +1228,10 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 
 	if (dev->pm_domain) {
 #ifdef LOG
-		printk(KERN_DEBUG "[%d] power domain device_suspend\n", device_suspend_index);
+		pr_debug("[%d] power domain device_suspend\n", device_suspend_index);
 		if (dev->driver)
 			if(dev->driver->name)
-				printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+				pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif
 		aee_sram_printk("%d\n", device_suspend_index++);
 		info = "power domain ";
@@ -1241,10 +1241,10 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 
 	if (dev->type && dev->type->pm) {
 #ifdef LOG		
-		printk(KERN_DEBUG "[%d] type device_suspend\n", device_suspend_index);
+		pr_debug("[%d] type device_suspend\n", device_suspend_index);
 		if (dev->driver)
 			if(dev->driver->name)
-				printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+				pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif		
 		aee_sram_printk("%d\n", device_suspend_index++);
 		info = "type ";
@@ -1255,10 +1255,10 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 	if (dev->class) {
 		if (dev->class->pm) {
 #ifdef LOG			
-			printk(KERN_DEBUG "[%d] class device_suspend\n", device_suspend_index);
+			pr_debug("[%d] class device_suspend\n", device_suspend_index);
 				if (dev->driver)
 					if(dev->driver->name)
-						printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+						pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif			
 			aee_sram_printk("%d\n", device_suspend_index++);
 			info = "class ";
@@ -1266,10 +1266,10 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 			goto Run;
 		} else if (dev->class->suspend) {
 #ifdef LOG			
-			printk(KERN_DEBUG "[%d] legacy class device_suspend\n", device_suspend_index);
+			pr_debug("[%d] legacy class device_suspend\n", device_suspend_index);
 			if (dev->driver)
 				if(dev->driver->name)
-					printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+					pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif					
 			aee_sram_printk("%d\n", device_suspend_index++);
 			pm_dev_dbg(dev, state, "legacy class ");
@@ -1281,20 +1281,20 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 	if (dev->bus) {
 		if (dev->bus->pm) {
 #ifdef LOG			
-			printk(KERN_DEBUG "[%d] bus device_suspend\n", device_suspend_index);
+			pr_debug("[%d] bus device_suspend\n", device_suspend_index);
 			if (dev->driver)
 				if(dev->driver->name)
-					printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+					pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif			
 			aee_sram_printk("%d\n", device_suspend_index++);
 			info = "bus ";
 			callback = pm_op(dev->bus->pm, state);
 		} else if (dev->bus->suspend) {
 #ifdef LOG			
-			printk(KERN_DEBUG "[%d] legacy bus device_suspend\n", device_suspend_index);
+			pr_debug("[%d] legacy bus device_suspend\n", device_suspend_index);
 			if (dev->driver)
 				if(dev->driver->name)
-					printk(KERN_DEBUG "dev->driver->name=%s\n", dev->driver->name);
+					pr_debug("dev->driver->name=%s\n", dev->driver->name);
 #endif			
 			aee_sram_printk("%d\n", device_suspend_index++);
 			pm_dev_dbg(dev, state, "legacy bus ");
@@ -1306,10 +1306,10 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
  Run:
 	if (!callback && dev->driver && dev->driver->pm) {
 #ifdef LOG		
-		printk(KERN_DEBUG "[%d] driver device_suspend\n", device_suspend_index);
+		pr_debug("[%d] driver device_suspend\n", device_suspend_index);
 		if (dev->driver)
 			if(dev->driver->name)
-				printk("dev->driver->name=%s\n", dev->driver->name);		
+				pr_debug("dev->driver->name=%s\n", dev->driver->name);		
 #endif		
 		aee_sram_printk("%d\n", device_suspend_index++);
 		info = "driver ";
@@ -1393,16 +1393,16 @@ int dpm_suspend(pm_message_t state)
 			pm_dev_err(dev, state, "", error);
 			dpm_save_failed_dev(dev_name(dev));
 			put_device(dev);
-            hib_log("Device %s failed to %s: error %d\n", dev_name(dev), pm_verb(state.event), error);
+			hib_log("Device %s failed to %s: error %d\n", dev_name(dev), pm_verb(state.event), error);
 			break;
 		}
 		if (!list_empty(&dev->power.entry))
 			list_move(&dev->power.entry, &dpm_suspended_list);
 		put_device(dev);
 		if (async_error) {
-            hib_log("async_error(%d)\n", async_error);
+			hib_log("async_error(%d)\n", async_error);
 			break;
-        }
+		}
 	}
 	device_suspend_index = 0;
 	
@@ -1416,7 +1416,7 @@ int dpm_suspend(pm_message_t state)
 	} else
 		dpm_show_time(starttime, state, NULL);
 
-    hib_log("return error(%d)\n", error);
+	hib_log("return error(%d)\n", error);
 	return error;
 }
 EXPORT_SYMBOL_GPL(dpm_suspend);
@@ -1507,7 +1507,7 @@ int dpm_prepare(pm_message_t state)
 				error = 0;
 				continue;
 			}
-			printk(KERN_INFO "PM: Device %s not prepared "
+			pr_debug("PM: Device %s not prepared "
 				"for power transition: code %d\n",
 				dev_name(dev), error);
 			put_device(dev);
@@ -1547,7 +1547,7 @@ EXPORT_SYMBOL_GPL(dpm_suspend_start);
 void __suspend_report_result(const char *function, void *fn, int ret)
 {
 	if (ret)
-		printk(KERN_ERR "%s(): %pF returns %d\n", function, fn, ret);
+		pr_debug("%s(): %pF returns %d\n", function, fn, ret);
 }
 EXPORT_SYMBOL_GPL(__suspend_report_result);
 

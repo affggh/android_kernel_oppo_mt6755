@@ -139,12 +139,6 @@ struct pid_entry {
 		NULL, &proc_single_file_operations,	\
 		{ .proc_show = show } )
 
-/* ANDROID is for special files in /proc. */
-#define ANDROID(NAME, MODE, OTYPE)			\
-	NOD(NAME, (S_IFREG|(MODE)),			\
-		&proc_##OTYPE##_inode_operations,	\
-		&proc_##OTYPE##_operations, {})
-
 /*
  * Count the number of hardlinks for the pid_entry table, excluding the .
  * and .. links.
@@ -850,7 +844,8 @@ static ssize_t environ_read(struct file *file, char __user *buf,
 	int ret = 0;
 	struct mm_struct *mm = file->private_data;
 
-	if (!mm)
+	/* Ensure the process spawned far enough to have an environment. */
+	if (!mm || !mm->env_end)
 		return 0;
 
 	page = (char *)__get_free_page(GFP_TEMPORARY);
@@ -929,23 +924,6 @@ static ssize_t oom_adj_read(struct file *file, char __user *buf, size_t count,
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }
 
-#define BG_CHANGED_LENGTH 32
-static const int BG_OOM_SOCRE_THRESHOLD = 232;
-static pid_t proc_changed_bg_pids[BG_CHANGED_LENGTH];
-static int proc_changed_bg_count = 0;
-int proc_score_change_from_bg(pid_t *pids, int cnt) {
-	if (pids == NULL)
-		return proc_changed_bg_count;
-	if (0 == proc_changed_bg_count )
-		return 0;
-	int ret;
-	ret = min(cnt, proc_changed_bg_count);
-	memcpy(pids, proc_changed_bg_pids, ret * sizeof(pid_t));
-	proc_changed_bg_count  = 0;
-	return ret;
-}
-EXPORT_SYMBOL(proc_score_change_from_bg);
-
 static ssize_t oom_adj_write(struct file *file, const char __user *buf,
 			     size_t count, loff_t *ppos)
 {
@@ -1012,13 +990,6 @@ static ssize_t oom_adj_write(struct file *file, const char __user *buf,
 		  current->comm, task_pid_nr(current), task_pid_nr(task),
 		  task_pid_nr(task));
 
-	if (task == task->group_leader && task->signal->oom_score_adj >= BG_OOM_SOCRE_THRESHOLD
-			&& oom_adj < BG_OOM_SOCRE_THRESHOLD) {
-		if (proc_changed_bg_count >= BG_CHANGED_LENGTH)
-			proc_changed_bg_count = BG_CHANGED_LENGTH - 1;
-		proc_changed_bg_pids[proc_changed_bg_count++] = task->pid;
-	}
-
 	task->signal->oom_score_adj = oom_adj;
 	trace_oom_score_adj_update(task);
 err_sighand:
@@ -1029,35 +1000,6 @@ err_task_lock:
 out:
 	return err < 0 ? err : count;
 }
-
-static int oom_adjust_permission(struct inode *inode, int mask)
-{
-	uid_t uid;
-	struct task_struct *p;
-
-	p = get_proc_task(inode);
-	if(p) {
-		uid = task_uid(p);
-		put_task_struct(p);
-	}
-
-	/*
-	 * System Server (uid == 1000) is granted access to oom_adj of all 
-	 * android applications (uid > 10000) as and services (uid >= 1000)
-	 */
-	if (p && (current_fsuid() == 1000) && (uid >= 1000)) {
-		if (inode->i_mode >> 6 & mask) {
-			return 0;
-		}
-	}
-
-	/* Fall back to default. */
-	return generic_permission(inode, mask);
-}
-
-static const struct inode_operations proc_oom_adj_inode_operations = {
-	.permission	= oom_adjust_permission,
-};
 
 static const struct file_operations proc_oom_adj_operations = {
 	.read		= oom_adj_read,
@@ -1134,12 +1076,6 @@ static ssize_t oom_score_adj_write(struct file *file, const char __user *buf,
 		goto err_sighand;
 	}
 
-	if (task == task->group_leader && task->signal->oom_score_adj >= BG_OOM_SOCRE_THRESHOLD
-			&& oom_score_adj < BG_OOM_SOCRE_THRESHOLD) {
-		if (proc_changed_bg_count >= BG_CHANGED_LENGTH)
-			proc_changed_bg_count = BG_CHANGED_LENGTH - 1;
-		proc_changed_bg_pids[proc_changed_bg_count++] = task->pid;
-	}
 	task->signal->oom_score_adj = (short)oom_score_adj;
 	if (has_capability_noaudit(current, CAP_SYS_RESOURCE))
 		task->signal->oom_score_adj_min = (short)oom_score_adj;
@@ -2553,11 +2489,16 @@ static int do_io_accounting(struct task_struct *task, char *buffer, int whole)
 	if (result)
 		return result;
 
-	if (!ptrace_may_access(task, PTRACE_MODE_READ)) {
-		result = -EACCES;
-		goto out_unlock;
-	}
-
+#ifdef VENDOR_EDIT
+//Haiping.Zhong@Swdp.Android.BuildConfig, 2016/11/22, Add for cts bug881673
+//Fang.Pan@Swdp.Android.BuildConfig,2015/10/09, Add for resmon kernel module
+/*
+    if (!ptrace_may_access(task, PTRACE_MODE_READ)) {
+        result = -EACCES;
+        goto out_unlock;
+    }
+*/
+#endif
 	if (whole && lock_task_sighand(task, &flags)) {
 		struct task_struct *t = task;
 
@@ -2582,7 +2523,11 @@ static int do_io_accounting(struct task_struct *task, char *buffer, int whole)
 			(unsigned long long)acct.read_bytes,
 			(unsigned long long)acct.write_bytes,
 			(unsigned long long)acct.cancelled_write_bytes);
-out_unlock:
+#ifdef VENDOR_EDIT
+//Haiping.Zhong@Swdp.Android.BuildConfig, 2016/11/22, Add for cts bug881673
+//Fang.Pan@Swdp.Android.BuildConfig,2015/10/09, Add for resmon kernel module
+//out_unlock:
+#endif
 	mutex_unlock(&task->signal->cred_guard_mutex);
 	return result;
 }
@@ -2776,6 +2721,12 @@ static const struct pid_entry tgid_base_stuff[] = {
 	INF("cmdline",    S_IRUGO, proc_pid_cmdline),
 	ONE("stat",       S_IRUGO, proc_tgid_stat),
 	ONE("statm",      S_IRUGO, proc_pid_statm),
+#ifdef VENDOR_EDIT
+//fangpan@Swdp.shanghai, 2016/03/31 add the vm suspend state
+#ifdef CONFIG_VM_STATE
+	ONE("vmstate",     S_IRUGO, proc_pid_vmstat),
+#endif
+#endif
 	REG("maps",       S_IRUGO, proc_pid_maps_operations),
 #ifdef CONFIG_NUMA
 	REG("numa_maps",  S_IRUGO, proc_pid_numa_maps_operations),
@@ -2814,8 +2765,10 @@ static const struct pid_entry tgid_base_stuff[] = {
 	REG("cgroup",  S_IRUGO, proc_cgroup_operations),
 #endif
 	INF("oom_score",  S_IRUGO, proc_oom_score),
-	ANDROID("oom_adj", S_IRUGO|S_IWUSR, oom_adj),
-	REG("oom_score_adj", S_IRUGO|S_IWUSR, proc_oom_score_adj_operations),
+#ifdef VENDOR_EDIT //fangpan@Swdp.shanghai,2016/01/18 add the read permission for oom_adj
+	REG("oom_adj",    S_IRUSR | S_IRGRP | S_IROTH, proc_oom_adj_operations),
+#endif
+	REG("oom_score_adj", S_IRUSR, proc_oom_score_adj_operations),
 #ifdef CONFIG_AUDITSYSCALL
 	REG("loginuid",   S_IWUSR|S_IRUGO, proc_loginuid_operations),
 	REG("sessionid",  S_IRUGO, proc_sessionid_operations),
@@ -2827,7 +2780,9 @@ static const struct pid_entry tgid_base_stuff[] = {
 	REG("coredump_filter", S_IRUGO|S_IWUSR, proc_coredump_filter_operations),
 #endif
 #ifdef CONFIG_TASK_IO_ACCOUNTING
-	INF("io",	S_IRUSR, proc_tgid_io_accounting),
+#ifdef VENDOR_EDIT //fangpan@Swdp.shanghai,2015/09/29 add for IO stats
+	INF("io",	S_IRUSR | S_IRGRP | S_IROTH, proc_tgid_io_accounting),
+#endif
 #endif
 #ifdef CONFIG_HARDWALL
 	INF("hardwall",   S_IRUGO, proc_pid_hardwall),
@@ -3131,6 +3086,12 @@ static const struct pid_entry tid_base_stuff[] = {
 	INF("cmdline",   S_IRUGO, proc_pid_cmdline),
 	ONE("stat",      S_IRUGO, proc_tid_stat),
 	ONE("statm",     S_IRUGO, proc_pid_statm),
+#ifdef VENDOR_EDIT
+//fangpan@Swdp.shanghai, 2016/03/31 add the vm suspend state
+#ifdef CONFIG_VM_STATE
+	ONE("vmstate",     S_IRUGO, proc_pid_vmstat),
+#endif
+#endif
 	REG("maps",      S_IRUGO, proc_tid_maps_operations),
 #ifdef CONFIG_CHECKPOINT_RESTORE
 	REG("children",  S_IRUGO, proc_tid_children_operations),
@@ -3171,8 +3132,8 @@ static const struct pid_entry tid_base_stuff[] = {
 	REG("cgroup",  S_IRUGO, proc_cgroup_operations),
 #endif
 	INF("oom_score", S_IRUGO, proc_oom_score),
-	REG("oom_adj",   S_IRUGO|S_IWUSR, proc_oom_adj_operations),
-	REG("oom_score_adj", S_IRUGO|S_IWUSR, proc_oom_score_adj_operations),
+	REG("oom_adj",   S_IRUSR, proc_oom_adj_operations),
+	REG("oom_score_adj", S_IRUSR, proc_oom_score_adj_operations),
 #ifdef CONFIG_AUDITSYSCALL
 	REG("loginuid",  S_IWUSR|S_IRUGO, proc_loginuid_operations),
 	REG("sessionid",  S_IRUGO, proc_sessionid_operations),
@@ -3181,7 +3142,9 @@ static const struct pid_entry tid_base_stuff[] = {
 	REG("make-it-fail", S_IRUGO|S_IWUSR, proc_fault_inject_operations),
 #endif
 #ifdef CONFIG_TASK_IO_ACCOUNTING
-	INF("io",	S_IRUSR, proc_tid_io_accounting),
+#ifdef VENDOR_EDIT //fangpan@Swdp.shanghai,2015/09/29 add for IO stats
+	INF("io",	S_IRUSR | S_IRGRP | S_IROTH, proc_tid_io_accounting),
+#endif
 #endif
 #ifdef CONFIG_HARDWALL
 	INF("hardwall",   S_IRUGO, proc_pid_hardwall),

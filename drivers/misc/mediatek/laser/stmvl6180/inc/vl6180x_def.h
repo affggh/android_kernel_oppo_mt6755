@@ -724,7 +724,7 @@ typedef union IntrStatus_u{
  * The internal readout averaging sample period can be adjusted from 0 to 255.
  * Increasing the sampling period decreases noise but also reduces the effective
  * max convergence time and increases power consumption
- * Each unit sample period corresponds to around 64.5 ?s additional processing time.
+ * Each unit sample period corresponds to around 64.5 μs additional processing time.
  * The recommended setting is 48 which equates to around 4.3 ms.
  *
  * see datasheet for more detail

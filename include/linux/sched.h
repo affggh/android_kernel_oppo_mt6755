@@ -48,6 +48,7 @@ struct sched_param {
 #include <linux/hrtimer.h>
 #include <linux/task_io_accounting.h>
 #include <linux/latencytop.h>
+#include <linux/sched/prio.h>
 #include <linux/cred.h>
 #include <linux/llist.h>
 #include <linux/uidgid.h>
@@ -1075,8 +1076,10 @@ struct sched_entity {
 	/* Per-entity load-tracking */
 	struct sched_avg	avg;
 #endif
-#ifdef CONFIG_MTPROF_CPUTIME
+#if defined(CONFIG_MTPROF_CPUTIME) || defined(CONFIG_MT_RT_THROTTLE_MON)
 	u64			mtk_isr_time;
+#endif
+#ifdef CONFIG_MTPROF_CPUTIME
 	int			mtk_isr_count;
 	struct mtk_isr_info  *mtk_isr;
 #endif
@@ -1121,26 +1124,26 @@ struct thread_group_info_t {
 
 #endif
 
-#ifdef CONFIG_MT_SCHED_NOTICE
+#ifdef CONFIG_MT_SCHED_TRACE
   #ifdef CONFIG_MT_SCHED_DEBUG
-#define mt_sched_printf(x...) \
+#define mt_sched_printf(event,x...) \
  do{                    \
-        char strings[128]="";  \
-        snprintf(strings, 128, x); \
-        printk(KERN_NOTICE x);          \
-        trace_sched_log(strings); \
+	char strings[128] = "";  \
+	snprintf(strings, 128, x); \
+	pr_warn(x);          \
+	trace_##event(strings); \
  }while (0)
   #else
-#define mt_sched_printf(x...) \
+#define mt_sched_printf(event,x...) \
  do{                    \
-        char strings[128]="";  \
-        snprintf(strings, 128, x); \
-        trace_sched_log(strings); \
+	char strings[80] = "";  \
+	snprintf(strings, 80, x); \
+	trace_##event(strings); \
  }while (0)
-  #endif
   
+  #endif
 #else
-#define mt_sched_printf(x...) do {} while (0)
+#define mt_sched_printf(event, x...) do {} while (0)
 #endif
 
 struct task_struct {
@@ -1543,6 +1546,15 @@ struct task_struct {
 	unsigned int	sequential_io;
 	unsigned int	sequential_io_avg;
 #endif
+#ifdef CONFIG_PREEMPT_MONITOR
+	unsigned long preempt_dur;
+#endif
+#ifdef VENDOR_EDIT
+//fangpan@Swdp.shanghai, 2016/03/31 add the vm suspend state
+#ifdef CONFIG_VM_STATE
+	atomic_t vmstate;
+#endif
+#endif
 };
 
 /* Future-safe accessor for struct task_struct's cpus_allowed. */
@@ -1625,11 +1637,14 @@ static inline pid_t task_tgid_nr(struct task_struct *tsk)
 	return tsk->tgid;
 }
 
-pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns);
+static inline pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns)
+{
+	return __task_pid_nr_ns(tsk, __PIDTYPE_TGID, ns);
+}
 
 static inline pid_t task_tgid_vnr(struct task_struct *tsk)
 {
-	return pid_vnr(task_tgid(tsk));
+	return __task_pid_nr_ns(tsk, __PIDTYPE_TGID, NULL);
 }
 
 
@@ -1740,6 +1755,10 @@ extern int task_free_unregister(struct notifier_block *n);
  * Per process flags
  */
 #define PF_EXITING	0x00000004	/* getting shut down */
+#ifdef VENDOR_EDIT
+/* fanhui@PhoneSW.BSP, 2016/02/02, DeathHealer, set the task to be killed */
+#define PF_OPPO_KILLING	0x00000002
+#endif
 #define PF_EXITPIDONE	0x00000008	/* pi exit done on shut down */
 #define PF_VCPU		0x00000010	/* I'm a virtual CPU */
 #define PF_WQ_WORKER	0x00000020	/* I'm a workqueue worker */
@@ -2048,14 +2067,6 @@ extern int sched_setscheduler(struct task_struct *, int,
 extern int sched_setscheduler_nocheck(struct task_struct *, int,
 				      const struct sched_param *);
 
-#ifdef CONFIG_MT_PRIO_TRACER
-extern void set_user_nice_core(struct task_struct *p, long nice);
-extern int sched_setscheduler_core(struct task_struct *, int,
-				   const struct sched_param *);
-extern int sched_setscheduler_nocheck_core(struct task_struct *, int,
-					   const struct sched_param *);
-#endif
-
 extern struct task_struct *idle_task(int cpu);
 /**
  * is_idle_task - is the specified task an idle task?
@@ -2251,11 +2262,6 @@ static inline void mmdrop(struct mm_struct * mm)
 
 /* mmput gets rid of the mappings and all user-space */
 extern void mmput(struct mm_struct *);
-/* same as above but performs the slow path from the async kontext. Can
- * be called from the atomic context as well
- */
-extern void mmput_async(struct mm_struct *);
-
 /* Grab a reference to a task's mm, if it is not already going away */
 extern struct mm_struct *get_task_mm(struct task_struct *task);
 /*
@@ -2334,6 +2340,26 @@ extern bool current_is_single_threaded(void);
 /* Careful: this is a double loop, 'break' won't work as expected. */
 #define for_each_process_thread(p, t)	\
 	for_each_process(p) for_each_thread(p, t)
+
+#ifdef VENDOR_EDIT
+#ifdef CONFIG_OPPO_FG_OPT
+/* Huacai.Zhou@PSW.BSP.Kernel.MM, 2018-07-07, add fg process opt*/
+extern bool is_fg(int uid);
+static inline int current_is_fg(void)
+{
+	int cur_uid;
+	cur_uid = current_uid();
+	if (is_fg(cur_uid))
+		return 1;
+	return 0;
+}
+#else
+static inline int current_is_fg(void)
+{
+	return 0;
+}
+#endif /*CONFIG_OPPO_FG_OPT*/
+#endif /*VENDOR_EDIT*/
 
 static inline int get_nr_threads(struct task_struct *tsk)
 {
@@ -2546,7 +2572,7 @@ static inline int test_tsk_need_resched(struct task_struct *tsk)
 	return unlikely(test_tsk_thread_flag(tsk,TIF_NEED_RESCHED));
 }
 
-#if defined(CONFIG_MT_RT_SCHED) || defined(CONFIG_MT_RT_SCHED_LOG)
+#if defined(CONFIG_MT_RT_SCHED)
 static inline void set_tsk_need_released(struct task_struct *tsk)
 {
 	set_tsk_thread_flag(tsk, TIF_NEED_RELEASED);
@@ -2583,6 +2609,16 @@ static inline int fatal_signal_pending(struct task_struct *p)
 {
 	return signal_pending(p) && __fatal_signal_pending(p);
 }
+//#ifdef VENDOR_EDIT //fangpan@Swdp.shanghai,2015/11/12
+static inline int hung_long_and_fatal_signal_pending(struct task_struct *p)
+{
+#ifdef CONFIG_DETECT_HUNG_TASK
+	return fatal_signal_pending(p) && (p->flags & PF_OPPO_KILLING);
+#else
+	return 0;
+#endif
+}
+//#endif
 
 static inline int signal_pending_state(long state, struct task_struct *p)
 {
@@ -2914,6 +2950,12 @@ extern unsigned int sched_get_nr_heavy_task(void);
  * return: heavy task(loading>threshold) number in the system
  */
 extern unsigned int sched_get_nr_heavy_task_by_threshold(unsigned int threshold);
+
+#ifdef VENDOR_EDIT
+//xiaocheng.li@Swdp.shanghai, 2016/4/21, export heavy task threshold
+extern unsigned int sched_get_heavy_task_threshold(void);
+#endif /* VENDOR_EDIT */
+
 #endif /* CONFIG_MTK_SCHED_RQAVG_US */
 
 #ifdef CONFIG_MTK_SCHED_RQAVG_KS

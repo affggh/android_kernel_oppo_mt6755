@@ -44,14 +44,14 @@
 
 #include "musbfsh_core.h"
 #include "musbfsh_host.h"
-#include "usb.h"			
+#include "usb.h"
 #ifdef CONFIG_MTK_ICUSB_SUPPORT
 #include "musbfsh_mt65xx.h"
 #endif
 
 #ifdef CONFIG_MTK_DT_USB_SUPPORT
-extern void request_wakeup_md_timeout(unsigned int dev_id, unsigned int dev_sub_id);	
-extern int musbfsh_skip_port_suspend; 
+extern void request_wakeup_md_timeout(unsigned int dev_id, unsigned int dev_sub_id);
+extern int musbfsh_skip_port_suspend;
 extern int musbfsh_skip_port_resume;
 #endif
 
@@ -89,14 +89,14 @@ extern void request_wakeup_md_timeout(unsigned int dev_id, unsigned int dev_sub_
 
 static void musbfsh_port_suspend(struct musbfsh *musbfsh, bool do_suspend)
 {
-	u8		power;
-	u8		intrusbe;
-	u8		intrusb;
-	void __iomem	*mbase = musbfsh->mregs;
+	u8 power;
+	u8 intrusbe;
+	u8 intrusb;
+	void __iomem *mbase = musbfsh->mregs;
 	int retries = 0;
 
 
-	//MYDBG("cpuid:%d\n", smp_processor_id());	
+	/* MYDBG("cpuid:%d\n", smp_processor_id()); */
 
 	/* NOTE:  this doesn't necessarily put PHY into low power mode,
 	 * turning off its clock; that's a function of PHY integration and
@@ -106,10 +106,10 @@ static void musbfsh_port_suspend(struct musbfsh *musbfsh, bool do_suspend)
 	if (do_suspend) {
 
 #ifdef CONFIG_MTK_DT_USB_SUPPORT
-		if(musbfsh_skip_port_suspend){
-			MYDBG("\n");	
+		if (musbfsh_skip_port_suspend) {
+			MYDBG("\n");
 			musbfsh->port1_status |= USB_PORT_STAT_SUSPEND;
-			return ;
+			return;
 		}
 #endif
 
@@ -127,7 +127,7 @@ static void musbfsh_port_suspend(struct musbfsh *musbfsh, bool do_suspend)
 		intrusb = musbfsh_readb(mbase, MUSBFSH_INTRUSB);
 		while (!(intrusb & MUSBFSH_INTR_SOF)) {
 			intrusb = musbfsh_readb(mbase, MUSBFSH_INTRUSB);
-			if (retries-- < 1){
+			if (retries-- < 1) {
 				MYDBG("\n");
 				break;
 			}
@@ -146,23 +146,20 @@ static void musbfsh_port_suspend(struct musbfsh *musbfsh, bool do_suspend)
 
 #ifdef MTK_USB_RUNTIME_SUPPORT
 		/* mask remote wake up IRQ between port suspend and bus suspend.
-		    hub.c will call set_port_feature first then usb_set_device_state, so if EINT comes between them, resume flow may see
-		    device state without USB_STATE_SUSPENDED and do nothing.
-		    So we postpone remote wake up IRQ untill the suspend flow is all done (when bus_suspend is called). Since suspend flow
-		    may be interrupted (root hub is suspended, but not host controller), so we also unmaks EINT when resume is done.
-		*/
+		   hub.c will call set_port_feature first then usb_set_device_state, so if EINT comes between them, resume flow may see
+		   device state without USB_STATE_SUSPENDED and do nothing.
+		   So we postpone remote wake up IRQ untill the suspend flow is all done (when bus_suspend is called). Since suspend flow
+		   may be interrupted (root hub is suspended, but not host controller), so we also unmaks EINT when resume is done.
+		 */
 		mt_eint_mask(CUST_EINT_MT6280_USB_WAKEUP_NUM);
 #endif
 
 		retries = 10000;
 
 #ifdef CONFIG_MTK_ICUSB_SUPPORT
-		if(skip_port_pm_attr.value)
-		{
+		if (skip_port_pm_attr.value) {
 			MYDBG("skip hw operation for port suspend\n");
-		}
-		else
-		{
+		} else {
 			power &= ~MUSBFSH_POWER_RESUME;
 			power |= MUSBFSH_POWER_SUSPENDM;
 			musbfsh_writeb(mbase, MUSBFSH_POWER, power);
@@ -184,60 +181,57 @@ static void musbfsh_port_suspend(struct musbfsh *musbfsh, bool do_suspend)
 		power = musbfsh_readb(mbase, MUSBFSH_POWER);
 		while (power & MUSBFSH_POWER_SUSPENDM) {
 			power = musbfsh_readb(mbase, MUSBFSH_POWER);
-			if (retries-- < 1){
-				MYDBG("\n");		
+			if (retries-- < 1) {
+				MYDBG("\n");
 				break;
 			}
 		}
 #endif
 		mb();
-		WARNING( "Root port suspended, power 0x%02x\n", power);
+		WARNING("Root port suspended, power 0x%02x\n", power);
 
 #ifdef CONFIG_MTK_DT_USB_SUPPORT
-#if defined(CONFIG_PM_RUNTIME) 
-		disable_usb11_clk();			
+#if defined(CONFIG_PM_RUNTIME)
+		disable_usb11_clk();
 #endif
 #endif
 		musbfsh->port1_status |= USB_PORT_STAT_SUSPEND;
 	} else {
 
 #ifdef CONFIG_MTK_DT_USB_SUPPORT
-		if(musbfsh_skip_port_resume){
+		if (musbfsh_skip_port_resume) {
 			MYDBG("\n");
-			request_wakeup_md_timeout(0, 0);		
+			request_wakeup_md_timeout(0, 0);
 			musbfsh->port1_status |= MUSBFSH_PORT_STAT_RESUME;
 			musbfsh->rh_timer = jiffies + msecs_to_jiffies(20);
-			return ;
+			return;
 		}
-#if defined(CONFIG_PM_RUNTIME) 
-		enable_usb11_clk();			
+#if defined(CONFIG_PM_RUNTIME)
+		enable_usb11_clk();
 #endif
 #endif
 
 		power = musbfsh_readb(mbase, MUSBFSH_POWER);
-		if(!(power & MUSBFSH_POWER_SUSPENDM)) {
+		if (!(power & MUSBFSH_POWER_SUSPENDM)) {
 			WARNING("Root port resuming abort, power 0x%02x\n", power);
-			if(power & MUSBFSH_POWER_RESUME)
+			if (power & MUSBFSH_POWER_RESUME)
 				goto finish;
 			else
 				return;
 		}
 #ifdef CONFIG_MTK_DT_USB_SUPPORT
-		request_wakeup_md_timeout(0, 0);		
+		request_wakeup_md_timeout(0, 0);
 #endif
 
 #ifdef MTK_USB_RUNTIME_SUPPORT
-		//ERR("EINT to wake up MD for resume\n");
-		//request_wakeup_md_timeout(0, 0); //wx, wakeup MD first
+		/* ERR("EINT to wake up MD for resume\n"); */
+		/* request_wakeup_md_timeout(0, 0); //wx, wakeup MD first */
 #endif
 
 #ifdef CONFIG_MTK_ICUSB_SUPPORT
-		if(skip_port_pm_attr.value)
-		{
+		if (skip_port_pm_attr.value) {
 			MYDBG("skip hw operation for port resume\n");
-		}
-		else
-		{
+		} else {
 			power &= ~MUSBFSH_POWER_SUSPENDM;
 			power |= MUSBFSH_POWER_RESUME;
 			musbfsh_writeb(mbase, MUSBFSH_POWER, power);
@@ -258,8 +252,8 @@ finish:
 
 static void musbfsh_port_reset(struct musbfsh *musbfsh, bool do_reset)
 {
-	u8		power;
-	void __iomem	*mbase = musbfsh->mregs;
+	u8 power;
+	void __iomem *mbase = musbfsh->mregs;
 
 	/* NOTE:  caller guarantees it will turn off the reset when
 	 * the appropriate amount of time has passed
@@ -267,21 +261,19 @@ static void musbfsh_port_reset(struct musbfsh *musbfsh, bool do_reset)
 	power = musbfsh_readb(mbase, MUSBFSH_POWER);
 	WARNING("reset=%d power=0x%x\n", do_reset, power);
 	if (do_reset) {
-		if(power & MUSBFSH_POWER_SUSPENDM) {
+		if (power & MUSBFSH_POWER_SUSPENDM) {
 			WARNING("reset a suspended device\n");
 #ifdef CONFIG_MTK_DT_USB_SUPPORT
-			request_wakeup_md_timeout(0, 0);		
+			request_wakeup_md_timeout(0, 0);
 #endif
 
 #ifdef MTK_USB_RUNTIME_SUPPORT
-			//ERR("EINT to wake up MD for reset\n");
-			//request_wakeup_md_timeout(0, 0); //wx, we may have to reset a suspended MD
+			/* ERR("EINT to wake up MD for reset\n"); */
+			/* request_wakeup_md_timeout(0, 0); //wx, we may have to reset a suspended MD */
 #endif
-			musbfsh_writeb(mbase, MUSBFSH_POWER,
-				power | MUSBFSH_POWER_RESUME);
+			musbfsh_writeb(mbase, MUSBFSH_POWER, power | MUSBFSH_POWER_RESUME);
 			mdelay(20);
-			musbfsh_writeb(mbase, MUSBFSH_POWER,
-				power & ~MUSBFSH_POWER_RESUME);
+			musbfsh_writeb(mbase, MUSBFSH_POWER, power & ~MUSBFSH_POWER_RESUME);
 		}
 
 		/*
@@ -291,31 +283,29 @@ static void musbfsh_port_reset(struct musbfsh *musbfsh, bool do_reset)
 		 * fail with "Error! Did not receive an SOF before suspend
 		 * detected".
 		 */
-		if (power &  MUSBFSH_POWER_RESUME) {
+		if (power & MUSBFSH_POWER_RESUME) {
 			WARNING("reset a resuming device\n");
 			while (time_before(jiffies, musbfsh->rh_timer))
 				mdelay(1);
-			musbfsh_writeb(mbase, MUSBFSH_POWER,//stop the resume signal
-				power & ~MUSBFSH_POWER_RESUME);
+			musbfsh_writeb(mbase, MUSBFSH_POWER,	/* stop the resume signal */
+				       power & ~MUSBFSH_POWER_RESUME);
 			mdelay(1);
 		}
 
 		musbfsh->ignore_disconnect = true;
 		power &= 0xf0;
-		musbfsh_writeb(mbase, MUSBFSH_POWER,
-				power | MUSBFSH_POWER_RESET);
+		musbfsh_writeb(mbase, MUSBFSH_POWER, power | MUSBFSH_POWER_RESET);
 		mb();
 		musbfsh->port1_status |= USB_PORT_STAT_RESET;
 		musbfsh->port1_status &= ~USB_PORT_STAT_ENABLE;
 		musbfsh->rh_timer = jiffies + msecs_to_jiffies(50);
 	} else {
-		INFO( "Root port reset stopped\n");
+		INFO("Root port reset stopped\n");
 
 #ifdef CONFIG_MTK_ICUSB_SUPPORT
 
-		if(resistor_control_attr.value)
-		{
-#if 0	/* improve signal quality, from Dingjun */
+		if (resistor_control_attr.value) {
+#if 0				/* improve signal quality, from Dingjun */
 			/* FS_DISC_DISABLE */
 			u32 TM1;
 			TM1 = musbfsh_readl(mbase, 0x604);
@@ -329,30 +319,24 @@ static void musbfsh_port_reset(struct musbfsh *musbfsh, bool do_reset)
 			   USB11PHY_SET8(U1PHTCR2, force_usb11_dp_rpu | RG_USB11_DP_RPU); // tell MAC there still is a device attached, ohterwise we will get disconnect interrupt
 			 */
 
-			/* force */	
+			/* force */
 			USB11PHY_SET8(0x6a, 0x20 | 0x10);
 			/* RG */
-			USB11PHY_CLR8(0x68, 0x80 | 0x40);  // disconnect host port's pull down resistors on D+ and D-
-			//USB11PHY_SET8(U1PHTCR2, force_usb11_dp_rpu | RG_USB11_DP_RPU); // tell MAC there still is a device attached, ohterwise we will get disconnect interrupt
+			USB11PHY_CLR8(0x68, 0x80 | 0x40);	/* disconnect host port's pull down resistors on D+ and D- */
+			/* USB11PHY_SET8(U1PHTCR2, force_usb11_dp_rpu | RG_USB11_DP_RPU); // tell MAC there still is a device attached, ohterwise we will get disconnect interrupt */
 
 			MYDBG("USB1.1 PHY special config for IC-USB\n");
-		}
-		else
-		{
+		} else {
 			MYDBG("");
 		}
 #endif
-		musbfsh_writeb(mbase, MUSBFSH_POWER,
-				power & ~MUSBFSH_POWER_RESET);
-		
-		
+		musbfsh_writeb(mbase, MUSBFSH_POWER, power & ~MUSBFSH_POWER_RESET);
+
+
 #ifdef CONFIG_MTK_ICUSB_SUPPORT
-		if(resistor_control_attr.value)
-		{
-			USB11PHY_CLR8(0x6a, 0x20 | 0x10);		
-		}
-		else
-		{
+		if (resistor_control_attr.value) {
+			USB11PHY_CLR8(0x6a, 0x20 | 0x10);
+		} else {
 			MYDBG("");
 		}
 #endif
@@ -361,22 +345,22 @@ static void musbfsh_port_reset(struct musbfsh *musbfsh, bool do_reset)
 
 		power = musbfsh_readb(mbase, MUSBFSH_POWER);
 		if (power & MUSBFSH_POWER_HSMODE) {
-			INFO( "high-speed device connected\n");
+			INFO("high-speed device connected\n");
 			musbfsh->port1_status |= USB_PORT_STAT_HIGH_SPEED;
 		}
-#if 0 //IC_USB from SS5
+#if 0				/* IC_USB from SS5 */
 #ifdef IC_USB
 		USB11PHY_SET8(U1PHTCR2, force_usb11_dm_rpd | force_usb11_dp_rpd);
-		USB11PHY_CLR8(U1PHTCR2, RG_USB11_DM_RPD | RG_USB11_DP_RPD);  // disconnect host port's pull down resistors on D+ and D-
-		USB11PHY_SET8(U1PHTCR2, force_usb11_dp_rpu | RG_USB11_DP_RPU); // tell MAC there still is a device attached, ohterwise we will get disconnect interrupt
-		WARNING("USB1.1 PHY special config for IC-USB 0x%X=%x\n", U1PHTCR2, USB11PHY_READ8(U1PHTCR2));
+		USB11PHY_CLR8(U1PHTCR2, RG_USB11_DM_RPD | RG_USB11_DP_RPD);	/* disconnect host port's pull down resistors on D+ and D- */
+		USB11PHY_SET8(U1PHTCR2, force_usb11_dp_rpu | RG_USB11_DP_RPU);	/* tell MAC there still is a device attached, ohterwise we will get disconnect interrupt */
+		WARNING("USB1.1 PHY special config for IC-USB 0x%X=%x\n", U1PHTCR2,
+			USB11PHY_READ8(U1PHTCR2));
 #endif
 #endif
 		musbfsh->port1_status &= ~USB_PORT_STAT_RESET;
-		musbfsh->port1_status |= USB_PORT_STAT_ENABLE
-					| (USB_PORT_STAT_C_RESET << 16)
-					| (USB_PORT_STAT_C_ENABLE << 16);
-		usb_hcd_poll_rh_status(musbfsh_to_hcd(musbfsh));//call back func to notify the hub thread the state of hub!
+		musbfsh->port1_status |= USB_PORT_STAT_ENABLE | (USB_PORT_STAT_C_RESET << 16)
+		    | (USB_PORT_STAT_C_ENABLE << 16);
+		usb_hcd_poll_rh_status(musbfsh_to_hcd(musbfsh));	/* call back func to notify the hub thread the state of hub! */
 
 		musbfsh->vbuserr_retry = VBUSERR_RETRY_COUNT;
 	}
@@ -384,9 +368,8 @@ static void musbfsh_port_reset(struct musbfsh *musbfsh, bool do_reset)
 
 void musbfsh_root_disconnect(struct musbfsh *musbfsh)
 {
-    INFO("musbfsh_root_disconnect++\r\n");
-	musbfsh->port1_status = USB_PORT_STAT_POWER
-			| (USB_PORT_STAT_C_CONNECTION << 16);
+	INFO("musbfsh_root_disconnect++\r\n");
+	musbfsh->port1_status = USB_PORT_STAT_POWER | (USB_PORT_STAT_C_CONNECTION << 16);
 
 	usb_hcd_poll_rh_status(musbfsh_to_hcd(musbfsh));
 	musbfsh->is_active = 0;
@@ -398,8 +381,8 @@ void musbfsh_root_disconnect(struct musbfsh *musbfsh)
 /* Caller may or may not hold musbfsh->lock */
 int musbfsh_hub_status_data(struct usb_hcd *hcd, char *buf)
 {
-	struct musbfsh	*musbfsh = hcd_to_musbfsh(hcd);
-	int		retval = 0;
+	struct musbfsh *musbfsh = hcd_to_musbfsh(hcd);
+	int retval = 0;
 
 	INFO("musbfsh_hub_status_data++\r\n");
 	/* called in_irq() via usb_hcd_poll_rh_status() */
@@ -410,20 +393,16 @@ int musbfsh_hub_status_data(struct usb_hcd *hcd, char *buf)
 	return retval;
 }
 
-int musbfsh_hub_control(
-	struct usb_hcd	*hcd,
-	u16		typeReq,
-	u16		wValue,
-	u16		wIndex,
-	char		*buf,
-	u16		wLength)
+int musbfsh_hub_control(struct usb_hcd *hcd,
+			u16 typeReq, u16 wValue, u16 wIndex, char *buf, u16 wLength)
 {
 	struct musbfsh *musbfsh = hcd_to_musbfsh(hcd);
-	u32		temp;
-	int		retval = 0;
-	unsigned long	flags;
+	u32 temp;
+	int retval = 0;
+	unsigned long flags;
 
-	INFO("musbfsh_hub_control++,typeReq=0x%x,wValue=0x%x,wIndex=0x%x\r\n",typeReq,wValue,wIndex);
+	INFO("musbfsh_hub_control++,typeReq=0x%x,wValue=0x%x,wIndex=0x%x\r\n", typeReq, wValue,
+	     wIndex);
 	spin_lock_irqsave(&musbfsh->lock, flags);
 
 	if (unlikely(!HCD_HW_ACCESSIBLE(hcd))) {
@@ -447,21 +426,21 @@ int musbfsh_hub_control(
 		}
 		break;
 	case ClearPortFeature:
-		if ((wIndex & 0xff) != 1)//wIndex indicate the port number, here it is should be 1
+		if ((wIndex & 0xff) != 1)	/* wIndex indicate the port number, here it is should be 1 */
 			goto error;
 
 		switch (wValue) {
 		case USB_PORT_FEAT_ENABLE:
 			break;
 		case USB_PORT_FEAT_SUSPEND:
-			musbfsh_port_suspend(musbfsh, false);//here is clearing the suspend
+			musbfsh_port_suspend(musbfsh, false);	/* here is clearing the suspend */
 			break;
 		case USB_PORT_FEAT_POWER:
-			#ifndef MTK_ALPS_BOX_SUPPORT
-			musbfsh_set_vbus(musbfsh, 0);//only power off the vbus
-			#else
-			musbfsh_platform_set_vbus(musbfsh, 0);//only power off the vbus
-			#endif
+#ifndef MTK_ALPS_BOX_SUPPORT
+			musbfsh_set_vbus(musbfsh, 0);	/* only power off the vbus */
+#else
+			musbfsh_platform_set_vbus(musbfsh, 0);	/* only power off the vbus */
+#endif
 			break;
 		case USB_PORT_FEAT_C_CONNECTION:
 		case USB_PORT_FEAT_C_ENABLE:
@@ -477,21 +456,20 @@ int musbfsh_hub_control(
 		break;
 	case GetHubDescriptor:
 		{
-		struct usb_hub_descriptor *desc = (void *)buf;
+			struct usb_hub_descriptor *desc = (void *)buf;
 
-		desc->bDescLength = 9;
-		desc->bDescriptorType = 0x29;
-		desc->bNbrPorts = 1;
-		desc->wHubCharacteristics = cpu_to_le16(
-				  0x0001	/* per-port power switching */
-				| 0x0010	/* no overcurrent reporting */
-				);
-		desc->bPwrOn2PwrGood = 5;	/* msec/2 */
-		desc->bHubContrCurrent = 0;
+			desc->bDescLength = 9;
+			desc->bDescriptorType = 0x29;
+			desc->bNbrPorts = 1;
+			desc->wHubCharacteristics = cpu_to_le16(0x0001	/* per-port power switching */
+								| 0x0010	/* no overcurrent reporting */
+			    );
+			desc->bPwrOn2PwrGood = 5;	/* msec/2 */
+			desc->bHubContrCurrent = 0;
 
-		/* workaround bogus struct definition */
-		desc->u.hs.DeviceRemovable[0] = 0x02;	/* port 1 */
-		desc->u.hs.DeviceRemovable[1] = 0xff;
+			/* workaround bogus struct definition */
+			desc->u.hs.DeviceRemovable[0] = 0x02;	/* port 1 */
+			desc->u.hs.DeviceRemovable[1] = 0xff;
 		}
 		break;
 	case GetHubStatus:
@@ -504,36 +482,35 @@ int musbfsh_hub_control(
 
 		/* finish RESET signaling? */
 		if ((musbfsh->port1_status & USB_PORT_STAT_RESET)
-				&& time_after_eq(jiffies, musbfsh->rh_timer))
-			musbfsh_port_reset(musbfsh, false);//stop the reset because the timeout of reset.
+		    && time_after_eq(jiffies, musbfsh->rh_timer))
+			musbfsh_port_reset(musbfsh, false);	/* stop the reset because the timeout of reset. */
 
 		/* finish RESUME signaling? */
 		if ((musbfsh->port1_status & MUSBFSH_PORT_STAT_RESUME)
-				&& time_after_eq(jiffies, musbfsh->rh_timer)) {
-			u8		power;
+		    && time_after_eq(jiffies, musbfsh->rh_timer)) {
+			u8 power;
 #ifdef CONFIG_MTK_DT_USB_SUPPORT
-			if(!musbfsh_skip_port_resume){
+			if (!musbfsh_skip_port_resume) {
 				power = musbfsh_readb(musbfsh->mregs, MUSBFSH_POWER);
 				power &= ~MUSBFSH_POWER_RESUME;
-				WARNING( "Root port resume stopped, power 0x%02x\n",power);
+				WARNING("Root port resume stopped, power 0x%02x\n", power);
 				musbfsh_writeb(musbfsh->mregs, MUSBFSH_POWER, power);
 #if defined(CONFIG_PM_RUNTIME) && defined(USB11_REMOTE_IRQ_NON_AUTO_MASK)
-				enable_remote_wake_up();	
+				enable_remote_wake_up();
 #endif
-			}
-			else{
+			} else {
 				MYDBG("\n");
 			}
 #else
 
 			power = musbfsh_readb(musbfsh->mregs, MUSBFSH_POWER);
 			power &= ~MUSBFSH_POWER_RESUME;
-			WARNING( "Root port resume stopped, power 0x%02x\n",power);
+			WARNING("Root port resume stopped, power 0x%02x\n", power);
 			musbfsh_writeb(musbfsh->mregs, MUSBFSH_POWER, power);
 #endif
 
 #ifdef MTK_USB_RUNTIME_SUPPORT
-			//mt_eint_unmask(CUST_EINT_MT6280_USB_WAKEUP_NUM);
+			/* mt_eint_unmask(CUST_EINT_MT6280_USB_WAKEUP_NUM); */
 #endif
 
 			/* ISSUE:  DaVinci (RTL 1.300) disconnects after
@@ -543,17 +520,17 @@ int musbfsh_hub_control(
 
 			musbfsh->is_active = 1;
 			musbfsh->port1_status &= ~(USB_PORT_STAT_SUSPEND
-					| MUSBFSH_PORT_STAT_RESUME);
+						   | MUSBFSH_PORT_STAT_RESUME);
 			musbfsh->port1_status |= USB_PORT_STAT_C_SUSPEND << 16;
 			usb_hcd_poll_rh_status(musbfsh_to_hcd(musbfsh));
 		}
 
 		put_unaligned(cpu_to_le32(musbfsh->port1_status
-					& ~MUSBFSH_PORT_STAT_RESUME),
-				(__le32 *) buf);
+					  & ~MUSBFSH_PORT_STAT_RESUME), (__le32 *) buf);
 
 		/* port change status is more interesting */
-		WARNING("port status %08x,devctl=0x%x\n",musbfsh->port1_status,musbfsh_readb(musbfsh->mregs, MUSBFSH_DEVCTL));
+		WARNING("port status %08x,devctl=0x%x\n", musbfsh->port1_status,
+			musbfsh_readb(musbfsh->mregs, MUSBFSH_DEVCTL));
 		break;
 	case SetPortFeature:
 		if ((wIndex & 0xff) != 1)
@@ -573,12 +550,9 @@ int musbfsh_hub_control(
 			 */
 			INFO("musbfsh_start is called in hub control\r\n");
 #ifdef CONFIG_MTK_ICUSB_SUPPORT
-			if(skip_mac_init_attr.value)
-			{
+			if (skip_mac_init_attr.value) {
 				MYDBG("");
-			}
-			else
-			{
+			} else {
 				musbfsh_start(musbfsh);
 			}
 #else
@@ -586,7 +560,7 @@ int musbfsh_hub_control(
 #endif
 			break;
 		case USB_PORT_FEAT_RESET:
-			musbfsh_port_reset(musbfsh, true);//enable the reset, but not finish
+			musbfsh_port_reset(musbfsh, true);	/* enable the reset, but not finish */
 			break;
 		case USB_PORT_FEAT_SUSPEND:
 			musbfsh_port_suspend(musbfsh, true);
@@ -617,11 +591,10 @@ int musbfsh_hub_control(
 				break;
 			case 5:
 				pr_debug("TEST_FORCE_ENABLE\n");
-				temp = MUSBFSH_TEST_FORCE_HOST
-					| MUSBFSH_TEST_FORCE_FS;
+				temp = MUSBFSH_TEST_FORCE_HOST | MUSBFSH_TEST_FORCE_FS;
 
 				musbfsh_writeb(musbfsh->mregs, MUSBFSH_DEVCTL,
-						MUSBFSH_DEVCTL_SESSION);
+					       MUSBFSH_DEVCTL_SESSION);
 				break;
 			case 6:
 				pr_debug("TEST_FIFO_ACCESS\n");

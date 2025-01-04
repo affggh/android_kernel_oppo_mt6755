@@ -50,7 +50,7 @@
 *1 rad = PI*degree/180, about 3.1416*degree/180
 *1 degree = rad*180/PI, about rad*180/3.1416
 */
-#define DEGREE_TO_RAD				938
+#define DEGREE_TO_RAD				180000//938
 
 /* -----------------  BMI160 gyro macros  ---------------- */
 #define SW_CALIBRATION
@@ -136,4 +136,5 @@
 #define BMI160_USER_DATA_8_GYR_X_LSB__MSK          0xFF
 #define BMI160_USER_DATA_8_GYR_X_LSB__REG          BMI160_USER_DATA_8_ADDR
 
+extern struct gyro_hw* bmi160_get_cust_gyro_hw(void);
 #endif/* BMI160_GYRO_H */

@@ -60,7 +60,9 @@
 #define MPU6515_DEV_NAME        "MPU6515G"   /* name must different with gyro mpu6515 */
 /*----------------------------------------------------------------------------*/
 static const struct i2c_device_id mpu6515_i2c_id[] = {{MPU6515_DEV_NAME,0},{}};
+#ifdef CONFIG_MTK_LEGACY
 static struct i2c_board_info __initdata i2c_mpu6515={ I2C_BOARD_INFO(MPU6515_DEV_NAME, (MPU6515_I2C_SLAVE_ADDR>>1))};
+#endif
 
 /*----------------------------------------------------------------------------*/
 static int mpu6515_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id); 
@@ -147,9 +149,19 @@ struct mpu6515_i2c_data
     u8                      bandwidth;
 };
 /*----------------------------------------------------------------------------*/
+#ifdef CONFIG_OF
+static const struct of_device_id acc_of_match[] = {
+        {.compatible = "mediatek,GSENSOR"},
+        {},
+};
+#endif
+
 static struct i2c_driver mpu6515_i2c_driver = {
     .driver = {
         .name           = MPU6515_DEV_NAME,
+#ifdef CONFIG_OF
+        .of_match_table = acc_of_match,
+#endif
     },
     .probe              = mpu6515_i2c_probe,
     .remove             = mpu6515_i2c_remove,
@@ -182,9 +194,9 @@ static struct acc_init_info mpu6515_init_info = {
 
 /*----------------------------------------------------------------------------*/
 #define GSE_TAG                  "[Gsensor] "
-#define GSE_FUN(f)               printk(GSE_TAG"%s\n", __FUNCTION__)
-#define GSE_ERR(fmt, args...)    printk(GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define GSE_LOG(fmt, args...)    printk(GSE_TAG fmt, ##args)
+#define GSE_FUN(f)               pr_debug(GSE_TAG"%s\n", __FUNCTION__)
+#define GSE_ERR(fmt, args...)    pr_err(GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define GSE_LOG(fmt, args...)    pr_debug(GSE_TAG fmt, ##args)
 /*----------------------------------------------------------------------------*/
 static struct data_resolution mpu6515_data_resolution[] = {
     /*8 combination by {FULL_RES,RANGE}*/
@@ -359,7 +371,7 @@ EXPORT_SYMBOL(MPU6515_hwmsen_read_byte);
 /*--------------------mpu6515 power control function----------------------------------*/
 static void MPU6515_power(struct acc_hw *hw, unsigned int on) 
 {
-#ifndef FPGA_EARLY_PORTING
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	static unsigned int power_on = 0;
 
 	if(hw->power_id != POWER_NONE_MACRO)		// have externel LDO
@@ -936,7 +948,7 @@ static int MPU6515_Dev_Reset(struct i2c_client *client)
         databuf[0] = 0x0;        
         res = i2c_master_recv(client, databuf, 0x01);
 
-        printk("[Gsensor] check reset bit");
+        GSE_LOG("[Gsensor] check reset bit");
 
     }while((databuf[0]&MPU6515_DEV_RESET) != 0);
 
@@ -1878,7 +1890,7 @@ static int gsensor_irq_handler(void* data, uint len)
     SCP_SENSOR_HUB_DATA_P rsp = (SCP_SENSOR_HUB_DATA_P)data;
 
     GSE_FUN();
-    GSE_ERR("len = %d, type = %d, action = %d, errCode = %d\n", len, rsp->rsp.sensorType, rsp->rsp.action, rsp->rsp.errCode);
+    GSE_LOG("len = %d, type = %d, action = %d, errCode = %d\n", len, rsp->rsp.sensorType, rsp->rsp.action, rsp->rsp.errCode);
     
 	if(!obj)
 	{
@@ -2001,7 +2013,15 @@ static long mpu6515_unlocked_ioctl(struct file *file, unsigned int cmd,
             break;    
         }
         mutex_lock(&gsensor_mutex);
-        MPU6515_SetPowerMode(client, true);
+	if (sensor_power == FALSE)
+	{
+	    err = MPU6515_SetPowerMode(client, true);
+	    if (err)
+	    {
+	        GSE_ERR("Power on mpu6515 error %ld!\n", err);
+	    }
+	    msleep(50);
+	}
         MPU6515_ReadSensorData(client, strbuf, MPU6515_BUFSIZE);
         mutex_unlock(&gsensor_mutex);
         if (copy_to_user(data, strbuf, strlen(strbuf)+1))
@@ -2124,11 +2144,19 @@ static long compat_mpu6515_unlocked_ioctl(struct file *filp, unsigned int cmd, u
     }
 
     switch (cmd) {
-        case GSENSOR_IOCTL_SET_CALI:
-        case GSENSOR_IOCTL_CLR_CALI:
-        case GSENSOR_IOCTL_GET_CALI:
+	case COMPAT_GSENSOR_IOCTL_INIT:
+	case COMPAT_GSENSOR_IOCTL_READ_CHIPINFO:
+	case COMPAT_GSENSOR_IOCTL_READ_GAIN:
+	case COMPAT_GSENSOR_IOCTL_READ_RAW_DATA:
+	case COMPAT_GSENSOR_IOCTL_READ_SENSORDATA:
+	/* NVRAM will use below ioctl */
+        case COMPAT_GSENSOR_IOCTL_SET_CALI:
+        case COMPAT_GSENSOR_IOCTL_CLR_CALI:
+        case COMPAT_GSENSOR_IOCTL_GET_CALI: {
+            GSE_LOG("compat_ion_ioctl : GSENSOR_IOCTL_XXX command is 0x%x\n", cmd);
             return filp->f_op->unlocked_ioctl(filp, cmd,
                 (unsigned long)compat_ptr(arg));
+	}
         default: {
             GSE_ERR("compat_ion_ioctl : No such command!! 0x%x\n", cmd);
             return -ENOIOCTLCMD;
@@ -2329,18 +2357,16 @@ static int gsensor_enable_nodata(int en)
 
     if(err != MPU6515_SUCCESS)
 	{
-		printk("gsensor_enable_nodata fail!\n");
+		GSE_ERR("gsensor_enable_nodata fail!\n");
 		return -1;
 	}
 
-    printk("gsensor_enable_nodata OK!!!\n");
+    GSE_LOG("gsensor_enable_nodata OK!!!\n");
 	return 0;
 }
 #endif
 /*----------------------------------------------------------------------------*/
 // if use  this typ of enable , Gsensor only enabled but not report inputEvent to HAL
-// m sensor daemon may enable sensor power, but this does not mean sensor hub power on,
-// we use another power status variable for the projects with sensor hub.
 #ifdef CUSTOM_KERNEL_SENSORHUB
 static int scp_gsensor_enable_nodata(int en)
 {
@@ -2377,11 +2403,11 @@ static int scp_gsensor_enable_nodata(int en)
 
     if(err != MPU6515_SUCCESS)
     {
-        printk("scp_gsensor_enable_nodata fail!\n");
+        GSE_ERR("scp_gsensor_enable_nodata fail!\n");
         return -1;
     }
 
-    printk("scp_gsensor_enable_nodata OK!!!\n");
+    GSE_LOG("scp_gsensor_enable_nodata OK!!!\n");
     return 0;
 }
 #endif
@@ -2491,15 +2517,14 @@ static int gsensor_get_data(int* x ,int* y,int* z, int* status)
     }
 
     //sscanf(buff, "%x %x %x", req.get_data_rsp.int16_Data[0], req.get_data_rsp.int16_Data[1], req.get_data_rsp.int16_Data[2]);
-    *x = req.get_data_rsp.int16_Data[0];
-    *y = req.get_data_rsp.int16_Data[1];
-    *z = req.get_data_rsp.int16_Data[2];
-    //GSE_ERR("x = %d, y = %d, z = %d\n", *x, *y, *z);
+    *x = (int)req.get_data_rsp.int16_Data[0]*GRAVITY_EARTH_1000/1000;
+    *y = (int)req.get_data_rsp.int16_Data[1]*GRAVITY_EARTH_1000/1000;
+    *z = (int)req.get_data_rsp.int16_Data[2]*GRAVITY_EARTH_1000/1000;
     *status = SENSOR_STATUS_ACCURACY_MEDIUM;
 
-    if(atomic_read(&obj_i2c_data->trace) & MPU6515_TRC_RAWDATA)
+	if(atomic_read(&obj_i2c_data->trace) & MPU6515_TRC_RAWDATA)
 	{
-        GSE_ERR("x = %d, y = %d, z = %d\n", *x, *y, *z);
+		GSE_LOG("x = %d, y = %d, z = %d\n", *x, *y, *z);
 	}
 #else//#ifdef CUSTOM_KERNEL_SENSORHUB
     mutex_lock(&gsensor_mutex);
@@ -2549,7 +2574,7 @@ static int mpu6515_i2c_probe(struct i2c_client *client, const struct i2c_device_
 
     obj_i2c_data = obj;
     obj->client = client;
-#ifdef FPGA_EARLY_PORTING
+#ifdef CONFIG_FPGA_EARLY_PORTING
     obj->client->timing = 100; 
 #else
     obj->client->timing = 400;
@@ -2634,7 +2659,7 @@ static int mpu6515_i2c_probe(struct i2c_client *client, const struct i2c_device_
         goto exit_create_attr_failed;
     }
 
-    err = batch_register_support_info(ID_ACCELEROMETER,ctl.is_support_batch, 1000, 0);
+    err = batch_register_support_info(ID_ACCELEROMETER,ctl.is_support_batch, 102, 0); //divisor is 1000/9.8
     if(err)
     {
         GSE_ERR("register gsensor batch support err = %d\n", err);
@@ -2719,7 +2744,9 @@ static int __init mpu6515gse_init(void)
 {
     struct acc_hw *hw = get_cust_acc_hw();
 	GSE_LOG("%s: i2c_number=%d\n", __func__,hw->i2c_num);
+#ifdef CONFIG_MTK_LEGACY
     i2c_register_board_info(hw->i2c_num, &i2c_mpu6515, 1);
+#endif
     acc_driver_add(&mpu6515_init_info);
     return 0;    
 }

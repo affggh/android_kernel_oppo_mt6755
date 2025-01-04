@@ -191,6 +191,12 @@ struct sock_common {
 #ifdef CONFIG_NET_NS
 	struct net	 	*skc_net;
 #endif
+#ifdef VENDOR_EDIT
+//Jiemin.Zhu@Swdp.Android.OppoFeature.TrafficMonitor, 2016/10/28,
+//add for count TCP_TIME_WAIT state to corresponding process
+	uid_t skc_uid;
+	char skc_cmdline[TASK_COMM_LEN];
+#endif /* VENDOR_EDIT */
 	/*
 	 * fields between dontcopy_begin/dontcopy_end
 	 * are not copied in sock_copy()
@@ -305,6 +311,10 @@ struct sock {
 #define sk_bind_node		__sk_common.skc_bind_node
 #define sk_prot			__sk_common.skc_prot
 #define sk_net			__sk_common.skc_net
+#ifdef VENDOR_EDIT
+#define sk_uid			__sk_common.skc_uid
+#define sk_cmdline			__sk_common.skc_cmdline
+#endif /* VENDOR_EDIT */
 	socket_lock_t		sk_lock;
 	struct sk_buff_head	sk_receive_queue;
 	/*

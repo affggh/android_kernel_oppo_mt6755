@@ -34,6 +34,17 @@
 #include "eemcs_state.h"
 #include "eemcs_statistics.h"
 
+// The definition of the array 'ipc_msgsvc_maptbl[]' MUST exist earlier than '#include "conn_md_exp.h"'
+// Because file conn_md_exp.h also include "eemcs_ipc_task_ID.h" header file, and it didn't define __IPC_ID_TABLE macro.
+// If #include "conn_md_exp.h" comes earlier, will cause the include statement in the array didn't work, and the array size will be 0.
+static IPC_MSGSVC_TASKMAP_T ipc_msgsvc_maptbl[] =
+{
+	#define __IPC_ID_TABLE
+#include "eemcs_ipc_task_ID.h"
+	#undef __IPC_ID_TABLE
+    
+};
+
 #ifdef ENABLE_CONN_COEX_MSG
 #include "conn_md_exp.h"
 #endif
@@ -46,15 +57,6 @@ static eemcs_ipc_inst_t eemcs_ipc_inst;
 #define unify_MD_id_2_local_id(id)   unify_xx_id_2_local_id(id,0)
 
 
-static IPC_MSGSVC_TASKMAP_T ipc_msgsvc_maptbl[] =
-{
-	#define __IPC_ID_TABLE
-#include "eemcs_ipc_task_ID.h"
-	#undef __IPC_ID_TABLE
-    
-};
-
-//put after ipc_msgsvc_maptbl for #include "eemcs_ipc_task_ID.h"
 
 static IPC_MSGSVC_TASKMAP_T *local_xx_id_2_unify_id(uint32 local_id,int AP)
 {

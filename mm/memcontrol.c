@@ -1504,17 +1504,21 @@ int mem_cgroup_inactive_anon_is_low(struct lruvec *lruvec)
 	unsigned long inactive_ratio;
 	unsigned long inactive;
 	unsigned long active;
+#ifndef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Performance, 2018-10-13, fix anon inactive/active ratio*/
 	unsigned long gb;
-
+#endif /*VENDOR_EDIT*/
 	inactive = mem_cgroup_get_lru_size(lruvec, LRU_INACTIVE_ANON);
 	active = mem_cgroup_get_lru_size(lruvec, LRU_ACTIVE_ANON);
-
+#ifndef VENDOR_EDIT
+/*Huacai.Zhou@PSW.BSP.Performance, 2018-10-13, fix anon inactive/active ratio*/
 	gb = (inactive + active) >> (30 - PAGE_SHIFT);
 	if (gb)
 		inactive_ratio = int_sqrt(10 * gb);
 	else
-		inactive_ratio = 1;
+#endif /*VENDOR_EDIT*/
 
+		inactive_ratio = 1;
 	return inactive * inactive_ratio < active;
 }
 
@@ -7027,6 +7031,7 @@ struct cgroup_subsys mem_cgroup_subsys = {
 	.allow_attach = mem_cgroup_allow_attach,
 	.bind = mem_cgroup_bind,
 	.base_cftypes = mem_cgroup_files,
+	.disabled = 1,	/* Disable it for performance workaround */
 	.early_init = 0,
 	.use_id = 1,
 };
@@ -7076,6 +7081,12 @@ static int __init mem_cgroup_init(void)
 	enable_swap_cgroup();
 	mem_cgroup_soft_limit_tree_init();
 	memcg_stock_init();
+#ifdef CONFIG_MEMCG_ZNDSWAP
+	dt_swapcache = 2560;
+	dt_writeback = 1024;
+	dt_filecache = totalram_pages;
+	/*dt_free = ;*/
+#endif
 	return 0;
 }
 subsys_initcall(mem_cgroup_init);

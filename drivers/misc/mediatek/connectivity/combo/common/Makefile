@@ -2,7 +2,8 @@ include $(srctree)/drivers/misc/mediatek/Makefile.custom
 #ccflags-y += -I$(src)/core/include
 subdir-ccflags-y += -DWMT_PLAT_APEX=0
 subdir-ccflags-y += -DWMT_PLAT_ALPS=1 
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/				
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eemcs/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/conn_md/include
 #subdir-ccflags-y += -I$(srctree)/arch/arm/mach-$(MTK_PLATFORM)/$(ARCH_MTK_PROJECT)/dct/dct

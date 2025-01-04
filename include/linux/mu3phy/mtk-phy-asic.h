@@ -2,6 +2,10 @@
 #ifndef __MTK_PROJECT_PHY__H
 #define __MTK_PROJECT_PHY__H
 
+#ifndef CONFIG_MTK_CLKMGR
+extern struct clk *musb_clk;
+#endif
+
 //referenecd from ssusb_USB20_PHY_regmap_com_T28HPM.xls
 #define U3D_USBPHYACR0      (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0000) /*2:30 SIV_B*/
 #define U3D_USBPHYACR1      (SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE+0x0004) /*0:23 SIV_B*/
@@ -37,6 +41,10 @@
 #define U3D_U3PHYA_DA_REG0 (SSUSB_SIFSLV_U3PHYA_DA_BASE+0x0)
 
 #define U3D_SPLLC_XTALCTL3 (SSUSB_SIFSLV_SPLLC_BASE+0x18)
+#define U3D_PHYD_MIX1 (SSUSB_SIFSLV_U3PHYD_BASE+0x4)
+#define U3D_B2_PHYD_TOP1 (SSUSB_USB30_PHYA_SIV_B2_BASE+0x0)
+#define U3D_PHYA_REG6 (SSUSB_USB30_PHYA_SIV_B_BASE+0x18)
+
 
 #define U2_SR_COEF_E60802 28
 
@@ -684,6 +692,7 @@ struct u3phya_reg_e {
 #define E60802_RG_SSUSB_TX_EIDLE_CM               (0xf<<28) //31:28
 #define E60802_RG_SSUSB_RXLBTX_EN                 (0x1<<27) //27:27
 #define E60802_RG_SSUSB_TXLBRX_EN                 (0x1<<26) //26:26
+#define E60802_RG_SSUSB_RESERVE22                 (0x1<<22)
 #define E60802_RG_SSUSB_RESERVE                   (0x3ff<<16) //25:16
 #define E60802_RG_SSUSB_PLL_POSDIV                (0x3<<14) //15:14
 #define E60802_RG_SSUSB_PLL_AUTOK_LOAD            (0x1<<13) //13:13
@@ -841,6 +850,7 @@ struct u3phya_reg_e {
 #define E60802_RG_SSUSB_TX_EIDLE_CM_OFST          (28)
 #define E60802_RG_SSUSB_RXLBTX_EN_OFST            (27)
 #define E60802_RG_SSUSB_TXLBRX_EN_OFST            (26)
+#define E60802_RG_SSUSB_RESERVE22_OFST            (22)
 #define E60802_RG_SSUSB_RESERVE_OFST              (16)
 #define E60802_RG_SSUSB_PLL_POSDIV_OFST           (14)
 #define E60802_RG_SSUSB_PLL_AUTOK_LOAD_OFST       (13)
@@ -3156,6 +3166,11 @@ PHY_INT32 u2_slew_rate_calibration(struct u3phy_info *info);
 void usb_phy_savecurrent(unsigned int clk_on);
 void usb_phy_recover(unsigned int clk_on);
 void usb_fake_powerdown(unsigned int clk_on);
-
+void usb20_pll_settings(bool host, bool forceOn);
+extern u32 get_devinfo_with_index(u32 index);
+#ifdef CONFIG_MTK_SIB_USB_SWITCH
+extern void usb_phy_sib_enable_switch(bool enable);
+extern bool usb_phy_sib_enable_switch_status(void);
+#endif /*CONFIG_MTK_SIB_USB_SWITCH*/
 #endif
 #endif

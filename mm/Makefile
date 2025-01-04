@@ -15,7 +15,7 @@ obj-y			:= filemap.o mempool.o oom_kill.o fadvise.o \
 			   maccess.o page_alloc.o page-writeback.o \
 			   readahead.o swap.o truncate.o vmscan.o shmem.o \
 			   util.o mmzone.o vmstat.o backing-dev.o \
-			   mm_init.o mmu_context.o list_lru.o percpu.o slab_common.o \
+			   mm_init.o mmu_context.o percpu.o slab_common.o \
 			   compaction.o balloon_compaction.o \
 			   interval_tree.o $(mmu-y)
 
@@ -58,3 +58,8 @@ obj-$(CONFIG_DEBUG_KMEMLEAK) += kmemleak.o
 obj-$(CONFIG_DEBUG_KMEMLEAK_TEST) += kmemleak-test.o
 obj-$(CONFIG_CLEANCACHE) += cleancache.o
 obj-$(CONFIG_MEMORY_ISOLATION) += page_isolation.o
+#ifdef VENDOR_EDIT
+#/* Huacai.Zhou@PSW.BSP.Kernel.MM, 2018-07-07, add alloc wait monitor support*/
+obj-$(CONFIG_OPPO_MEM_MONITOR) += memory_monitor.o
+#endif /*VENDOR_EDIT*/
+obj-$(CONFIG_ZSMALLOC) += zsmalloc.o

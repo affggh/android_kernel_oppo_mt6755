@@ -12,7 +12,10 @@
 #define SUPPORT_OTG
 #endif
 //This should be defined if superspeed is supported
+#if !defined(CONFIG_USB_MU3D_ONLY_U2_MODE)
 #define SUPPORT_U3
+#endif
+
 #ifdef SUPPORT_U3
 
 #define U3D_DFT_SPEED SSUSB_SPEED_SUPER
@@ -119,16 +122,17 @@ extern void __iomem *i2c1_base;
 /*
  * 0x1128_0000 for sifslv register in Infra
  */
-#define SSUSB_SIFSLV_SPLLC_BASE 	(u3_sif_base+0x000)
 #define SSUSB_SIFSLV_IPPC_BASE		(u3_sif_base+0x700)
-#define SSUSB_SIFSLV_U2PHY_COM_BASE	(u3_sif_base+0x800)
-#define SSUSB_SIFSLV_U3PHYD_BASE	(u3_sif_base+0x900)
 
 #ifdef CONFIG_PROJECT_PHY
 /*
  * 0x1129_0000 for sifslv register in top_ao
  */
+#define SSUSB_SIFSLV_SPLLC_BASE 	(u3_sif2_base+0x000)
+#define SSUSB_SIFSLV_U2PHY_COM_BASE	(u3_sif2_base+0x800)
+#define SSUSB_SIFSLV_U3PHYD_BASE	(u3_sif2_base+0x900)
 #define SSUSB_SIFSLV_U2PHY_COM_SIV_B_BASE  (u3_sif2_base+0x800)
+#define SSUSB_USB30_PHYA_SIV_B2_BASE	(u3_sif2_base+0xA00)
 #define SSUSB_USB30_PHYA_SIV_B_BASE	(u3_sif2_base+0xB00)
 #define SSUSB_SIFSLV_U3PHYA_DA_BASE	(u3_sif2_base+0xC00)
 #endif

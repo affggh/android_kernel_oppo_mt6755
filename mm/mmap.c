@@ -1213,6 +1213,12 @@ unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 
 	*populate = 0;
 
+#ifdef VENDOR_EDIT
+	// fangpan@Swdp.shanghai, 2016/02/02, add sdcardfs related interface 
+	// in the file system
+	while (file && (file->f_mode & FMODE_NONMAPPABLE))
+		file = file->f_op->get_lower_file(file);
+#endif
 	/*
 	 * Does the application expect PROT_READ to imply PROT_EXEC?
 	 *
@@ -2508,7 +2514,6 @@ extern void extmem_free(void* mem);
 int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 {
 	unsigned long end;
-	struct file *file;
 	struct vm_area_struct *vma, *prev, *last;
 
 	if ((start & ~PAGE_MASK) || start > TASK_SIZE || len > TASK_SIZE-start)
@@ -2521,19 +2526,24 @@ int do_munmap(struct mm_struct *mm, unsigned long start, size_t len)
 	vma = find_vma(mm, start);
 	if (!vma)
 		return 0;
-	file=vma->vm_file;
-	if(file) 
+
+#ifdef CONFIG_MT_ENG_BUILD
+//	if (strstr(current->comm, "app_process")){
 	{
-		const char *name=file->f_path.dentry->d_iname;
-		if(name && (strstr(name,"app_process") || strstr(name,"app_process64") || strstr(name,"main") || strstr(name,"Binder_")))
-			printk("name:%s unmap vm_start %lx  end: %lx\n", name, vma->vm_start, vma->vm_end);
+		struct file *file;
+		file=vma->vm_file;
+		if (file) {
+			const char *name=file->f_path.dentry->d_iname;
+			if(name && (strstr(name,".so") || strstr(name,".oat") || strstr(name,".art") || strstr(name,".dex") || strstr(name,".apk")))
+				pr_debug("unmap:%s 0x%lx - 0x%lx\n", name, vma->vm_start, vma->vm_end);
+		} else {
+			const char *name = arch_vma_name(vma);
+			if(name)
+				pr_debug("unmap arch_vma_name:%s 0x%lx - 0x%lx\n", name, vma->vm_start, vma->vm_end);
+		}
 	}
-	else
-	{
-		const char *name = arch_vma_name(vma);
-		if(name && (strstr(name,"app_process") || strstr(name,"app_process64") || strstr(name,"main") || strstr(name,"Binder_")))
-			printk("name:%s unmap vm_start %lx  end: %lx\n", name, vma->vm_start, vma->vm_end);
-	}
+#endif
+
 	prev = vma->vm_prev;
 	/* we have  start < vma->vm_end  */
 

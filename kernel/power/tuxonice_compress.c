@@ -30,7 +30,11 @@ static int toi_actual_compression;
 static struct toi_module_ops toi_compression_ops;
 static struct toi_module_ops *next_driver;
 
+#if defined(CONFIG_MTK_MTD_NAND) && defined(CONFIG_CRYPTO_LZ4K)
+static char toi_compressor_name[32] = "lz4k";
+#else
 static char toi_compressor_name[32] = "lzo";
+#endif
 
 static DEFINE_MUTEX(stats_lock);
 
@@ -228,8 +232,12 @@ static int toi_compress_read_page(unsigned long *index, int buf_type,
 	char *buffer_start;
 	struct toi_cpu_context *ctx = &per_cpu(contexts, cpu);
 
-	if (!ctx->transform)
-		return next_driver->read_page(index, TOI_PAGE, buffer_page, buf_size);
+	if (!ctx->transform) {
+		ret = next_driver->read_page(index, TOI_PAGE, buffer_page, buf_size);
+		if (ret)
+			hib_err("%pF result %d\n", next_driver->read_page, ret);
+		return ret;
+	}
 
 	/*
 	 * All our reads must be synchronous - we can't decompress
@@ -242,6 +250,8 @@ static int toi_compress_read_page(unsigned long *index, int buf_type,
 
 	/* Error or uncompressed data */
 	if (ret || len == PAGE_SIZE) {
+		if (ret)
+			hib_err("%pF result %d\n", next_driver->read_page, ret);
 		memcpy(buffer_start, ctx->page_buffer, len);
 		goto out;
 	}
@@ -251,9 +261,10 @@ static int toi_compress_read_page(unsigned long *index, int buf_type,
 	toi_message(TOI_COMPRESS, TOI_VERBOSE, 0,
 		    "CPU %d, index %lu: %d=>%d (%d).", cpu, *index, len, outlen, ret);
 
-	if (ret)
+	if (ret) {
+		hib_err("%p, %p, %d, %p, result %d\n", ctx->transform, ctx->page_buffer, len, buffer_start, ret);
 		abort_hibernate(TOI_FAILED_IO, "Compress_read returned %d.\n", ret);
-	else if (outlen != PAGE_SIZE) {
+	} else if (outlen != PAGE_SIZE) {
 		abort_hibernate(TOI_FAILED_IO,
 				"Decompression yielded %d bytes instead of %ld.\n",
 				outlen, PAGE_SIZE);

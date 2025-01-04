@@ -11,28 +11,30 @@ obj-y   +=  tpd_init.o
 obj-y   +=  tpd_misc.o
 obj-y   +=  tpd_setting.o
 
+#ifdef VENDOR_EDIT
+#WangHao@phone.bsp, 2015-09-22, Add for Touch Panel driver
+ifeq ($(CONFIG_TOUCHSCREEN_MTK_OPPO_15111_S3508),y)
+obj-y	+=  oppo_15111_s3508/
+endif
+#endif
+
+#ifdef VENDOR_EDIT
+#WangHao@phone.bsp, 2015-11-02, Add for Touch Panel driver
+ifeq ($(CONFIG_TOUCHSCREEN_MTK_OPPO_15101_S3508),y)
+obj-y	+=  oppo_15101_s3508/
+endif
+#endif
+
+ifeq ($(CONFIG_MTK_FT5206),y)
+obj-y	+=  ft5206/
+endif
+
 ifeq ($(CONFIG_TOUCHSCREEN_MTK_MAX1187X),y)
 obj-y	+=  max1187x/
 endif
 
-ifeq ($(CONFIG_TOUCHSCREEN_MTK_FT5346),y)
-obj-y	+=  ft5346/
-endif
-
-ifeq ($(CONFIG_TOUCHSCREEN_MTK_ATMEL336T),y)
-obj-y	+=  atmel336t/
-endif
-
 ifeq ($(CONFIG_TOUCHSCREEN_MTK_GT9XX),y)
 obj-y	+=  GT9XX/
-endif
-
-ifeq ($(CONFIG_TOUCHSCREEN_MTK_FT5346_CX865),y)
-obj-y	+=  ft5346_cx865/
-endif
-
-ifeq ($(CONFIG_TOUCHSCREEN_MTK_ATMEL336T_CX865),y)
-obj-y	+=  atmel336t_cx865/
 endif
 
 ifeq ($(CONFIG_TOUCHSCREEN_MTK_GT9XX_AIO),y)
@@ -49,6 +51,10 @@ endif
 
 ifeq ($(CONFIG_TOUCHSCREEN_MTK_GT9XX_HOTKNOT),y)
 obj-y	+=  GT9XX_hotknot/
+endif
+
+ifeq ($(CONFIG_TOUCHSCREEN_MTK_GT9XX_HOTKNOT_WEAR),y)
+obj-y	+=  GT9XX_hotknot_wear/
 endif
 
 ifeq ($(CONFIG_TOUCHSCREEN_MTK_GT818B_FPGA),y)
@@ -73,6 +79,10 @@ ifeq ($(CONFIG_MTK_GT9XX),y)
 obj-y	+=  GT9XX/
 endif
 
+ifeq ($(CONFIG_TOUCHSCREEN_MTK_GT910),y)
+obj-y	+=  GT910/
+endif
+
 ifeq ($(CONFIG_TOUCHSCREEN_MTK_FTS2A052),y)
 obj-y	+=  FTS2A052/
 endif
@@ -87,6 +97,10 @@ endif
 
 ifeq ($(CONFIG_MTK_S3320_47),y)
 obj-y	+=  synaptics_3320_47/
+endif
+
+ifeq ($(CONFIG_MTK_S3320_50),y)
+obj-y	+=  synaptics_3320_50/
 endif
 
 ifeq ($(CONFIG_MTK_MMS134),y)
@@ -105,8 +119,8 @@ ifeq ($(CONFIG_TOUCHSCREEN_SYNAPTICS_S3528),y)
 obj-y   +=  synaptics_3528/
 endif
 
-ifeq ($(CONFIG_TOUCHSCREEN_MTK_SYNAPTICS_S3528_2),y)
-obj-y   +=  synaptics_3528_2/
+ifeq ($(CONFIG_TOUCHSCREEN_SYNAPTICS),y)
+obj-y   +=  synaptics/
 endif
 
 ifeq ($(CONFIG_MTK_S7020),y)
@@ -125,8 +139,8 @@ ifeq ($(CONFIG_MTK_FT5406_82),y)
 obj-y	+=  ft5406_82/
 endif
 
-ifeq ($(CONFIG_MTK_FT5206),y)
-obj-y	+=  ft5206/
+ifeq ($(CONFIG_MTK_FT5X0X),y)
+obj-y	+=  ft5x0x/
 endif
 
 ifeq ($(CONFIG_TOUCHSCREEN_MTK_GT9XX_2),y)
@@ -135,4 +149,32 @@ endif
 
 ifeq ($(CONFIG_MTK_MIT200),y)
 obj-y	+=  melfas_mit200/
+endif
+
+ifeq ($(CONFIG_MTK_GT911),y)
+obj-y	+=  GT911/
+endif
+
+ifeq ($(CONFIG_MTK_FT6X36),y)
+obj-y	+=  ft6x36/
+endif
+
+ifeq ($(CONFIG_TOUCHSCREEN_MTK_MSG28XX),y)
+obj-y	+=  Msg28xx/
+endif
+
+ifeq ($(CONFIG_OPPO_TOUCHPANEL_GOODIX),y)
+obj-y	+=  oppo_16011_gt915/
+endif
+
+ifeq ($(CONFIG_OPPO_TOUCHPANEL_SYNAPTICS),y)
+obj-y	+=  oppo_15127_s3203/
+endif
+
+ifeq ($(CONFIG_OPPO_TOUCHPANEL_FT5436),y)
+obj-y	+=  oppo_15131_ft5336/
+endif
+
+ifeq ($(CONFIG_OPPO_TOUCHPANEL_GT5688),y)
+obj-y	+=  oppo_16021_gt5688/
 endif

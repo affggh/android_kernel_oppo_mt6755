@@ -23,7 +23,7 @@
 #include <linux/batch.h>
 
 #include <mach/mt_typedefs.h>
-#include <mach/mt_gpio.h>
+
 #include <mach/mt_pm_ldo.h>
 
 #include <gyroscope.h>

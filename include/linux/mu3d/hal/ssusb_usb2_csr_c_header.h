@@ -48,6 +48,7 @@
 #define TM1                                       (0x1<<0) //0:0
 
 //U3D_DEVICE_CONTROL
+#define OTG2_EN				          (0x1<<9)
 #define HW_AUTO_SENDRST_EN                        (0x1<<8) //8:8
 #define B_DEV                                     (0x1<<7) //7:7
 #define FS_DEV                                    (0x1<<6) //6:6
@@ -184,6 +185,7 @@
 #define TM1_OFST                                  (0)
 
 //U3D_DEVICE_CONTROL
+#define OTG2_EN_OFST                              (9)
 #define HW_AUTO_SENDRST_EN_OFST                   (8)
 #define B_DEV_OFST                                (7)
 #define FS_DEV_OFST                               (6)

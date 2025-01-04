@@ -6,9 +6,9 @@
 #include <linux/list.h>
 #include <linux/init.h>
 #include <linux/smp.h>
-#include <linux/mt_sched_mon.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <mach/smp.h>
 #include <linux/hardirq.h>
 #include <linux/stacktrace.h>
 #include <linux/mm.h>
@@ -21,30 +21,30 @@
 #include <asm/compiler.h>
 #include <mach/fiq_smp_call.h>
 #include <mach/wd_api.h>
-#include <mach/smp.h>
-#ifndef CONFIG_ARM64
-#include <mach/irqs.h>
-#endif
 #include "aee-common.h"
 #include <mach/mt_secure_api.h>
-
-
-#define THREAD_INFO(sp) ((struct thread_info *) \
-				((unsigned long)(sp) & ~(THREAD_SIZE - 1)))
-
-#ifdef CONFIG_SCHED_DEBUG
-extern int sysrq_sched_debug_show_at_KE(void);
+#include "mt_sched_mon.h"
+#ifdef CONFIG_MTK_EIC_HISTORY_DUMP
+#include <linux/irqchip/mt-eic.h>
 #endif
 
+/* for interrupt status of ARM local timer control register */
+#include <asm/arch_timer.h>
+#include <clocksource/arm_arch_timer.h>
 
-#define WDT_PERCPU_LOG_SIZE		2048
+/* for irq (gic) dump status of local timer */
+#define IRQ_DUMP_STATUS_SIZE	1024
+static char localtimer_buf[IRQ_DUMP_STATUS_SIZE];
+
+#define WDT_PERCPU_LOG_SIZE	2048
 #define WDT_LOG_DEFAULT_SIZE	4096
-#define WDT_SAVE_STACK_SIZE		256
-#define MAX_EXCEPTION_FRAME		16
-#define PRINTK_BUFFER_SIZE		512
+#define WDT_SAVE_STACK_SIZE	256
+#define MAX_EXCEPTION_FRAME	16
+#define PRINTK_BUFFER_SIZE	512
 
-extern int debug_locks;
-/* NR_CPUS may not eaqual to real cpu numbers, alloc buffer at initialization */
+extern struct mutex sysfs_mutex;
+void mrdump_mini_add_entry(unsigned long addr, unsigned long size);
+
 static char *wdt_percpu_log_buf[NR_CPUS];
 static int wdt_percpu_log_length[NR_CPUS];
 static char wdt_log_buf[WDT_LOG_DEFAULT_SIZE];
@@ -53,15 +53,16 @@ static unsigned long wdt_percpu_stackframe[NR_CPUS][MAX_EXCEPTION_FRAME];
 static int wdt_log_length;
 static atomic_t wdt_enter_fiq;
 static char printk_buf[PRINTK_BUFFER_SIZE];
+static char str_buf[NR_CPUS][PRINTK_BUFFER_SIZE];
 
 #define ATF_AEE_DEBUG_BUF_LENGTH	0x4000
-static void *atf_aee_debug_virt_addr = 0;
+static void *atf_aee_debug_virt_addr;
 
 struct atf_aee_regs {
-    __u64    regs[31];
-    __u64    sp;
-    __u64    pc;
-    __u64    pstate;
+	__u64    regs[31];
+	__u64    sp;
+	__u64    pc;
+	__u64    pstate;
 };
 
 static struct {
@@ -159,7 +160,10 @@ void aee_wdt_dump_info(void)
 			LOGE("\n");
 		}
 	}
-
+#ifdef CONFIG_MTK_EIC_HISTORY_DUMP
+	aee_rr_rec_fiq_step(AEE_FIQ_STEP_KE_EINT_DEBUG);
+	dump_eint_trigger_history();
+#endif
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_KE_WDT_DONE);
 }
 
@@ -301,12 +305,12 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 			break;
 		}
 		if (unwind_frame(&cur_frame) < 0) {
-			aee_wdt_percpu_printf(cpu, "unwind_frame < 0 \n");
+			aee_wdt_percpu_printf(cpu, "unwind_frame < 0\n");
 			break;
 		}
 		if (!((cur_frame.pc >= (PAGE_OFFSET + THREAD_SIZE))
 		     && virt_addr_valid(cur_frame.pc))) {
-			aee_wdt_percpu_printf(cpu, "virt_addr_valid fail \n");
+			aee_wdt_percpu_printf(cpu, "virt_addr_valid fail\n");
 			break;
 		}
 		if (in_exception_text(cur_frame.pc)) {
@@ -324,57 +328,55 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 	return;
 }
 
-extern void mrdump_mini_per_cpu_regs(int cpu, struct pt_regs *regs);
 /* save binary register and stack value into ram console */
 static void aee_save_reg_stack_sram(int cpu)
 {
 	int i;
-	char str_buf[1024];
 	int len = 0;
 
 	if (regs_buffer_bin[cpu].real_len != 0) {
-		snprintf(str_buf, sizeof(str_buf),
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]),
 			 "\n\ncpu %d preempt=%lx, softirq=%lx, hardirq=%lx ", cpu,
 			 ((wdt_percpu_preempt_cnt[cpu] & PREEMPT_MASK) >> PREEMPT_SHIFT),
 			 ((wdt_percpu_preempt_cnt[cpu] & SOFTIRQ_MASK) >> SOFTIRQ_SHIFT),
 			 ((wdt_percpu_preempt_cnt[cpu] & HARDIRQ_MASK) >> HARDIRQ_SHIFT));
-		aee_sram_fiq_log(str_buf);
+		aee_sram_fiq_log(str_buf[cpu]);
 
-		memset(str_buf, 0, sizeof(str_buf));
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
 #ifdef CONFIG_ARM64
-		snprintf(str_buf, sizeof(str_buf),
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]),
 			 "\ncpu %d x0->x30 sp pc pstate\n", cpu);
 #else
-		snprintf(str_buf, sizeof(str_buf),
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]),
 			 "\ncpu %d r0->r10 fp ip sp lr pc cpsr orig_r0\n", cpu);
 #endif
-		aee_sram_fiq_log(str_buf);
+		aee_sram_fiq_log(str_buf[cpu]);
 		aee_sram_fiq_save_bin((char *)&(regs_buffer_bin[cpu].regs),
 				      regs_buffer_bin[cpu].real_len);
 	}
 
 	if (stacks_buffer_bin[cpu].real_len > 0) {
-		memset(str_buf, 0, sizeof(str_buf));
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
 #ifdef CONFIG_ARM64
-		snprintf(str_buf, sizeof(str_buf), "\ncpu %d stack [%016lx %016lx]\n",
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "\ncpu %d stack [%016lx %016lx]\n",
 			 cpu, stacks_buffer_bin[cpu].bottom, stacks_buffer_bin[cpu].top);
 #else
-		snprintf(str_buf, sizeof(str_buf), "\ncpu %d stack [%08lx %08lx]\n",
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "\ncpu %d stack [%08lx %08lx]\n",
 			 cpu, stacks_buffer_bin[cpu].bottom, stacks_buffer_bin[cpu].top);
 #endif
-		aee_sram_fiq_log(str_buf);
+		aee_sram_fiq_log(str_buf[cpu]);
 		aee_sram_fiq_save_bin(stacks_buffer_bin[cpu].bin_buf,
 				      stacks_buffer_bin[cpu].real_len);
 
-		memset(str_buf, 0, sizeof(str_buf));
-		len = snprintf(str_buf, sizeof(str_buf), "\ncpu %d backtrace : ", cpu);
+		memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
+		len = snprintf(str_buf[cpu], sizeof(str_buf[cpu]), "\ncpu %d backtrace : ", cpu);
 		for (i = 0; i < MAX_EXCEPTION_FRAME; i++) {
 			if (wdt_percpu_stackframe[cpu][i] == 0)
 				break;
-			len += snprintf((str_buf + len), (sizeof(str_buf) - len),
+			len += snprintf((str_buf[cpu] + len), (sizeof(str_buf[cpu]) - len),
 					"%08lx, ", wdt_percpu_stackframe[cpu][i]);
 		}
-		aee_sram_fiq_log(str_buf);
+		aee_sram_fiq_log(str_buf[cpu]);
 	}
 
 	mrdump_mini_per_cpu_regs(cpu, &regs_buffer_bin[cpu].regs);
@@ -386,13 +388,15 @@ void aee_wdt_irq_info(void)
 	BUG();
 }
 
-void aee_rr_rec_exp_type(unsigned int type);
+void hps_dump_task_info(void);
+
 void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 {
 	unsigned long long t;
 	unsigned long nanosec_rem;
 	int res = 0;
 	struct wd_api *wd_api = NULL;
+	unsigned long ctrl;
 
 	/* LOGD("\n ===> aee_wdt_atf_info : cpu %d\n", cpu); */
 	if (!cpu_possible(cpu)) {
@@ -419,7 +423,7 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 		set_cpu_online(cpu, false);
 		local_fiq_disable();
 		local_irq_disable();
-	
+
 		while (1)
 			cpu_relax();
 	}
@@ -433,7 +437,7 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 			aee_save_reg_stack_sram(cpu);
 		aee_sram_fiq_log("\n\n");
 	} else {
-		aee_wdt_printf("Invalid atf_aee_debug_virt_addr, no register dump \n");
+		aee_wdt_printf("Invalid atf_aee_debug_virt_addr, no register dump\n");
 	}
 
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_KICK);
@@ -442,7 +446,7 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 		aee_wdt_printf("aee_wdt_irq_info, get wd api error\n");
 	} else {
 		wd_api->wd_restart(WD_TYPE_NOLOCK);
-		aee_wdt_printf("kick=0x%08x,check=0x%08x", wd_api->wd_get_kick_bit(), 
+		aee_wdt_printf("kick=0x%08x,check=0x%08x", wd_api->wd_get_kick_bit(),
 					wd_api->wd_get_check_bit());
 	}
 
@@ -450,6 +454,21 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	t = cpu_clock(smp_processor_id());
 	nanosec_rem = do_div(t, 1000000000);
 	aee_wdt_printf("\nQwdt at [%5lu.%06lu]\n", (unsigned long)t, nanosec_rem / 1000);
+
+	/* interrupt status of local timer control register */
+	ctrl = arch_timer_reg_read(ARCH_TIMER_PHYS_ACCESS, ARCH_TIMER_REG_CTRL);
+	snprintf(localtimer_buf, sizeof(localtimer_buf), "\ncpu(%d): local timer regs: 0x%lx\n", cpu, ctrl);
+	aee_sram_fiq_log(localtimer_buf);
+
+	/* dump irq status of irq29 and irq30 */
+	if(mt_irq_dump_status_buf(29, localtimer_buf))
+		aee_sram_fiq_log(localtimer_buf);
+
+	if(mt_irq_dump_status_buf(30, localtimer_buf))
+		aee_sram_fiq_log(localtimer_buf);
+
+	/* dump bind info */
+	dump_wdk_bind_info();
 
 #ifdef CONFIG_MT_SCHED_MONITOR
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_SCHED);
@@ -460,28 +479,40 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	/* avoid lock prove to dump_stack in __debug_locks_off() */
 	xchg(&debug_locks, 0);
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_DONE);
-	aee_rr_rec_exp_type(1);
+
+	/* Dump hot plug kernel backtrace */
+	mrdump_mini_add_entry(&sysfs_mutex - 2048, 4096);
+	if (sysfs_mutex.owner != NULL) {
+		pr_err("Mutex owner:\n");
+		show_stack(sysfs_mutex.owner, NULL);
+	}
+	else {
+		pr_err("No Mutex owner\n");
+	}
+	hps_dump_task_info();
 	BUG();
 }
 
 void notrace aee_wdt_atf_entry(void)
 {
+#ifdef CONFIG_ARM64
 	int i;
+#endif
 	void *regs;
 	struct pt_regs pregs;
 	int cpu = get_HW_cpuid();
 
+	aee_rr_rec_exp_type(1);
 	if (atf_aee_debug_virt_addr) {
-		regs = (void *) (atf_aee_debug_virt_addr + 
+		regs = (void *) (atf_aee_debug_virt_addr +
 				(cpu * sizeof(struct atf_aee_regs)));
 
 #ifdef CONFIG_ARM64
 		pregs.pstate = ((struct atf_aee_regs *)regs)->pstate;
 		pregs.pc = ((struct atf_aee_regs *)regs)->pc;
 		pregs.sp = ((struct atf_aee_regs *)regs)->sp;
-		for (i=0; i<31 ;i++) {
-			pregs.regs[i] = ((struct atf_aee_regs *)regs)->regs[i];;
-		}
+		for (i = 0; i < 31; i++)
+			pregs.regs[i] = ((struct atf_aee_regs *)regs)->regs[i];
 #else
 		pregs.ARM_cpsr = (unsigned long)((struct atf_aee_regs *)regs)->pstate;
 		pregs.ARM_pc = (unsigned long)((struct atf_aee_regs *)regs)->pc;
@@ -515,9 +546,8 @@ static int __init aee_wdt_init(void)
 	atomic_set(&wdt_enter_fiq, 0);
 	for (i = 0; i < num_possible_cpus(); i++) {
 		wdt_percpu_log_buf[i] = kzalloc(WDT_PERCPU_LOG_SIZE, GFP_KERNEL);
-		if (wdt_percpu_log_buf[i] == NULL) {
+		if (wdt_percpu_log_buf[i] == NULL)
 			LOGE("\n aee_common_init : kmalloc fail\n");
-		}
 		wdt_percpu_log_length[i] = 0;
 		wdt_percpu_preempt_cnt[i] = 0;
 	}
@@ -528,21 +558,21 @@ static int __init aee_wdt_init(void)
 
 	/* send SMC to ATF to register call back function */
 #ifdef CONFIG_ARM64
-	atf_aee_debug_phy_addr = (phys_addr_t) (0x00000000FFFFFFFF & 
+	atf_aee_debug_phy_addr = (phys_addr_t) (0x00000000FFFFFFFF &
 				mt_secure_call(MTK_SIP_KERNEL_WDT, (u64)&aee_wdt_atf_entry, 0, 0));
 #else
-	atf_aee_debug_phy_addr = (phys_addr_t) 
+	atf_aee_debug_phy_addr = (phys_addr_t)
 				mt_secure_call(MTK_SIP_KERNEL_WDT, (u32)&aee_wdt_atf_entry, 0, 0);
 #endif
-	LOGD("\n MTK_SIP_KERNEL_WDT - 0x%p \n", &aee_wdt_atf_entry);
+	LOGD("\n MTK_SIP_KERNEL_WDT - 0x%p\n", &aee_wdt_atf_entry);
 
 	if ((atf_aee_debug_phy_addr == 0) || (atf_aee_debug_phy_addr == 0xFFFFFFFF)) {
-		LOGE("\n invalid atf_aee_debug_phy_addr \n");
+		LOGE("\n invalid atf_aee_debug_phy_addr\n");
 	} else {
 		/* use the last 16KB in ATF log buffer */
-		atf_aee_debug_virt_addr = ioremap(atf_aee_debug_phy_addr, 
+		atf_aee_debug_virt_addr = ioremap(atf_aee_debug_phy_addr,
 						ATF_AEE_DEBUG_BUF_LENGTH);
-		LOGD("\n atf_aee_debug_virt_addr = 0x%p  \n", atf_aee_debug_virt_addr);
+		LOGD("\n atf_aee_debug_virt_addr = 0x%p\n", atf_aee_debug_virt_addr);
 		if (atf_aee_debug_virt_addr)
 			memset(atf_aee_debug_virt_addr, 0, ATF_AEE_DEBUG_BUF_LENGTH);
 	}

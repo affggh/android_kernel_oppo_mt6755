@@ -31,28 +31,30 @@
 
 #include <mach/mt_gpio.h>
 #include <mach/mt_gpio_core.h>
+#ifndef CONFIG_MTK_FPGA
 #include <mach/gpio_const.h>
+#endif
 
 /***********************/
 struct mt_gpio_ops {
 /* char name[MT_GPIO_MAX_NAME]; */
-	int (*set_dir) (unsigned long pin, unsigned long dir);
-	int (*get_dir) (unsigned long pin);
-	int (*set_pull_enable) (unsigned long pin, unsigned long enable);
-	int (*get_pull_enable) (unsigned long pin);
-	int (*set_smt) (unsigned long pin, unsigned long enable);
-	int (*get_smt) (unsigned long pin);
-	int (*set_ies) (unsigned long pin, unsigned long enable);
-	int (*get_ies) (unsigned long pin);
-	int (*set_pull_select) (unsigned long pin, unsigned long select);
-	int (*get_pull_select) (unsigned long pin);
-	int (*set_inversion) (unsigned long pin, unsigned long enable);
-	int (*get_inversion) (unsigned long pin);
-	int (*set_out) (unsigned long pin, unsigned long output);
-	int (*get_out) (unsigned long pin);
-	int (*get_in) (unsigned long pin);
-	int (*set_mode) (unsigned long pin, unsigned long mode);
-	int (*get_mode) (unsigned long pin);
+	int (*set_dir)(unsigned long pin, unsigned long dir);
+	int (*get_dir)(unsigned long pin);
+	int (*set_pull_enable)(unsigned long pin, unsigned long enable);
+	int (*get_pull_enable)(unsigned long pin);
+	int (*set_smt)(unsigned long pin, unsigned long enable);
+	int (*get_smt)(unsigned long pin);
+	int (*set_ies)(unsigned long pin, unsigned long enable);
+	int (*get_ies)(unsigned long pin);
+	int (*set_pull_select)(unsigned long pin, unsigned long select);
+	int (*get_pull_select)(unsigned long pin);
+	int (*set_inversion)(unsigned long pin, unsigned long enable);
+	int (*get_inversion)(unsigned long pin);
+	int (*set_out)(unsigned long pin, unsigned long output);
+	int (*get_out)(unsigned long pin);
+	int (*get_in)(unsigned long pin);
+	int (*set_mode)(unsigned long pin, unsigned long mode);
+	int (*get_mode)(unsigned long pin);
 };
 
 /*---------------------------------------------------------------------------*/
@@ -61,7 +63,7 @@ static struct mt_gpio_ops mt_base_ops = {
 	.get_dir = mt_get_gpio_dir_base,
 	.set_pull_enable = mt_set_gpio_pull_enable_base,
 	.get_pull_enable = mt_get_gpio_pull_enable_base,
-	.set_smt = mt_set_gpio_smt_base,	
+	.set_smt = mt_set_gpio_smt_base,
 	.get_smt = mt_get_gpio_smt_base,
 	.set_ies = mt_set_gpio_ies_base,
 	.get_ies = mt_get_gpio_ies_base,
@@ -81,7 +83,7 @@ static struct mt_gpio_ops mt_ext_ops = {
 	.get_dir = mt_get_gpio_dir_ext,
 	.set_pull_enable = mt_set_gpio_pull_enable_ext,
 	.get_pull_enable = mt_get_gpio_pull_enable_ext,
-	.set_smt = mt_set_gpio_smt_ext,	
+	.set_smt = mt_set_gpio_smt_ext,
 	.get_smt = mt_get_gpio_smt_ext,
 	.set_ies = mt_set_gpio_ies_ext,
 	.get_ies = mt_get_gpio_ies_ext,
@@ -153,9 +155,19 @@ static struct mt_gpio_obj_t *mt_gpio = &mt_gpio_obj;
 	spin_unlock_irqrestore(&mt_gpio_lock, flags);\
 	retval; })
 
-	/* GPIOLOG("%s(%d)\n","operation",pin); */
-#define MT_GPIO_OPS_GET(pin, operation) \
-({   u32 retval = 0;\
+#ifdef VENDOR_EDIT
+//Fuchun.Liao@Mobile.BSP.CHG 2015-08-21 add for adapter fw update by uart			
+#define VOOC_UART_MT_GPIO_OPS_SET(pin,operation,arg) \
+({	 unsigned long flags;\
+	 u32 retval=0;\
+	mt_gpio_pin_decrypt(&pin);\
+	retval = vooc_uart_mt_set_gpio_out_base(pin, arg);\
+	retval;})
+#endif
+
+	//GPIOLOG("%s(%d)\n","operation",pin);
+#define MT_GPIO_OPS_GET(pin,operation) \
+({   u32 retval=0;\
 	mt_gpio_pin_decrypt(&pin);\
 	switch (MT_GPIO_PLACE(pin)) {\
 		case MT_BASE:\
@@ -222,17 +234,17 @@ EXPORT_SYMBOL(mt_get_gpio_pull_enable);
 /*---------------------------------------------------------------------------*/
 int mt_set_gpio_smt(unsigned long pin, unsigned long enable)
 {
-	if (enable >= GPIO_SMT_MAX){
-		GPIOERR("Parameter enable error: %d\n",(int)enable);
+	if (enable >= GPIO_SMT_MAX) {
+		GPIOERR("Parameter enable error: %d\n", (int)enable);
 		return -ERINVAL;
 	}
-	return MT_GPIO_OPS_SET(pin,set_smt,enable);
+	return MT_GPIO_OPS_SET(pin, set_smt, enable);
 }
 EXPORT_SYMBOL(mt_set_gpio_smt);
 /*---------------------------------------------------------------------------*/
 int mt_get_gpio_smt(unsigned long pin)
 {
-	return MT_GPIO_OPS_GET(pin,get_smt);
+	return MT_GPIO_OPS_GET(pin, get_smt);
 }
 EXPORT_SYMBOL(mt_get_gpio_smt);
 /*---------------------------------------------------------------------------*/
@@ -292,6 +304,19 @@ int mt_set_gpio_out(unsigned long pin, unsigned long output)
 	}
 	return MT_GPIO_OPS_SET(pin, set_out, output);
 }
+
+#ifdef VENDOR_EDIT
+//Fuchun.Liao@Mobile.BSP.CHG 2015-08-21 add for adapter fw update by uart	
+int vooc_uart_mt_set_gpio_out(unsigned long pin, unsigned long output)
+{
+    if (output >= GPIO_OUT_MAX){
+		GPIOERR("fastchg_uart Parameter output error: %d\n",(int)output);
+        return -ERINVAL;
+	}
+	return VOOC_UART_MT_GPIO_OPS_SET(pin,set_out,output);
+}
+#endif
+
 EXPORT_SYMBOL(mt_set_gpio_out);
 /*---------------------------------------------------------------------------*/
 int mt_get_gpio_out(unsigned long pin)
@@ -328,6 +353,7 @@ EXPORT_SYMBOL(mt_get_gpio_mode);
 static int mt_gpio_open(struct inode *inode, struct file *file)
 {
 	struct mt_gpio_obj_t *obj = mt_gpio;
+
 	GPIOFUC();
 
 	if (obj == NULL) {
@@ -525,9 +551,9 @@ static long mt_gpio_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 static struct file_operations mt_gpio_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = mt_gpio_ioctl,
-	#ifdef CONFIG_COMPAT
-	.compat_ioctl   = mt_gpio_ioctl,
-	#endif
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = mt_gpio_ioctl,
+#endif
 	.open = mt_gpio_open,
 	.release = mt_gpio_release,
 };
@@ -596,6 +622,7 @@ static int mt_gpio_remove(struct platform_device *dev)
 static int mtk_gpio_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int ret = 0;
+
 	mt_gpio_suspend();
 	return ret;
 }
@@ -604,6 +631,7 @@ static int mtk_gpio_suspend(struct platform_device *pdev, pm_message_t state)
 static int mtk_gpio_resume(struct platform_device *pdev)
 {
 	int ret = 0;
+
 	mt_gpio_resume();
 	return ret;
 }
@@ -627,25 +655,29 @@ static struct platform_driver gpio_driver = {
 	.resume = mtk_gpio_resume,
 #endif
 	.driver = {
-		.name = GPIO_DEVICE,
+		   .name = GPIO_DEVICE,
 #ifdef CONFIG_OF
-		.of_match_table = apgpio_of_ids,
+		   .of_match_table = apgpio_of_ids,
 #endif
-		},
+		   },
 };
 
+#ifndef CONFIG_MTK_FPGA
 #ifdef CONFIG_OF
 struct device_node *get_gpio_np(void)
 {
-    gpio_vbase.gpio_regs = NULL;
+	gpio_vbase.gpio_regs = NULL;
 	struct device_node *np_gpio;
+
 	np_gpio = of_find_compatible_node(NULL, NULL, apgpio_of_ids[0].compatible);
-	if(np_gpio == NULL) {
+	if (np_gpio == NULL) {
 		GPIOERR("GPIO device node is NULL\n");
 		return NULL;
 	}
     return np_gpio;
 }
+
+#endif
 #endif
 
 /*---------------------------------------------------------------------------*/
@@ -654,6 +686,7 @@ struct device_node *get_gpio_np(void)
 static int __init mt_gpio_init(void)
 {
 	int ret = 0;
+
 	GPIOLOG("version: %s\n", VERSION);
 
 	ret = platform_driver_register(&gpio_driver);
@@ -672,7 +705,7 @@ static void __exit mt_gpio_exit(void)
 /* return; */
 /* } */
 /*---------------------------------------------------------------------------*/
-module_init(mt_gpio_init);
+subsys_initcall(mt_gpio_init);
 module_exit(mt_gpio_exit);
 MODULE_AUTHOR("Ranran <ranran.lu@mediatek.com>");
 MODULE_DESCRIPTION("MT General Purpose Driver (GPIO) $Revision$");

@@ -1540,7 +1540,7 @@ P_BSS_DESC_T scanAddToBssDesc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 					fgIsValidSsid = FALSE;
 				}
 				/* Cisco AP1230A - (IE_LEN(pucIE) == 1) && (SSID_IE(pucIE)->aucSSID[0] == '\0') */
-				/* Linksys WRK54G/ASUS WL520g - (IE_LEN(pucIE) == n) && (SSID_IE(pucIE)->aucSSID[0~(n-1)] == '\0') */
+				/* Linksys WRK54G/WL520g - (IE_LEN(pucIE) == n) && (SSID_IE(pucIE)->aucSSID[0~(n-1)] == '\0') */
 				else {
 					for (i = 0; i < IE_LEN(pucIE); i++) {
 						ucSSIDChar |= SSID_IE(pucIE)->aucSSID[i];
@@ -1737,7 +1737,7 @@ P_BSS_DESC_T scanAddToBssDesc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 					fgIsHiddenSSID = TRUE;
 				}
 				/* Cisco AP1230A - (IE_LEN(pucIE) == 1) && (SSID_IE(pucIE)->aucSSID[0] == '\0') */
-				/* Linksys WRK54G/ASUS WL520g - (IE_LEN(pucIE) == n) && (SSID_IE(pucIE)->aucSSID[0~(n-1)] == '\0') */
+				/* Linksys WRK54G/WL520g - (IE_LEN(pucIE) == n) && (SSID_IE(pucIE)->aucSSID[0~(n-1)] == '\0') */
 				else {
 					for (i = 0; i < IE_LEN(pucIE); i++) {
 						ucSSIDChar |= SSID_IE(pucIE)->aucSSID[i];

@@ -32,9 +32,6 @@
  *   Chipeng Chang (mtk02308)
  *
  *------------------------------------------------------------------------------
- * $Revision: #1 $
- * $Modtime:$
- * $Log:$
  *
  *
  *******************************************************************************/
@@ -53,6 +50,7 @@
 
 #include "AudDrv_Common.h"
 #include "AudDrv_Def.h"
+#include <mach/mt_idle.h>
 
 /*****************************************************************************
  *                         D A T A   T Y P E S
@@ -71,7 +69,7 @@
 
 void AudDrv_Clk_AllOn(void);
 
-void Auddrv_Bus_Init( void);
+void Auddrv_Bus_Init(void);
 
 void AudDrv_Clk_Power_On(void);
 void AudDrv_Clk_Power_Off(void);
@@ -116,4 +114,3 @@ void AudDrv_Emi_Clk_Off(void);
 
 
 #endif
-

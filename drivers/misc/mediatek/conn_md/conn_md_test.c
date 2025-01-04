@@ -1,5 +1,4 @@
 
-
 #define DFT_TAG "[CONN_MD_EXP]"
 #include "conn_md_log.h"
 
@@ -7,11 +6,7 @@
 
 #include "conn_md.h"
 
-extern int mtk_conn_md_bridge_reg(uint32 u_id, CONN_MD_BRIDGE_OPS *p_ops);
-extern int mtk_conn_md_bridge_unreg(uint32 u_id);
-extern int mtk_conn_md_bridge_send_msg(ipc_ilm_t *ilm);
 CONN_MD_BRIDGE_OPS g_ops;
-
 
 static int conn_md_test_rx_cb(ipc_ilm_t *ilm);
 
@@ -35,7 +30,6 @@ int conn_md_test(void)
 	ilm.local_para_ptr = p_buf_str;
 
 	g_ops.rx_cb = conn_md_test_rx_cb;
-
 
 	mtk_conn_md_bridge_reg(0x800001, &g_ops);
 	mtk_conn_md_bridge_reg(0x800005, &g_ops);
@@ -123,10 +117,8 @@ int conn_md_test(void)
 	conn_md_dmp_msg_logged(0, 0);
 	conn_md_dmp_msg_logged(0x80000a, 0);
 
-
 	return 0;
 }
-
 
 static int conn_md_test_rx_cb(ipc_ilm_t *ilm)
 {
@@ -141,9 +133,8 @@ static int conn_md_test_rx_cb(ipc_ilm_t *ilm)
 
 	for (i = 0; i < ilm->local_para_ptr->msg_len; i++) {
 		pr_warn(KERN_WARNING "%d ", ilm->local_para_ptr->data[i]);
-		if ((0 != i) && (((1 + i) % 8) == 0)) {
+		if ((0 != i) && (((1 + i) % 8) == 0))
 			pr_warn(KERN_WARNING "\n");
-		}
 	}
 	return 0;
 }

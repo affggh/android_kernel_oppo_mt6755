@@ -163,9 +163,9 @@ static char selftestRes[8]= {0};
 
 /*----------------------------------------------------------------------------*/
 #define GSE_TAG                  "[Gsensor] "
-#define GSE_FUN(f)               		printk(KERN_ERR GSE_TAG"%s\n", __FUNCTION__)
-#define GSE_ERR(fmt, args...)    	printk(KERN_ERR GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define GSE_LOG(fmt, args...)    	printk(KERN_ERR GSE_TAG fmt, ##args)
+#define GSE_FUN(f)               		pr_debug(GSE_TAG"%s\n", __FUNCTION__)
+#define GSE_ERR(fmt, args...)    	pr_err(KERN_ERR GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define GSE_LOG(fmt, args...)    	pr_debug(KERN_ERR GSE_TAG fmt, ##args)
 /*----------------------------------------------------------------------------*/
 static struct data_resolution mpu6050_data_resolution[] = {
     /*8 combination by {FULL_RES,RANGE}*/
@@ -212,6 +212,7 @@ static int mpu_i2c_read_block(struct i2c_client *client, u8 addr, u8 *data, u8 l
 		msgs[1].flags = I2C_M_RD;
 		msgs[1].len = len;
 		msgs[1].buf = data;	
+
 
 	if (!client) {
 		mutex_unlock(&mpu6050_i2c_mutex);

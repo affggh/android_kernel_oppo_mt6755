@@ -14,12 +14,18 @@
 
 #include "lcm_drv.h"
 #include <cust_gpio_usage.h>
+
+#ifndef BUILD_LK
+#include <mach/mt_pwm.h> 
+#endif
+
+
 #if defined(BUILD_LK)
 #define LCM_PRINT printf
 #elif defined(BUILD_UBOOT)
 #define LCM_PRINT printf
 #else
-#define LCM_PRINT printk
+#define LCM_PRINT pr_debug
 #endif
 
 extern void chargepump_DSV_on();
@@ -101,7 +107,7 @@ static struct LCM_setting_table lcm_initialization_setting[] = {
 	{0xB8, 4, {0x00, 0x42, 0x12, 0xF7}},
 	{0xB0, 1, {0x00}},
        {0xB5, 10, {0x43, 0xA0, 0x01, 0x12, 0x06, 0x00, 0x00, 0x00, 0x00, 0x48}},
-       {0xB4, 6, {0x01, 0x0D, 0x02, 0x02, 0x02, 0x02}},
+       {0xB4, 6, {0x01, 0x09, 0x02, 0x02, 0x02, 0x02}},  // 2nd 0d->09
        {0xB3, 3, {0x8B, 0x7F, 0x30}},
        {0xB2, 2, {0x00, 0x03}},       
        {0xB1, 4, {0xC6, 0x1E, 0x0F, 0x00}},       
@@ -231,18 +237,16 @@ static void lcm_get_params(LCM_PARAMS * params)
 	// Highly depends on LCD driver capability. 
 	params->dsi.packet_size = 256; 
 	// Video mode setting 
-	params->dsi.intermediat_buffer_num = 2; 
 	params->dsi.PS = LCM_PACKED_PS_24BIT_RGB888; 
 
-	params->dsi.vertical_sync_active = 2;//4; 
-	params->dsi.vertical_backporch = 11; 
-        params->dsi.vertical_frontporch = 127;
-	
+	params->dsi.vertical_sync_active = 4; 
+    params->dsi.vertical_backporch = 12;
+    params->dsi.vertical_frontporch = 50;//127;
 	params->dsi.vertical_active_line = FRAME_HEIGHT; 
 
 	params->dsi.horizontal_sync_active				= 8;
-	params->dsi.horizontal_backporch				= 88;
-	params->dsi.horizontal_frontporch				= 24;
+	params->dsi.horizontal_backporch				= 72;
+	params->dsi.horizontal_frontporch				= 16;
 	params->dsi.horizontal_active_pixel 			= FRAME_WIDTH;
 
 	// Bit rate calculation
@@ -264,29 +268,30 @@ static void lcm_get_params(LCM_PARAMS * params)
 	//params->dsi.noncont_clock = TRUE;
 	//params->dsi.noncont_clock_period = 2;	// Unit : frames
 
-#ifdef CONFIG_MIXMODE_FOR_INCELL
+    params->dsi.null_packet_en = FALSE;
     params->dsi.mixmode_enable = TRUE;
     params->dsi.pwm_fps = 60;
-    params->dsi.mixmode_mipi_clock = 468; 
-#endif
+    params->dsi.mixmode_mipi_clock = 425; // 7.75ms	
+    params->dsi.send_frame_enable = TRUE;    
 
 	// DSI MIPI Spec parameters setting
-	/*params->dsi.HS_TRAIL = 6;
-	params->dsi.HS_ZERO = 9;
-	params->dsi.HS_PRPR = 5;
-	params->dsi.LPX = 4;
+	params->dsi.HS_TRAIL = 14;
+	params->dsi.HS_ZERO = 6;
+	params->dsi.HS_PRPR = 8;
+	params->dsi.LPX = 6;
 	params->dsi.TA_SACK = 1;
-	params->dsi.TA_GET = 20;
-	params->dsi.TA_SURE = 6;
-	params->dsi.TA_GO = 16;
-	params->dsi.CLK_TRAIL = 5;
-	params->dsi.CLK_ZERO = 18;
+	params->dsi.TA_GET = 30;
+	params->dsi.TA_SURE = 9;
+	params->dsi.TA_GO = 24;
+	params->dsi.CLK_TRAIL = 7;
+	params->dsi.CLK_ZERO = 28;
 	params->dsi.LPX_WAIT = 1;
 	params->dsi.CONT_DET = 0;
-	params->dsi.CLK_HS_PRPR = 4;*/
+	params->dsi.CLK_HS_PRPR = 8;
+
 	// Bit rate calculation
 	//params->dsi.PLL_CLOCK = 416;
-	params->dsi.PLL_CLOCK = 208;
+	params->dsi.PLL_CLOCK = 260;
 
 	LCM_PRINT("[LCD] lcm_get_params \n");
 
@@ -455,10 +460,10 @@ static void lcm_suspend_power(void)
 {
 	MDELAY(120);	
 	ldo_p5m5_dsv_off(); // DSV +-5V power off
-	//MDELAY(20);
+	MDELAY(20);
 	//VCI/IOVCC off
-	//ldo_1v8io_off();
-	//ldo_ext_3v0_off();
+	ldo_1v8io_off();
+	ldo_ext_3v0_off();
 	LCM_PRINT("[LCD] lcm_suspend_power \n");
 }
 
@@ -520,6 +525,87 @@ static unsigned int lcm_compare_id(void)
 {
 		return 1;
 }
+
+
+#if defined(BUILD_LK) 	
+
+static void lcm_set_pwm_for_mix(int enable)
+{
+    return;
+}
+
+
+#else
+//#define GPIO_INCELL_DISP_TE_PWM         (GPIO47 | 0x80000000) // Rev A
+#define GPIO_INCELL_DISP_TE_PWM         (GPIO90 | 0x80000000) // Rev B
+
+#define GPIO_INCELL_DISP_TE_M_GPIO   GPIO_MODE_00
+#define GPIO_INCELL_DISP_TE_M_PWM   GPIO_MODE_02
+
+static struct pwm_spec_config pwm_setting = {
+//		.pwm_no = PWM1, // Rev A
+        .pwm_no = PWM2, // Rev B
+		.mode = PWM_MODE_OLD,
+		.clk_src = PWM_CLK_OLD_MODE_32K,
+		.pmic_pad = false,
+		.PWM_MODE_OLD_REGS.IDLE_VALUE = IDLE_FALSE,
+		.PWM_MODE_OLD_REGS.GUARD_VALUE = 0, /* in old mode, this value is invalid */
+		.PWM_MODE_OLD_REGS.GDURATION = 0,
+		.PWM_MODE_OLD_REGS.WAVE_NUM = 0,                /* 0 == none stop until the PWM is disable */    
+           /* 135 : 60.24HZ, margin btw touch_en & pwm_falling_edge=740uS */
+		.clk_div = CLK_DIV4,            
+		.PWM_MODE_OLD_REGS.DATA_WIDTH = 135,//58.2fps //135 //60.2fps
+		.PWM_MODE_OLD_REGS.THRESH =135/2,	
+};
+
+
+static void set_enable_te_framesync(void)
+{
+	LCM_PRINT("=============mt_pmic_pwm2_test===============\n");
+	mt_set_gpio_mode(GPIO_INCELL_DISP_TE_PWM,GPIO_INCELL_DISP_TE_M_PWM); 
+
+	LCM_PRINT("PWM: clk_div = %x, clk_src = %x, pwm_no = %x\n", pwm_setting.clk_div, pwm_setting.clk_src, pwm_setting.pwm_no);
+	pwm_set_spec_config(&pwm_setting);
+
+}
+
+void lcm_set_fps(int fps)
+{
+    unsigned int width = 32 * 1024 / (4 * fps) - 1;
+    
+	LCM_PRINT("DSI_set_fps_for_PWM fps (%d), widht (%d)\n", fps, width);
+    
+    pwm_setting.PWM_MODE_OLD_REGS.DATA_WIDTH = width;
+    pwm_setting.PWM_MODE_OLD_REGS.THRESH = width/2;
+}
+
+static void lcm_set_pwm_for_mix(int enable)
+{
+    LCM_PARAMS params;
+    
+    lcm_get_params(&params);
+    if (params.dsi.pwm_fps == 0)
+    {
+        LCM_PRINT("Please set PWM fps \n");
+        return;
+    }
+    
+    if (enable)
+    {
+        lcm_set_fps(params.dsi.pwm_fps);
+        set_enable_te_framesync();
+    }
+    else
+    {
+    	mt_pwm_disable(pwm_setting.pwm_no, pwm_setting.pmic_pad);
+    }
+	LCM_PRINT("[LCD] lcm_set_pwm (%d)\n", enable);
+    
+    return;
+}
+
+#endif
+
 // ---------------------------------------------------------------------------
 //  Get LCM Driver Hooks
 // ---------------------------------------------------------------------------
@@ -536,4 +622,5 @@ LCM_DRIVER db7436_dsi_vdo_fwvga_drv = {
 #if (!defined(BUILD_UBOOT) && !defined(BUILD_LK))
 	.esd_recover = lcm_esd_recover,
 #endif
+    .set_pwm_for_mix = lcm_set_pwm_for_mix,
 };

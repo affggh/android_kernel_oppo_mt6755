@@ -33,6 +33,12 @@
 #define EVENT_TYPE_STEP_DETECTOR_VALUE          	REL_Y
 #define EVENT_TYPE_SIGNIFICANT_VALUE            	REL_Z
 
+#ifdef VENDOR_EDIT
+//zhihong.lu@Prd.BSP.sensor,2016/4/18,add to report the first step num after enable
+#define EVENT_TYPE_STEP_C_VALUE_REL        	        REL_RX
+#define EVENT_TYPE_STEP_C_STATUS_REL   	            REL_WHEEL
+#endif /*VENDOR_EDIT*/
+
 
 
 #define STEP_C_VALUE_MAX (32767)
@@ -122,5 +128,10 @@ extern int step_c_driver_add(struct step_c_init_info* obj) ;
 extern int step_c_data_report(struct input_dev *dev, int value,int status);
 extern int step_c_register_control_path(struct step_c_control_path *ctl);
 extern int step_c_register_data_path(struct step_c_data_path *data);
+
+#ifdef VENDOR_EDIT
+//zhihong.lu@Prd.BSP.sensor,2016/4/18,add to report the first step num after enable
+extern int step_c_data_report_rel(struct input_dev *dev, int value, int status);
+#endif /*VENDOR_EDIT*/
 
 #endif

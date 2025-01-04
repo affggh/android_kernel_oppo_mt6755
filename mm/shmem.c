@@ -1444,7 +1444,11 @@ static struct inode *shmem_get_inode(struct super_block *sb, const struct inode 
 	inode = new_inode(sb);
 	if (inode) {
 		/* We don't let shmem use __GFP_SLOWHIGHMEM */
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP)
 		mapping_set_gfp_mask(inode->i_mapping, GFP_HIGHUSER_MOVABLE);
+#else
+		mapping_set_gfp_mask(inode->i_mapping, GFP_HIGHUSER_MOVABLE | __GFP_NOZONECMA);
+#endif
 		inode->i_ino = get_next_ino();
 		inode_init_owner(inode, dir, mode);
 		inode->i_blocks = 0;

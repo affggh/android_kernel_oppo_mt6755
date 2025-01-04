@@ -61,9 +61,9 @@
 #define MSE_TAG                  "MSENSOR"
 
 #if DRIVER_DEBUG
-#define MSE_FUN(f)               printk(KERN_INFO MSE_TAG" %s\r\n", __FUNCTION__)
-#define MSE_ERR(fmt, args...)    printk(KERN_ERR MSE_TAG" %s %d : \r\n"fmt, __FUNCTION__, __LINE__, ##args)
-#define MSE_LOG(fmt, args...)    printk(KERN_INFO MSE_TAG fmt, ##args)
+#define MSE_FUN(f)               pr_info(MSE_TAG" %s\r\n", __FUNCTION__)
+#define MSE_ERR(fmt, args...)    pr_err(MSE_TAG" %s %d : \r\n"fmt, __FUNCTION__, __LINE__, ##args)
+#define MSE_LOG(fmt, args...)    pr_info(MSE_TAG fmt, ##args)
 #define MSE_VER(fmt, args...)   ((void)0)
 #else
 #define MSE_FUN(f)             
@@ -1597,7 +1597,7 @@ static int yamaha530_release(struct inode *inode, struct file *file)
 		case MSENSOR_IOCTL_READ_FACTORY_SENSORDATA:			
 			if(argp == NULL)
 			{
-				printk(KERN_ERR "IO parameter pointer is NULL!\r\n");
+				pr_err("IO parameter pointer is NULL!\r\n");
 				break;    
 			}
 			
@@ -1808,8 +1808,7 @@ static int yamaha530_i2c_probe(struct i2c_client *client, const struct i2c_devic
     input_data = input_allocate_device();
     if (input_data == NULL) {
         rt = -ENOMEM;
-        printk(KERN_ERR
-               "geomagnetic_probe: Failed to allocate input_data device\n");
+        pr_err("geomagnetic_probe: Failed to allocate input_data device\n");
         goto err;
     }
 
@@ -1826,8 +1825,7 @@ static int yamaha530_i2c_probe(struct i2c_client *client, const struct i2c_devic
 
     rt = input_register_device(input_data);
     if (rt) {
-        printk(KERN_ERR
-               "geomagnetic_probe: Unable to register input_data device: %s\n",
+        pr_err("geomagnetic_probe: Unable to register input_data device: %s\n",
                input_data->name);
         goto err;
     }
@@ -1835,15 +1833,14 @@ static int yamaha530_i2c_probe(struct i2c_client *client, const struct i2c_devic
 
 	if(yamaha530_create_attr(&yamaha_sensor_driver.driver))
 	{
-		printk("yamaha530 create attribute err\n");
+		pr_err("yamaha530 create attribute err\n");
 		goto  err;
 	}
 
     rt = sysfs_create_group(&input_data->dev.kobj,
             &geomagnetic_attribute_group);
     if (rt) {
-        printk(KERN_ERR
-               "geomagnetic_probe: sysfs_create_group failed[%s]\n",
+        pr_err("geomagnetic_probe: sysfs_create_group failed[%s]\n",
                input_data->name);
         goto err;
     }
@@ -1852,8 +1849,7 @@ static int yamaha530_i2c_probe(struct i2c_client *client, const struct i2c_devic
     input_raw = input_allocate_device();
     if (input_raw == NULL) {
         rt = -ENOMEM;
-        printk(KERN_ERR
-               "geomagnetic_probe: Failed to allocate input_raw device\n");
+        pr_err("geomagnetic_probe: Failed to allocate input_raw device\n");
         goto err;
     }
 
@@ -1871,8 +1867,7 @@ static int yamaha530_i2c_probe(struct i2c_client *client, const struct i2c_devic
 
     rt = input_register_device(input_raw);
     if (rt) {
-        printk(KERN_ERR
-               "geomagnetic_probe: Unable to register input_raw device: %s\n",
+        pr_err("geomagnetic_probe: Unable to register input_raw device: %s\n",
                input_raw->name);
         goto err;
     }
@@ -1881,8 +1876,7 @@ static int yamaha530_i2c_probe(struct i2c_client *client, const struct i2c_devic
     rt = sysfs_create_group(&input_raw->dev.kobj,
             &geomagnetic_raw_attribute_group);
     if (rt) {
-        printk(KERN_ERR
-               "geomagnetic_probe: sysfs_create_group failed[%s]\n",
+        pr_err("geomagnetic_probe: sysfs_create_group failed[%s]\n",
                input_data->name);
         goto err;
     }
@@ -1899,24 +1893,24 @@ static int yamaha530_i2c_probe(struct i2c_client *client, const struct i2c_devic
     i2c_set_clientdata(client, data);
 
     if ((rt = yas_mag_driver_init(&hwdep_driver)) < 0) {
-        printk(KERN_ERR "geomagnetic_driver_init failed[%d]\n", rt);
+        pr_err("geomagnetic_driver_init failed[%d]\n", rt);
         goto err;
     }
     if(hwdep_driver.init != NULL) {
         if ((rt = hwdep_driver.init()) < 0) {
-            printk(KERN_ERR "hwdep_driver.init() failed[%d]\n", rt);
+            pr_err("hwdep_driver.init() failed[%d]\n", rt);
             goto err;
         }
     }
     if (hwdep_driver.set_position != NULL) {
         if (hwdep_driver.set_position(data->hw->direction) < 0) {
-            printk(KERN_ERR "hwdep_driver.set_position() failed[%d]\n", rt);
+            pr_err("hwdep_driver.set_position() failed[%d]\n", rt);
             goto err;
         }
     }
     if (hwdep_driver.get_offset != NULL) {
         if (hwdep_driver.get_offset(&data->driver_offset) < 0) {
-            printk(KERN_ERR "hwdep_driver get_driver_state failed\n");
+            pr_err("hwdep_driver get_driver_state failed\n");
             goto err;
         }
     }
@@ -1955,7 +1949,7 @@ static int yamaha530_i2c_probe(struct i2c_client *client, const struct i2c_devic
 		MSE_ERR("attach fail = %d\n", rt);
 		goto err;
 	}
-	printk("yamaha530 i2c probe ok!\n");
+	pr_info("yamaha530 i2c probe ok!\n");
     return 0;
 
     err:
@@ -2035,7 +2029,7 @@ static int yamaha530_i2c_remove(struct i2c_client *client)
 
 		if((err = yamaha530_delete_attr(&yamaha_sensor_driver.driver)))
 	    {
-		   printk("yamaha530_delete_attr fail: %d\n", err);
+		   pr_err("yamaha530_delete_attr fail: %d\n", err);
 	    }
 
 		input_unregister_device(data->input_raw);

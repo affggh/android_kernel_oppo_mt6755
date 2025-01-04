@@ -19,7 +19,7 @@
 ** .
 **
 ** 11 23 2012 yuche.tsai
-** [ALPS00398671] [Acer-Tablet] Remove Wi-Fi Direct completely
+** [ALPS00398671] [Tablet] Remove Wi-Fi Direct completely
 ** Fix bug of WiFi may reboot under user load, when WiFi Direct is removed..
 **
 ** 08 29 2012 chinglan.wang

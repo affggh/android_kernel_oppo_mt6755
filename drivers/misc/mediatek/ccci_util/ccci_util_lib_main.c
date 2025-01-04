@@ -25,13 +25,11 @@
 
 #include <mach/mt_ccci_common.h>
 
-extern int ccci_common_sysfs_init(void);
-extern void ccci_log_init(void);
-extern int ccci_util_fo_init(void);
+#include "ccci_util_lib_main.h"
 
-//===================================================
-// Dummy function part
-//===================================================
+/*=================================================== */
+/* Dummy function part */
+/*=================================================== */
 int ccci_parse_meta_md_setting(unsigned char args[])
 {
 	return 0;
@@ -39,9 +37,13 @@ int ccci_parse_meta_md_setting(unsigned char args[])
 
 static int __init ccci_util_init(void)
 {
-	ccci_util_fo_init();
 	ccci_log_init();
+	ccci_dump_write(MD_SYS1, CCCI_DUMP_INIT, CCCI_DUMP_TIME_FLAG|CCCI_DUMP_CLR_BUF_FLAG,
+			"[util] enter ccci_util_init\n");
+	ccci_util_fo_init();
 	ccci_common_sysfs_init();
+	ccci_timer_for_md_init();
+
 	return 0;
 }
 

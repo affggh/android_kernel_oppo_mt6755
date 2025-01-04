@@ -35,7 +35,9 @@
  */
 #include "tpd.h"
 #include <linux/interrupt.h>
+#if defined(CONFIG_MTK_LEGACY)
 #include <cust_eint.h>
+#endif
 #include <linux/i2c.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
@@ -45,7 +47,9 @@
 #include <linux/delay.h>
 #include <linux/namei.h>
 #include <linux/mount.h>
+#if defined(CONFIG_MTK_LEGACY)
 #include "cust_gpio_usage.h"
+#endif
 #include <asm/uaccess.h>
 #define GUP_FW_INFO
 #include "tpd_custom_gt9xx.h"
@@ -347,15 +351,27 @@ s32 gup_enter_update_mode(struct i2c_client *client)
     u8 rd_buf[3];
     
     //step1:RST output low last at least 2ms
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);
+#else
+	tpd_gpio_output(0, 0);
+#endif
     msleep(2);
     
     //step2:select I2C slave addr,INT:0--0xBA;1--0x28.
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_INT_PORT, (client->addr == 0x14));
+#else
+	tpd_gpio_output(1, (client->addr == 0x14));
+#endif
     msleep(2);
     
     //step3:RST output high reset guitar
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_RST_PORT, 1);
+#else
+	tpd_gpio_output(0, 1);
+#endif
     
     //20121211 modify start
     msleep(5);
@@ -398,7 +414,11 @@ s32 gup_enter_update_mode(struct i2c_client *client)
 
 void gup_leave_update_mode(void)
 {
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_AS_INT(GTP_INT_PORT);
+#else
+	tpd_gpio_as_int(1);
+#endif
     
     GTP_DEBUG("[leave_update_mode]reset chip.");
 #if GTP_COMPATIBLE_MODE
@@ -876,11 +896,23 @@ static u8 gup_burn_proc(struct i2c_client *client, u8 *burn_buf, u16 start_addr,
     u16 burn_addr = start_addr;
     u16 frame_length = 0;
     u16 burn_length = 0;
-    u8  wr_buf[PACK_SIZE + GTP_ADDR_LENGTH];
-    u8  rd_buf[PACK_SIZE + GTP_ADDR_LENGTH];
+    u8  *wr_buf;
+    u8  *rd_buf;
     u8  retry = 0;
 
     GTP_DEBUG("Begin burn %dk data to addr 0x%x", (total_length / 1024), start_addr);
+
+	wr_buf = kmalloc(PACK_SIZE + GTP_ADDR_LENGTH, GFP_KERNEL);
+	if (!wr_buf) {
+		GTP_ERROR("!wr_buf");
+		return -ENOMEM;
+	}
+	rd_buf = kmalloc(PACK_SIZE + GTP_ADDR_LENGTH, GFP_KERNEL);
+	if (!rd_buf) {
+		GTP_ERROR("!rd_buf");
+		kfree(wr_buf);
+		return -ENOMEM;
+	}
 
     while (burn_length < total_length)
     {
@@ -929,6 +961,8 @@ static u8 gup_burn_proc(struct i2c_client *client, u8 *burn_buf, u16 start_addr,
         if (retry > MAX_FRAME_CHECK_TIME)
         {
             GTP_ERROR("Burn frame data time out,exit.");
+			kfree(wr_buf);
+			kfree(rd_buf);
             return FAIL;
         }
 
@@ -936,6 +970,8 @@ static u8 gup_burn_proc(struct i2c_client *client, u8 *burn_buf, u16 start_addr,
         burn_addr += frame_length;
     }
 
+	kfree(wr_buf);
+	kfree(rd_buf);
     return SUCCESS;
 }
 
@@ -2291,7 +2327,9 @@ s32 gup_update_proc(void *dir)
 #ifdef CONFIG_OF_TOUCH
 	disable_irq(touch_irq);
 #else
-	mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
+	#if defined(CONFIG_MTK_LEGACY)
+		mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
+	#endif
 #endif
 
 #if GTP_ESD_PROTECT
@@ -2410,7 +2448,9 @@ file_fail:
 #ifdef CONFIG_OF_TOUCH
 	enable_irq(touch_irq);
 #else
-	mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+	#if defined(CONFIG_MTK_LEGACY)
+		mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+	#endif
 #endif 
 
     
@@ -2643,15 +2683,27 @@ s32 gup_enter_update_mode_fl(struct i2c_client *client)
     //u8 rd_buf[3];
     
     //step1:RST output low last at least 2ms
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);
+#else
+	tpd_gpio_output(0, 0);
+#endif
     msleep(2);
     
     //step2:select I2C slave addr,INT:0--0xBA;1--0x28.
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_INT_PORT, (client->addr == 0x14));
+#else
+	tpd_gpio_output(1, (client->addr == 0x14));
+#endif
     msleep(2);
     
     //step3:RST output high reset guitar
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_RST_PORT, 1);
+#else
+	tpd_gpio_output(0, 1);
+#endif
     
     msleep(5);
     
@@ -3134,7 +3186,9 @@ s32 gup_fw_download_proc(void *dir, u8 dwn_mode)
 #ifdef CONFIG_OF_TOUCH
 	disable_irq(touch_irq);
 #else
-	mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
+	#if defined(CONFIG_MTK_LEGACY)
+		mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
+	#endif
 #endif
 
     if (NULL != dir)
@@ -3193,7 +3247,9 @@ s32 gup_fw_download_proc(void *dir, u8 dwn_mode)
 #ifdef CONFIG_OF_TOUCH
 	enable_irq(touch_irq);
 #else
-	mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+	#if defined(CONFIG_MTK_LEGACY)
+		mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+	#endif
 #endif 
 
     return SUCCESS;
@@ -3213,7 +3269,9 @@ file_fail:
 #ifdef CONFIG_OF_TOUCH
 	enable_irq(touch_irq);
 #else
-	mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+	#if defined(CONFIG_MTK_LEGACY)
+		mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+	#endif
 #endif 
 
     return FAIL;
@@ -3351,8 +3409,12 @@ void gup_output_pulse(int t)
 {
     unsigned long flags;
     //s32 i;
-    
+
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+	tpd_gpio_output(1, 0);
+#endif
     udelay(10);
     
     local_irq_save(flags);
@@ -3366,7 +3428,11 @@ void gup_output_pulse(int t)
     local_irq_restore(flags);
 
     udelay(20);
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+	tpd_gpio_output(1, 0);
+#endif
 }
 
 static void gup_sys_clk_init(void)
@@ -3433,7 +3499,11 @@ u8 gup_clk_calibration(void)
     gup_sys_clk_init();
     gup_clk_calibration_pin_select(1);//use GIO1 to do the calibration
 
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+	tpd_gpio_output(1, 0);
+#endif
  
     for (i = INIT_CLK_DAC; i < MAX_CLK_DAC; i++)
     {
@@ -3457,7 +3527,11 @@ u8 gup_clk_calibration(void)
         }
         
     #else
+#if defined(CONFIG_MTK_LEGACY)
         GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+		tpd_gpio_output(1, 0);
+#endif
         
         //local_irq_save(flags);
         do_gettimeofday(&start);
@@ -3475,7 +3549,11 @@ u8 gup_clk_calibration(void)
         
         count = gup_clk_count_get();
         udelay(20);
+#if defined(CONFIG_MTK_LEGACY)
         GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+#else
+		tpd_gpio_output(1, 0);
+#endif
         
         usec = end.tv_usec - start.tv_usec;
         sec = end.tv_sec - start.tv_sec;
@@ -3514,7 +3592,11 @@ u8 gup_clk_calibration(void)
     i2c_write_bytes(i2c_client_point, 0x41F9, &buf, 1);
 #endif
 
+#if defined(CONFIG_MTK_LEGACY)
     GTP_GPIO_AS_INT(GTP_INT_PORT);
+#else
+	tpd_gpio_as_int(1);
+#endif
     return i;
 }
 
@@ -3696,7 +3778,9 @@ s32 gup_load_system(char *firmware, s32 length, u8 need_check)
 #ifdef CONFIG_OF_TOUCH
 	disable_irq(touch_irq);
 #else
-	mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
+	#if defined(CONFIG_MTK_LEGACY)
+		mt_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
+	#endif
 #endif
 
 #if GTP_ESD_PROTECT
@@ -3735,7 +3819,9 @@ gup_load_system_exit:
 #ifdef CONFIG_OF_TOUCH
 	enable_irq(touch_irq);
 #else
-	mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+	#if defined(CONFIG_MTK_LEGACY)
+		mt_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+	#endif
 #endif 
 
     return ret;    

@@ -44,7 +44,7 @@ void device_I2C_read(unsigned char add, unsigned char *value, unsigned short len
 {
     // I2C read
     if(ds4_i2c_client == NULL) {
-        printk("[Touch] ds4_i2c_client is NULL\n");
+        pr_debug("[Touch] ds4_i2c_client is NULL\n");
         return;
     } else {
         if(synaptics_ts_read(ds4_i2c_client, add, len, value) < 0) return;
@@ -55,7 +55,7 @@ void device_I2C_write(unsigned char add, unsigned char *value, unsigned short le
 {
     // I2C write
     if(ds4_i2c_client == NULL) {
-        printk("[Touch] ds4_i2c_client is NULL\n");
+        pr_debug("[Touch] ds4_i2c_client is NULL\n");
         return;
     } else {
         if(synaptics_ts_write(ds4_i2c_client, add, value, len) < 0) return;
@@ -97,7 +97,7 @@ void longReadRMI(unsigned short add, unsigned char *value, unsigned short len)
     }
 
     if(ds4_i2c_client == NULL) {
-        printk("[Touch] ds4_i2c_client is NULL\n");
+        pr_debug("[Touch] ds4_i2c_client is NULL\n");
         return;
     } else {
         if(synaptics_ts_read_f54(ds4_i2c_client, (add & 0xFF), len, value) < 0) return;
@@ -190,7 +190,7 @@ int get_limit( unsigned char Tx, unsigned char Rx)
                     } else if(line[q] == ',') {
                         p=0; q++;
                         LimitFile[i][j] = (int)simple_strtol(&buff[0], NULL, 10);
-                        //printk("LimitFile[%d][%d]=%d ", i, j, LimitFile[i][j]);
+                        //pr_debug("LimitFile[%d][%d]=%d ", i, j, LimitFile[i][j]);
                         memset(buff, 0, sizeof(buff));
                         break;
                     } else {

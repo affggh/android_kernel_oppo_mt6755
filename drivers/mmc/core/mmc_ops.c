@@ -395,6 +395,37 @@ int mmc_spi_set_crc(struct mmc_host *host, int use_crc)
 	return err;
 }
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+static inline int __mmc_send_status(struct mmc_card *card, u32 *status,
+	bool ignore_crc)
+{
+	int err;
+	struct mmc_command cmd = {0};
+
+	BUG_ON(!card);
+	BUG_ON(!card->host);
+
+	cmd.opcode = MMC_SEND_STATUS;
+	if (!mmc_host_is_spi(card->host))
+		cmd.arg = card->rca << 16;
+	cmd.flags = MMC_RSP_SPI_R2 | MMC_RSP_R1 | MMC_CMD_AC;
+	if (ignore_crc)
+		cmd.flags &= ~MMC_RSP_CRC;
+
+	err = mmc_wait_for_cmd(card->host, &cmd, MMC_CMD_RETRIES);
+	if (err)
+		return err;
+
+	/* NOTE: callers are required to understand the difference
+	 * between "native" and SPI format status words!
+	 */
+	if (status)
+		*status = cmd.resp[0];
+
+	return 0;
+}
+#endif
+
 /**
  *	__mmc_switch - modify EXT_CSD register
  *	@card: the MMC card associated with the data transfer
@@ -454,7 +485,12 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 			break;
 
 		/* Timeout if the device never leaves the program state. */
+#ifdef VENDOR_EDIT
+//tong.han@Bsp.Group.boot,2016-5-4,Add for access rpmb cmd6 error on AC001
+		if ((R1_CURRENT_STATE(status) == R1_STATE_PRG) && time_after(jiffies, timeout)) {
+#else
 		if (time_after(jiffies, timeout)) {
+#endif/*VENDOR_EDIT*/	
 			pr_err("%s: Card stuck in programming state! %s\n",
 				mmc_hostname(card->host), __func__);
 			return -ETIMEDOUT;
@@ -485,6 +521,9 @@ EXPORT_SYMBOL_GPL(mmc_switch);
 
 int mmc_send_status(struct mmc_card *card, u32 *status)
 {
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	return __mmc_send_status(card, status, false);
+#else
 	int err;
 	struct mmc_command cmd = {0};
 
@@ -507,6 +546,7 @@ int mmc_send_status(struct mmc_card *card, u32 *status)
 		*status = cmd.resp[0];
 
 	return 0;
+#endif
 }
 
 static int

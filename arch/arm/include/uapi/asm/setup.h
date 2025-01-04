@@ -44,6 +44,24 @@ struct tag_mem32 {
 	__u32	size;
 	__u32	start;	/* physical start address */
 };
+/* support latest meminfo  */
+#define ATAG_MEM_DRAM_INFO 0x54410012
+/*
+ * dram_info_t;
+ * */
+
+#define ATAG_MEM_MBLOCK_INFO 0x54410022
+/*
+ * mblock_info_t;
+ * */
+#define ATAG_MEM_LCA_DESC 0x54410032
+/*
+ * mem_desc_t;
+ * */
+#define ATAG_MEM_TEE_DESC 0x54410042
+/*
+ * mem_desc_t;
+ * */
 
 /* it is allowed to have multiple ATAG_MEM nodes */
 #define ATAG_MEM64	0x54420002
@@ -236,6 +254,9 @@ struct tag {
 		struct tag_nand_number tag_nand_number;
 		flashdev_info_t gen_FlashTable_p;
 #endif
+		dram_info_t dram_info;
+		mblock_info_t mblock_info;
+		mem_desc_t lca_reserved_mem;
 	} u;
 };
 

@@ -49,10 +49,10 @@ typedef struct {
 	u8 *data;		//data pointer
 } st_cmd_head;
 #pragma pack()
-st_cmd_head cmd_head;
+static st_cmd_head cmd_head;
 
-s32 DATA_LENGTH = 0;
-s8 IC_TYPE[16] = "GT9XX";
+static s32 DATA_LENGTH = 0;
+static s8 IC_TYPE[16] = "GT9XX";
 
 #define UPDATE_FUNCTIONS
 #define DATA_LENGTH_UINT    512
@@ -105,7 +105,7 @@ int gt1x_init_tool_node(void)
 
 	set_tool_node_name(procname);
 
-	gt1x_tool_proc_entry = proc_create(procname, 0666, NULL, &gt1x_tool_fops);
+	gt1x_tool_proc_entry = proc_create(procname, 0664, NULL, &gt1x_tool_fops);
 	if (gt1x_tool_proc_entry == NULL) {
 		GTP_ERROR("Couldn't create proc entry!");
 		return -1;
@@ -227,12 +227,21 @@ Output:
 static s32 gt1x_tool_write(struct file *filp, const char __user * buff, size_t len, loff_t * data)
 {
 	u64 ret = 0;
+	u8 *pre_data_p;
+	u8 *post_data_p;
+	
 	GTP_DEBUG_FUNC();
 	GTP_DEBUG_ARRAY((u8 *) buff, len);
 
+	pre_data_p = cmd_head.data;
 	ret = copy_from_user(&cmd_head, buff, CMD_HEAD_LENGTH);
 	if (ret) {
 		GTP_ERROR("copy_from_user failed.");
+	}
+	post_data_p = cmd_head.data;
+	if (pre_data_p != post_data_p) {
+		GTP_ERROR("pointer is overwritten! %p, %p, %p, %p, %dx\n",
+			pre_data_p, post_data_p, &cmd_head, &cmd_head.data, (int)CMD_HEAD_LENGTH);
 	}
 
 	GTP_DEBUG("wr  :0x%02x.", cmd_head.wr);

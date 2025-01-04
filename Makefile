@@ -192,15 +192,8 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
 # "make" in the configured kernel build directory always uses that.
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
-#ARCH		?= $(SUBARCH)
-#CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
-ifeq ($(TARGET_ARCH), arm)
-ARCH		?= arm
-CROSS_COMPILE	?= arm-eabi-
-else
-ARCH		?= arm64
-CROSS_COMPILE	?= aarch64-linux-android-
-endif
+ARCH		?= $(SUBARCH)
+CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)
@@ -248,7 +241,7 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -fcommon
 HOSTCXXFLAGS = -O2
 
 # Decide whether to build built-in, modular, or both.
@@ -390,12 +383,71 @@ KBUILD_AFLAGS_MODULE  := -DMODULE
 KBUILD_CFLAGS_MODULE  := -DMODULE
 KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
 
--include $(srctree)/$(MTK_PROJECT)_mtk_cust.mak
-#MTK_INC += -I$(MTK_ROOT_CUSTOM)/$(MTK_PROJECT)/common
-LINUXINCLUDE    += $(MTK_INC)
-KBUILD_CFLAGS   += $(MTK_CFLAGS) $(MTK_CDEFS) -fno-pic
-KBUILD_CPPFLAGS += $(MTK_CPPFLAGS) $(MTK_CPPDEFS)
-KBUILD_AFLAGS   += $(MTK_AFLAGS) $(MTK_ADEFS)
+#ifdef  VENDOR_EDIT
+#boning.li@swdp.android.config,2015.2.28 add for enviroment build
+KBUILD_CFLAGS +=   -DVENDOR_EDIT
+KBUILD_CPPFLAGS += -DVENDOR_EDIT
+CFLAGS_KERNEL +=   -DVENDOR_EDIT
+CFLAGS_MODULE +=   -DVENDOR_EDIT
+#endif
+#ifdef  VENDOR_EDIT
+#shirendong@bsp.config,2015.2.28 add for enviroment build
+ifeq ($(NET_BUILD_TYPE),cmcctest)
+KBUILD_CFLAGS +=   -DOPPO_CMCC_TEST
+KBUILD_CPPFLAGS += -DOPPO_CMCC_TEST
+CFLAGS_KERNEL +=   -DOPPO_CMCC_TEST
+CFLAGS_MODULE +=   -DOPPO_CMCC_TEST
+endif
+
+ifeq ($(NET_BUILD_TYPE),cmcc)
+KBUILD_CFLAGS +=   -DOPPO_CMCC_MP
+KBUILD_CPPFLAGS +=   -DOPPO_CMCC_MP
+CFLAGS_KERNEL +=     -DOPPO_CMCC_MP
+CFLAGS_MODULE +=    -DOPPO_CMCC_MP
+endif
+
+#liping-m@swdp.lcdDriver,2015/11/26 add for CTA FLAG
+ifeq ($(OPPO_BUILD_TYPE),cta)
+KBUILD_CFLAGS += -DOPPO_CTA_FLAG
+KBUILD_CPPFLAGS += -DOPPO_CTA_FLAG
+endif
+#guoling@MultiMedia, 2016/06/02, add for 11bits brightness dimming.
+ifeq ($(OPPO_ELEVENBITS_DIMMING_SUPPORT),yes)
+KBUILD_CFLAGS += -DOPPO_ELEVENBITS_DIMMING_SUPPORT
+KBUILD_CPPFLAGS += -DOPPO_ELEVENBITS_DIMMING_SUPPORT
+endif
+#endif
+
+#liping-m@swdp.lcdDriver,2016/03/18 add for CT FLAG
+ifneq ($(filter allnetcttest allnetctfield cmcctest,$(NET_BUILD_TYPE)),)
+KBUILD_CFLAGS += -DOPPO_CTTEST_FLAG
+KBUILD_CPPFLAGS += -DOPPO_CTTEST_FLAG
+endif
+
+#fanhui@PhoneSW.BSP, 2016-05-18, add for DeathHealer only used in release
+ifneq ($(filter release cts cta,$(OPPO_BUILD_TYPE)),)
+KBUILD_CFLAGS += -DOPPO_RELEASE_FLAG
+KBUILD_CPPFLAGS += -DOPPO_RELEASE_FLAG
+endif
+ifneq ($(filter cmcctest cmccfield allnetcttest,$(NET_BUILD_TYPE)),)
+KBUILD_CFLAGS += -DOPPO_RELEASE_FLAG
+KBUILD_CPPFLAGS += -DOPPO_RELEASE_FLAG
+endif
+#endif
+
+
+
+#ifdef  VENDOR_EDIT
+#Haiping.Zhong@Swdp.Android.BuildConfig, 2016/03/25, Add for Project info define
+ifneq (,$(filter full_oppo6750%,$(TARGET_PRODUCT)))
+KBUILD_CFLAGS += -DOPPO_6750_PROJECT
+KBUILD_CPPFLAGS += -DOPPO_6750_PROJECT
+CFLAGS_KERNEL += -DOPPO_6750_PROJECT
+CFLAGS_MODULE += -DOPPO_6750_PROJECT
+endif
+#endif
+
+
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
 KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
@@ -605,7 +657,6 @@ KBUILD_CFLAGS += $(call cc-option,-fno-reorder-blocks,) \
 endif
 
 ifneq ($(CONFIG_FRAME_WARN),0)
-KBUILD_CFLAGS += $(call cc-option,-Werror=frame-larger-than=1)
 KBUILD_CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
 endif
 
@@ -868,9 +919,7 @@ define filechk_utsrelease.h
 	  echo '"$(KERNELRELEASE)" exceeds $(uts_len) characters' >&2;    \
 	  exit 1;                                                         \
 	fi;                                                               \
-	(echo \#define UTS_RELEASE \"$(KERNELRELEASE)\";                  \
-	echo \#define BUILD_INFO \"$(MTK_BUILD_VERNO)\";                  \
-	echo \#define BUILD_FINGERPRINT \"$(TARGET_PRODUCT)\";)
+	(echo \#define UTS_RELEASE \"$(KERNELRELEASE)\";)
 endef
 
 define filechk_version.h
@@ -1005,29 +1054,6 @@ PHONY += _modinst_post
 _modinst_post: _modinst_
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.fwinst obj=firmware __fw_modinst
 	$(call cmd,depmod)
-
-# MTK {
-# Target to install android modules
-
-AMODLIB = $(INSTALL_MOD_PATH)/lib/modules
-export AMODLIB
-AMODSYMLIB = $(INSTALL_MOD_PATH)/../symbols/system/lib/modules
-export AMODSYMLIB
-
-PHONY += android_modules_install
-android_modules_install: _android_modinst_
-
-PHONY += _android_modinst_
-_android_modinst_:
-	@if [ ! -d $(AMODLIB) ]; then \
-		mkdir -p $(AMODLIB); \
-	fi
-	@if [ ! -d $(AMODSYMLIB) ]; then \
-		mkdir -p $(AMODSYMLIB); \
-	fi
-	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.android.modinst
-# MTK }
-
 
 ifeq ($(CONFIG_MODULE_SIG), y)
 PHONY += modules_sign

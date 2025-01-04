@@ -450,6 +450,9 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 {
 	int err;
 	struct mmc_host *host;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	int i;
+#endif
 
 	host = kzalloc(sizeof(struct mmc_host) + extra, GFP_KERNEL);
 	if (!host)
@@ -484,8 +487,13 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 
 	spin_lock_init(&host->lock);
 	init_waitqueue_head(&host->wq);
+#ifndef CONFIG_HAS_EARLYSUSPEND
+	wakeup_source_init(&host->detect_wake_lock,
+		kasprintf(GFP_KERNEL, "%s_detect", mmc_hostname(host)));
+#else
 	wake_lock_init(&host->detect_wake_lock, WAKE_LOCK_SUSPEND,
 		kasprintf(GFP_KERNEL, "%s_detect", mmc_hostname(host)));
+#endif
 	INIT_DELAYED_WORK(&host->detect, mmc_rescan);
 #ifdef MMC_ENABLED_EMPTY_QUEUE_FLUSH
 	host->flush_info.wq = create_singlethread_workqueue("flush_wq");     
@@ -507,6 +515,27 @@ struct mmc_host *mmc_alloc_host(int extra, struct device *dev)
 	host->max_blk_size = 512;
 	host->max_blk_count = PAGE_CACHE_SIZE / 512;
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	host->align_size = 4;
+
+	for (i = 0; i < EMMC_MAX_QUEUE_DEPTH; i++)
+		host->areq_que[i] = NULL;
+	atomic_set(&host->areq_cnt, 0);
+	host->areq_cur = NULL;
+	host->done_mrq = NULL;
+	host->state = 0;
+
+	INIT_LIST_HEAD(&host->cmd_que);
+	INIT_LIST_HEAD(&host->dat_que);
+	spin_lock_init(&host->cmd_que_lock);
+	spin_lock_init(&host->dat_que_lock);
+	spin_lock_init(&host->que_lock);
+	spin_lock_init(&host->thread_lock);
+	spin_lock_init(&host->cmd_dump_lock);
+	spin_lock_init(&host->host_claim_lock);
+
+	init_waitqueue_head(&host->cmp_que);
+#endif
 	return host;
 
 free:
@@ -590,7 +619,11 @@ void mmc_free_host(struct mmc_host *host)
 	spin_lock(&mmc_host_lock);
 	idr_remove(&mmc_host_idr, host->index);
 	spin_unlock(&mmc_host_lock);
+#ifndef CONFIG_HAS_EARLYSUSPEND
+	wakeup_source_trash(&host->detect_wake_lock);
+#else
 	wake_lock_destroy(&host->detect_wake_lock);
+#endif
 
 	put_device(&host->class_dev);
 }

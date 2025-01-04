@@ -68,6 +68,7 @@
 #include <linux/module.h>
 #include <linux/sysctl.h>
 #include <linux/kernel.h>
+#include <linux/reciprocal_div.h>
 #include <net/dst.h>
 #include <net/tcp.h>
 #include <net/inet_common.h>
@@ -87,7 +88,7 @@ int sysctl_tcp_adv_win_scale __read_mostly = 1;
 EXPORT_SYMBOL(sysctl_tcp_adv_win_scale);
 
 /* rfc5961 challenge ack rate limiting */
-int sysctl_tcp_challenge_ack_limit = 100;
+int sysctl_tcp_challenge_ack_limit = 1000;
 
 int sysctl_tcp_stdurg __read_mostly;
 int sysctl_tcp_rfc1337 __read_mostly;
@@ -1886,7 +1887,7 @@ void tcp_enter_loss(struct sock *sk, int how)
 	if (icsk->icsk_MMSRB == 1)
 	{
 		#ifdef CONFIG_MTK_NET_LOGGING 
-	    printk("[mtk_net][mmspb] tcp_enter_loss snd_cwnd=%u, snd_cwnd_cnt=%u\n", tp->snd_cwnd, tp->snd_cwnd_cnt);
+	    pr_debug("[mtk_net][mmspb] tcp_enter_loss snd_cwnd=%u, snd_cwnd_cnt=%u\n", tp->snd_cwnd, tp->snd_cwnd_cnt);
         #endif
             if (tp->mss_cache != 0)
                 tp->snd_cwnd = (tp->rcv_wnd / tp->mss_cache);
@@ -1904,11 +1905,11 @@ void tcp_enter_loss(struct sock *sk, int how)
                 tp->snd_cwnd = tp->snd_ssthresh / 2 + 4;
             }
             #ifdef CONFIG_MTK_NET_LOGGING 
-            printk("[mtk_net][mmspb] tcp_enter_loss update snd_cwnd=%u\n", tp->snd_cwnd);
+            pr_debug("[mtk_net][mmspb] tcp_enter_loss update snd_cwnd=%u\n", tp->snd_cwnd);
             #endif
             icsk1->icsk_MMSRB = 0;
             #ifdef CONFIG_MTK_NET_LOGGING 
-            printk("[mtk_net][mmspb] tcp_enter_loss set icsk_MMSRB=0\n");
+            pr_debug("[mtk_net][mmspb] tcp_enter_loss set icsk_MMSRB=0\n");
             #endif
 	}
         else
@@ -3322,15 +3323,22 @@ static void tcp_send_challenge_ack(struct sock *sk)
 	static u32 challenge_timestamp;
 	static unsigned int challenge_count;
 	u32 now = jiffies / HZ;
+    u32 count;
 
-	if (now != challenge_timestamp) {
-		challenge_timestamp = now;
-		challenge_count = 0;
-	}
-	if (++challenge_count <= sysctl_tcp_challenge_ack_limit) {
-		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
-		tcp_send_ack(sk);
-	}
+    if (now != challenge_timestamp) {
+        u32 half = (sysctl_tcp_challenge_ack_limit + 1) >> 1;
+
+        challenge_timestamp = now;
+        ACCESS_ONCE(challenge_count) = half +
+        reciprocal_divide(prandom_u32(),
+        sysctl_tcp_challenge_ack_limit);
+    }
+    count = ACCESS_ONCE(challenge_count);
+    if (count > 0) {
+        ACCESS_ONCE(challenge_count) = count - 1;
+        NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
+        tcp_send_ack(sk);
+    }
 }
 
 static void tcp_store_ts_recent(struct tcp_sock *tp)
@@ -4827,7 +4835,7 @@ static void __tcp_ack_snd_check(struct sock *sk, int ofo_possible)
 	struct tcp_sock *tp = tcp_sk(sk);
 
 	    /* More than one full frame received... */
-	if (((tp->rcv_nxt - tp->rcv_wup) > inet_csk(sk)->icsk_ack.rcv_mss &&
+	if (((tp->rcv_nxt - tp->rcv_wup) > sysctl_tcp_ack_number * inet_csk(sk)->icsk_ack.rcv_mss &&
 	     /* ... and right edge of window advances far enough.
 	      * (tcp_recvmsg() will send ACK otherwise). Or...
 	      */
@@ -5319,7 +5327,7 @@ slow_path:
 	if (len < (th->doff << 2) || tcp_checksum_complete_user(sk, skb))
 		goto csum_error;
 
-	if (!th->ack && !th->rst)
+	if (!th->ack && !th->rst && !th->syn)
 		goto discard;
 
 	/*
@@ -5734,7 +5742,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 			goto discard;
 	}
 
-	if (!th->ack && !th->rst)
+	if (!th->ack && !th->rst && !th->syn)
 		goto discard;
 
 	if (!tcp_validate_incoming(sk, skb, th, 0))

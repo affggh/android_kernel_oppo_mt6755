@@ -35,8 +35,8 @@ typedef enum {
     CHIP_INFO_REG_SW_VER,
     
     CHIP_INFO_FUNCTION_CODE,
-    CHIP_INFO_PROJECT_CODE,
     CHIP_INFO_DATE_CODE,
+    CHIP_INFO_PROJECT_CODE,
     CHIP_INFO_FAB_CODE,
     CHIP_INFO_WAFER_BIG_VER,
 
@@ -59,5 +59,8 @@ struct mt_chip_drv
 typedef unsigned int (*chip_info_cb)(void);
 struct mt_chip_drv* get_mt_chip_drv(void);
 
-
+#ifdef VENDOR_EDIT
+//xiaocheng.li@Swdp.shanghai, 2016/1/19, export chipinfo symbol
+extern struct mt_chip_drv g_chip_drv;
+#endif
 #endif

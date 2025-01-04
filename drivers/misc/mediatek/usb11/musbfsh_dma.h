@@ -100,12 +100,12 @@ struct dma_controller;
  * one usb transfer.
  */
 struct dma_channel {
-	void			*private_data;
+	void *private_data;
 	/* FIXME not void* private_data, but a dma_controller * */
-	size_t			max_len;
-	size_t			actual_len;
-	enum dma_channel_status	status;
-	bool			desired_mode;
+	size_t max_len;
+	size_t actual_len;
+	enum dma_channel_status status;
+	bool desired_mode;
 };
 
 /*
@@ -116,8 +116,7 @@ struct dma_channel {
  * then it's possible that the hardware has completed (or aborted) a transfer,
  * so the driver needs to update that status.
  */
-static inline enum dma_channel_status
-dma_channel_status(struct dma_channel *c)
+static inline enum dma_channel_status dma_channel_status(struct dma_channel *c)
 {
 	return (is_dma_capable() && c) ? c->status : MUSBFSH_DMA_STATUS_UNKNOWN;
 }
@@ -136,16 +135,14 @@ dma_channel_status(struct dma_channel *c)
  * Controllers manage dma channels.
  */
 struct dma_controller {
-	int			(*start)(struct dma_controller *);
-	int			(*stop)(struct dma_controller *);
-	struct dma_channel	*(*channel_alloc)(struct dma_controller *,
-					struct musbfsh_hw_ep *, u8 is_tx);
-	void			(*channel_release)(struct dma_channel *);
-	int			(*channel_program)(struct dma_channel *channel,
-							u16 maxpacket, u8 mode,
-							dma_addr_t dma_addr,
-							u32 length);
-	int			(*channel_abort)(struct dma_channel *);
+	int (*start) (struct dma_controller *);
+	int (*stop) (struct dma_controller *);
+	struct dma_channel *(*channel_alloc) (struct dma_controller *,
+					      struct musbfsh_hw_ep *, u8 is_tx);
+	void (*channel_release) (struct dma_channel *);
+	int (*channel_program) (struct dma_channel *channel,
+				u16 maxpacket, u8 mode, dma_addr_t dma_addr, u32 length);
+	int (*channel_abort) (struct dma_channel *);
 };
 
 /* called after channel_program(), may indicate a fault */
@@ -157,4 +154,4 @@ musbfsh_dma_controller_create(struct musbfsh *, void __iomem *);
 
 extern void musbfsh_dma_controller_destroy(struct dma_controller *);
 
-#endif	/* __MUSBFSH_DMA_H__ */
+#endif				/* __MUSBFSH_DMA_H__ */

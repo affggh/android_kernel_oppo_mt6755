@@ -4,6 +4,6 @@
 /******************************************************************************
  *  EXPORT FUNCTION
  ******************************************************************************/
-extern unsigned int get_seccfg_cipher_len (void);
+extern unsigned int get_seccfg_cipher_len(void);
 
-#endif /* SECCFG_CRYPTO_H */
+#endif				/* SECCFG_CRYPTO_H */

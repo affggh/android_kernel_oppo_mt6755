@@ -35,11 +35,11 @@
 #ifndef __MUSBFSH_LINUX_DEBUG_H__
 #define __MUSBFSH_LINUX_DEBUG_H__
 
-// for normal log, very detail, impact performance alot
+/* for normal log, very detail, impact performance alot */
 extern int musbfsh_debug;
 #define yprintk(facility, format, args...) \
 	do { \
-		if(musbfsh_debug) { \
+		if (musbfsh_debug) { \
 			printk(facility "[MUSBFSH] %s %d: " format , \
 					__func__, __LINE__ , ## args); \
 		} \
@@ -47,7 +47,7 @@ extern int musbfsh_debug;
 
 #define INFO(fmt, args...) yprintk(KERN_NOTICE, fmt, ## args)
 
-// for critical log
+/* for critical log */
 #define zprintk(facility, format, args...) \
 	do { \
 		printk(facility "[MUSBFSH] %s %d: " format , \
@@ -58,4 +58,3 @@ extern int musbfsh_debug;
 #define ERR(fmt, args...) zprintk(KERN_ERR, fmt, ## args)
 
 #endif
-

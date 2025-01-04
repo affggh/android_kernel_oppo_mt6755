@@ -49,11 +49,12 @@
 #include <asm/tlbflush.h>
 #include <asm/ptrace.h>
 #include <mach/wd_api.h>
-#include <linux/mt_sched_mon.h>
+#include "mt_sched_mon.h"
+#include <linux/mtk_ram_console.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ipi.h>
-//#include <mach/mt_spm_cpu.h>
+
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
  * so we need some other way of telling a new secondary core
@@ -82,26 +83,13 @@ static int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 static DECLARE_COMPLETION(cpu_running);
 
-#define mt_reg_sync_writel(v, a)	mt65xx_reg_sync_writel(v, a)
-
-#define mt65xx_reg_sync_writel(v, a) \
-        do {    \
-            __raw_writel((v), IOMEM((a)));   \
-            dsb();  \
-        } while (0)
-
-#define REG_READ(addr)   (*(volatile u32 *)(addr))
-#define REG_WRITE(addr, value) mt_reg_sync_writel(value, addr)
-
 extern int check_pmic_wrap_init(void);
 extern void mt_pwrap_hal_init(void);
 extern void pmic_full_reset(void);
-
 int __cpuinit __cpu_up(unsigned int cpu, struct task_struct *idle)
 {
 	int ret,res;
-	int i;
-  struct wd_api * wd_api = NULL;
+    struct wd_api * wd_api = NULL;
 	/*
 	 * We need to tell the secondary core where to find its stack and the
 	 * page tables.
@@ -122,68 +110,20 @@ int __cpuinit __cpu_up(unsigned int cpu, struct task_struct *idle)
 					    msecs_to_jiffies(1000));
 
 		if (!cpu_online(cpu)) {
-#if 0
-			for(i=0x0;i<=4;i++)
-			{
-			   REG_WRITE(0x10200404 ,((REG_READ(0x10200404 )&0xffffff00)|i));
-			   pr_crit("Cluster0: Set 8'h%x : 0x%x\n",i,REG_READ(0x10200408));
-			}
-			for(i=0x05;i<=0x15;i++)
-			{
-			   REG_WRITE(0x10200404 ,((REG_READ(0x10200404 )&0xffffff00)|i));
-			   pr_crit("Cluster0: Set 8'h%x : 0x%x\n",i,REG_READ(0x10200408));
-			}
-			for(i=0x20;i<=0x45;i++)
-			{
-			   REG_WRITE(0x10200404 ,((REG_READ(0x10200404 )&0xffffff00)|i));
-			   pr_crit("Cluster0: Set 8'h%x : 0x%x\n",i,REG_READ(0x10200408));
-			}
-			
-			for(i=0x0;i<=4;i++)
-			{
-			   REG_WRITE(0x10200504  ,((REG_READ(0x10200504 )&0xffffff00)|i));
-			   pr_crit("Cluster0: Set 8'h%x : 0x%x\n",i,REG_READ(0x10200508 ));
-			}
-			for(i=0x05;i<=0x15;i++)
-			{
-			   REG_WRITE(0x10200504  ,((REG_READ(0x10200504 )&0xffffff00)|i));
-			   pr_crit("Cluster0: Set 8'h%x : 0x%x\n",i,REG_READ(0x10200508 ));
-			}
-			for(i=0x20;i<=0x45;i++)
-			{
-			   REG_WRITE(0x10200504  ,((REG_READ(0x10200504 )&0xffffff00)|i));
-			   pr_crit("Cluster0: Set 8'h%x : 0x%x\n",i,REG_READ(0x10200508 ));
-			}
-			
-			pr_crit("MPx_AXI_CONFIG: REG 0x1020002c : 0x%x\n", REG_READ(0x1020002c));
-			pr_crit("MPx_AXI_CONFIG: REG 0x1020022c : 0x%x\n", REG_READ(0x1020022c));
-			pr_crit("ACLKEN_DIV: REG 0x10200640 : 0x%x\n", REG_READ(0x10200640));
-			pr_crit("CCI: REG 0x10394000  : 0x%x\n", REG_READ(0x10394000));
-			pr_crit("CCI: REG 0x10395000  : 0x%x\n", REG_READ(0x10395000));
-#endif
-			pr_crit("CPU%u: failed to come online\n", cpu);
-                        #if 1
-		        pr_crit("Trigger WDT RESET\n");
+		    pr_debug("CPU%u: failed to come online\n", cpu);
+			#ifdef CONFIG_ARCH_MT6795
+	                      pr_debug("Trigger WDT RESET\n");
                         res = get_wd_api(&wd_api);
-                        if(res) 
-                        {
-                          pr_crit("get wd api error !!\n");
+                        if(res){
+                           pr_debug("get wd api error !!\n");
                         }else {
-                          wd_api -> wd_sw_reset(3);  //=> this action will ask system to reboot
+                           wd_api -> wd_sw_reset(3);  //=> this action will ask system to reboot
                         }
-                        #endif
-                        #if 0
-			pr_crit("Trigger PMIC full reset.\n");
-                        if(check_pmic_wrap_init())
-                        {
-                          mt_pwrap_hal_init();
-                        }
-                        pmic_full_reset();
-                        #endif
-                   ret = -EIO;
+			#endif
+            ret = -EIO;
 	        }
 	} else {
-		pr_err("CPU%u: failed to boot: %d\n", cpu, ret);
+		pr_debug("CPU%u: failed to boot: %d\n", cpu, ret);
 	}
 
 	secondary_data.stack = NULL;
@@ -204,8 +144,9 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 {
 	struct mm_struct *mm = &init_mm;
 	unsigned int cpu = smp_processor_id();
+    aee_rr_rec_hoplug(cpu, 1, 0);
 
-	printk("CPU%u: Booted secondary processor\n", cpu);
+	pr_debug("CPU%u: Booted secondary processor\n", cpu);
 
 	/*
 	 * All kernel threads share the same mm context; grab a
@@ -214,21 +155,33 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	atomic_inc(&mm->mm_count);
 	current->active_mm = mm;
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
+    aee_rr_rec_hoplug(cpu, 2, 0);
 
 	set_my_cpu_offset(per_cpu_offset(smp_processor_id()));
+    aee_rr_rec_hoplug(cpu, 3, 0);
 
 	/*
 	 * TTBR0 is only used for the identity mapping at this stage. Make it
 	 * point to zero page to avoid speculatively fetching new entries.
 	 */
 	cpu_set_reserved_ttbr0();
+    aee_rr_rec_hoplug(cpu, 4, 0);
 	flush_tlb_all();
+    aee_rr_rec_hoplug(cpu, 5, 0);
 
 	preempt_disable();
+    aee_rr_rec_hoplug(cpu, 6, 0);
 	trace_hardirqs_off();
+    aee_rr_rec_hoplug(cpu, 7, 0);
 
 	if (cpu_ops[cpu]->cpu_postboot)
 		cpu_ops[cpu]->cpu_postboot();
+    aee_rr_rec_hoplug(cpu, 8, 0);
+
+	/*
+	 * Log the CPU info before it is marked online and might get read.
+	 */
+	cpuinfo_store_cpu();
 
 	/*
 	 * OK, now it's safe to let the boot CPU continue.  Wait for
@@ -236,23 +189,31 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	 * before we continue.
 	 */
 	set_cpu_online(cpu, true);
+    aee_rr_rec_hoplug(cpu, 9, 0);
 	complete(&cpu_running);
+    aee_rr_rec_hoplug(cpu, 10, 0);
 
 	smp_store_cpu_info(cpu);
+    aee_rr_rec_hoplug(cpu, 11, 0);
 
 	/*
 	 * Enable GIC and timers.
 	 */
 	notify_cpu_starting(cpu);
+    aee_rr_rec_hoplug(cpu, 12, 0);
 
 	local_dbg_enable();
+    aee_rr_rec_hoplug(cpu, 13, 0);
 	local_irq_enable();
+    aee_rr_rec_hoplug(cpu, 14, 0);
 	local_fiq_enable();
+    aee_rr_rec_hoplug(cpu, 15, 0);
 
 	/*
 	 * OK, it's off to the idle thread for us
 	 */
 	cpu_startup_entry(CPUHP_ONLINE);
+    aee_rr_rec_hoplug(cpu, 16, 0);
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
@@ -291,17 +252,20 @@ int __cpu_disable(void)
 	 * Take this CPU offline.  Once we clear this, we can't return,
 	 * and we must not schedule until we're ready to give up the cpu.
 	 */
+	aee_rr_rec_hoplug(cpu, 71, 0);
 	set_cpu_online(cpu, false);
-
+	aee_rr_rec_hoplug(cpu, 72, 0);
 	/*
 	 * OK - migrate IRQs away from this CPU
 	 */
 	migrate_irqs();
+	aee_rr_rec_hoplug(cpu, 73, 0);
 
 	/*
 	 * Remove this CPU from the vm mask set of all processes.
 	 */
 	clear_tasks_mm_cpumask(cpu);
+	aee_rr_rec_hoplug(cpu, 74, 0);
 
 	return 0;
 }
@@ -328,7 +292,7 @@ static DECLARE_COMPLETION(cpu_died);
 void __cpu_die(unsigned int cpu)
 {
 	if (!wait_for_completion_timeout(&cpu_died, msecs_to_jiffies(5000))) {
-		pr_crit("CPU%u: cpu didn't die\n", cpu);
+		pr_debug("CPU%u: cpu didn't die\n", cpu);
 		return;
 	}
 	pr_notice("CPU%u: shutdown\n", cpu);
@@ -340,7 +304,7 @@ void __cpu_die(unsigned int cpu)
 	 * clobbering anything it might still be using.
 	 */
 	if (!op_cpu_kill(cpu))
-		pr_warn("CPU%d may not have shut down cleanly\n", cpu);
+		pr_debug("CPU%d may not have shut down cleanly\n", cpu);
 }
 
 /*
@@ -354,13 +318,17 @@ void __cpu_die(unsigned int cpu)
 void cpu_die(void)
 {
 	unsigned int cpu = smp_processor_id();
+	aee_rr_rec_hoplug(cpu, 51, 0);
 
 	idle_task_exit();
+	aee_rr_rec_hoplug(cpu, 52, 0);
 
 	local_irq_disable();
+	aee_rr_rec_hoplug(cpu, 53, 0);
 
 	/* Tell __cpu_die() that this CPU is now safe to dispose of */
 	complete(&cpu_died);
+	aee_rr_rec_hoplug(cpu, 54, 0);
 
 	/*
 	 * Actually shutdown the CPU. This must never fail. The specific hotplug
@@ -368,6 +336,7 @@ void cpu_die(void)
 	 * no dirty lines are lost in the process of shutting down the CPU.
 	 */
 	cpu_ops[cpu]->cpu_die(cpu);
+	aee_rr_rec_hoplug(cpu, 55, 0);
 
 	BUG();
 }
@@ -377,7 +346,7 @@ void __init smp_cpus_done(unsigned int max_cpus)
 {
 	unsigned long bogosum = loops_per_jiffy * num_online_cpus();
 
-	pr_info("SMP: Total of %d processors activated (%lu.%02lu BogoMIPS).\n",
+	pr_debug("SMP: Total of %d processors activated (%lu.%02lu BogoMIPS).\n",
 		num_online_cpus(), bogosum / (500000/HZ),
 		(bogosum / (5000/HZ)) % 100);
 }
@@ -409,7 +378,7 @@ void __init smp_init_cpus(void)
 		 */
 		cell = of_get_property(dn, "reg", NULL);
 		if (!cell) {
-			pr_err("%s: missing reg property\n", dn->full_name);
+			pr_debug("%s: missing reg property\n", dn->full_name);
 			goto next;
 		}
 		hwid = of_read_number(cell, of_n_addr_cells(dn));
@@ -418,7 +387,7 @@ void __init smp_init_cpus(void)
 		 * Non affinity bits must be set to 0 in the DT
 		 */
 		if (hwid & ~MPIDR_HWID_BITMASK) {
-			pr_err("%s: invalid reg property\n", dn->full_name);
+			pr_debug("%s: invalid reg property\n", dn->full_name);
 			goto next;
 		}
 
@@ -431,7 +400,7 @@ void __init smp_init_cpus(void)
 		 */
 		for (i = 1; (i < cpu) && (i < NR_CPUS); i++) {
 			if (cpu_logical_map(i) == hwid) {
-				pr_err("%s: duplicate cpu reg properties in the DT\n",
+				pr_debug("%s: duplicate cpu reg properties in the DT\n",
 					dn->full_name);
 				goto next;
 			}
@@ -445,7 +414,7 @@ void __init smp_init_cpus(void)
 		 */
 		if (hwid == cpu_logical_map(0)) {
 			if (bootcpu_valid) {
-				pr_err("%s: duplicate boot cpu reg property in DT\n",
+				pr_debug("%s: duplicate boot cpu reg property in DT\n",
 					dn->full_name);
 				goto next;
 			}
@@ -478,11 +447,11 @@ next:
 
 	/* sanity check */
 	if (cpu > NR_CPUS)
-		pr_warning("no. of cores (%d) greater than configured maximum of %d - clipping\n",
+		pr_debug("no. of cores (%d) greater than configured maximum of %d - clipping\n",
 			   cpu, NR_CPUS);
 
 	if (!bootcpu_valid) {
-		pr_err("DT missing boot CPU MPIDR, not enabling secondaries\n");
+		pr_debug("DT missing boot CPU MPIDR, not enabling secondaries\n");
 		return;
 	}
 
@@ -608,7 +577,7 @@ static void ipi_cpu_stop(unsigned int cpu)
 	if (system_state == SYSTEM_BOOTING ||
 	    system_state == SYSTEM_RUNNING) {
 		raw_spin_lock(&stop_lock);
-		pr_crit("CPU%u: stopping\n", cpu);
+		pr_debug("CPU%u: stopping\n", cpu);
 		dump_stack();
 		raw_spin_unlock(&stop_lock);
 	}
@@ -665,7 +634,7 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		break;
 
 	default:
-		pr_crit("CPU%u: Unknown IPI message 0x%x\n", cpu, ipinr);
+		pr_debug("CPU%u: Unknown IPI message 0x%x\n", cpu, ipinr);
 		break;
 	}
 
@@ -698,7 +667,7 @@ void smp_send_stop(void)
 		udelay(1);
 
 	if (num_online_cpus() > 1)
-		pr_warning("SMP: failed to stop secondary CPUs\n");
+		pr_debug("SMP: failed to stop secondary CPUs\n");
 }
 
 /*

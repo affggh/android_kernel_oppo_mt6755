@@ -2,6 +2,8 @@
 #define __CUST_GYRO_H__
 
 #include <linux/types.h>
+//VENDOR_EDIT zhihong.lu@BSP.sensor
+#include <soc/oppo/device_info.h>
 
 #define GYRO_CUST_I2C_ADDR_NUM 2
 
@@ -20,4 +22,5 @@ struct gyro_hw {
 };
 
 extern struct gyro_hw* get_cust_gyro_hw(void);
+struct gyro_hw* get_gyro_dts_func(const char *, struct gyro_hw*);
 #endif 

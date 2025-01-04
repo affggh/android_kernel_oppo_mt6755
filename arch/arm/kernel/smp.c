@@ -45,7 +45,7 @@
 #include <asm/smp_plat.h>
 #include <asm/virt.h>
 #include <asm/mach/arch.h>
-#include <linux/mt_sched_mon.h>
+#include "mt_sched_mon.h"
 /*******************************************************************************
 * 20131225 marc.huang                                                          *
 * CPU Hotplug debug                                                            *

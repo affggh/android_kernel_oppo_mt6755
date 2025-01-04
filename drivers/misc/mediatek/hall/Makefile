@@ -1,6 +1,5 @@
 include $(srctree)/drivers/misc/mediatek/Makefile.custom
 
+obj-$(CONFIG_MTK_HALL)	+=  bu/
 
-ifeq ($(CONFIG_MTK_HALL_AH1903),y)
-obj-y		+= ah1903.o
-endif
+

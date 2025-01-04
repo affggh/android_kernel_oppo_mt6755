@@ -132,6 +132,7 @@ static unsigned int MCLKFS = 128;
 static AudioDigtalI2S *AudioAdcI2S = NULL;
 static AudioDigtalI2S *m2ndI2S = NULL; // input
 static AudioDigtalI2S *m2ndI2Sout = NULL; // output
+static bool mFMEnable = false;
 
 static AudioHdmi *mHDMIOutput = NULL;
 static AudioMrgIf *mAudioMrg = NULL;
@@ -266,6 +267,23 @@ size_t GetCaptureDramSize(void)
 {
     return AudioDramCaptureSize;
 }
+
+void SetFMEnableFlag(bool bEnable)
+{
+    mFMEnable = bEnable;
+}
+
+bool ConditionEnterSuspend(void)
+{
+    if (mFMEnable == true)
+    {
+        return false;
+    }
+    {
+        return true;
+    }
+}
+
 
 // function get internal mode status.
 bool get_internalmd_status(void)
@@ -1018,11 +1036,11 @@ uint32 SampleRateTransform(uint32 SampleRate)
             return Soc_Aud_I2S_SAMPLERATE_I2S_44K;
         case 48000:
             return Soc_Aud_I2S_SAMPLERATE_I2S_48K;
-        case 88000:
+        case 88200:
             return Soc_Aud_I2S_SAMPLERATE_I2S_88K;
         case 96000:
             return Soc_Aud_I2S_SAMPLERATE_I2S_96K;
-        case 174000:
+        case 176400:
             return Soc_Aud_I2S_SAMPLERATE_I2S_174K;
         case 192000:
             return Soc_Aud_I2S_SAMPLERATE_I2S_192K;
@@ -1324,7 +1342,7 @@ bool SetMrgI2SEnable(bool bEnable, unsigned int sampleRate)
 }
 bool Set2ndI2SAdcIn(AudioDigtalI2S *DigtalI2S)
 {
-    //K2 todo?
+    //6752 todo?
     return true;
 }
 
@@ -1538,7 +1556,7 @@ bool SetSideGenSampleRate(uint32 SampleRate)
 
 bool Set2ndI2SAdcEnable(bool bEnable)
 {
-    // K2 todo?
+    // 6752 todo?
     return true;
 }
 
@@ -1935,25 +1953,28 @@ bool EnableSideToneFilter(bool stf_on)
                               coef_addr         << 16 |
                               kSideToneCoefficientTable16k[coef_addr];
             Afe_Set_Reg(AFE_SIDETONE_CON0, write_reg_value, 0x39FFFFF);
-            printk("%s(), AFE_SIDETONE_CON0[0x%lx] = 0x%x\n", __FUNCTION__, AFE_SIDETONE_CON0, write_reg_value);
-
-            // wait until flag write_ready changed (means write done)
-            for (try_cnt = 0; try_cnt < 10; try_cnt++)  // max try 10 times
+            printk("%s(), AFE_SIDETONE_CON0[0x%lx] = 0x%x\n", __FUNCTION__, AFE_SIDETONE_CON0,
+			write_reg_value);
+            /* wait until flag write_ready changed (means write done) */
+            for (try_cnt = 0; try_cnt < 10; try_cnt++)  /* max try 10 times */
             {
-                msleep(3);
+                /* msleep(3); */
+                /* usleep_range(3 * 1000, 20 * 1000); */
                 read_reg_value = Afe_Get_Reg(AFE_SIDETONE_CON0);
                 new_write_ready = (read_reg_value >> 29) & 0x1;
-                if (new_write_ready != old_write_ready) // flip => ok
-                {
+                if (new_write_ready != old_write_ready) /* flip => ok */
                     break;
-                }
                 else
                 {
-                    BUG_ON(new_write_ready != old_write_ready);
-                    return false;
+                    udelay(3);
+                    if (try_cnt == 10) {
+                   	 BUG_ON(new_write_ready != old_write_ready);
+                    	return false;
+                    }
                 }
             }
-        }
+	}
+
     }
     AudDrv_Clk_Off();
     printk("-%s(), stf_on = %d\n", __FUNCTION__, stf_on);
@@ -2063,21 +2084,21 @@ bool checkUplinkMEMIfStatus()
 
 bool SetHDMIChannels(uint32 Channels)
 {
-    // k2 removed
+    // 6752 removed
     printk("+%s(), not supported!!!\n", __func__);
     return true;
 }
 
 bool SetHDMIEnable(bool bEnable)
 {
-    // k2 removed
+    // 6752 removed
     printk("+%s(), not supported!!!\n", __func__);
     return true;
 }
 
 bool SetHDMIConnection(uint32 ConnectionState, uint32 Input , uint32 Output)
 {
-    // k2 removed
+    // 6752 removed
     return true;
 }
 
@@ -2215,6 +2236,153 @@ bool SetMemDuplicateWrite(uint32 InterfaceType, int dupwrite)
             return false;
     }
     return true;
+}
+
+void Enable4pinI2S(bool enable, bool low_jitter_on, uint32 samplerate)
+{
+    uint32 u32AudioI2S = 0;
+    uint32 Audio_I2S_Dac = 0;
+    uint32 MclkDiv0 = 0;
+    uint32 MclkDiv3 = 0;
+
+    uint32 i = 0;
+
+    if (enable == true)
+    {   
+        if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_4PIN_IN_OUT) == false)
+        {
+            SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_4PIN_IN_OUT, true);
+
+            /** reset **/
+            Afe_Set_Reg(AFE_I2S_CON,  0x0, 0x1);
+            Afe_Set_Reg(AFE_I2S_CON3, 0x0, 0x1);
+            udelay(20);
+            Afe_Set_Reg(AUDIO_TOP_CON1, (0x1 << 4) | (0x1 << 7),  (0x1 << 4) | (0x1 << 7)); // Sets to 1 to gated I2S0/I2S3 engine clock
+
+            Afe_Set_Reg(AUDIO_TOP_CON1, 0x2,  0x2);  // I2S0/I2S3 SOFT_Reset Hi
+            Afe_Set_Reg(AUDIO_TOP_CON1, (0x1 << 4) | (0x1 << 7),  (0x1 << 4) | (0x1 << 7)); // Sets to 1 to gated I2S0 engine clock
+            //Afe_Set_Reg(AUDIO_TOP_CON1, 0x1 << 7,  0x1 << 7); // Sets to 1 to gated I2S3 engine clock
+
+
+            /** 2nd I2S In **/
+            Audio_I2S_Dac = 0;
+            SetSampleRate(Soc_Aud_Digital_Block_MEM_I2S,  samplerate);
+            Audio_I2S_Dac |= (1 << 31);
+
+            //Audio_I2S_Dac |= (Soc_Aud_INV_BCK_INVESE << 29);//BCK Inv
+            Audio_I2S_Dac |= (Soc_Aud_I2S_IN_PAD_SEL_I2S_IN_FROM_IO_MUX << 28);//I2S in from io_mux
+            Audio_I2S_Dac |= (Soc_Aud_INV_LRCK_NO_INVERSE << 5);
+            Audio_I2S_Dac |= (Soc_Aud_I2S_FORMAT_I2S << 3);
+            Audio_I2S_Dac |= (Soc_Aud_I2S_WLEN_WLEN_32BITS << 1);
+            if (low_jitter_on == true)
+            {
+                Audio_I2S_Dac |= Soc_Aud_LOW_JITTER_CLOCK << 12 ; //Low jitter mode
+            }
+
+            Afe_Set_Reg(AFE_I2S_CON, Audio_I2S_Dac, 0xFFFFFFFE);
+
+
+            /** 2nd I2S Out **/
+            u32AudioI2S = 0;
+            u32AudioI2S |= SampleRateTransform(samplerate) << 8;
+            u32AudioI2S |= Soc_Aud_I2S_FORMAT_I2S << 3; // us3 I2s format
+            u32AudioI2S |= Soc_Aud_I2S_WLEN_WLEN_32BITS << 1; //32bit
+            if (low_jitter_on == true)
+            {
+                u32AudioI2S |= Soc_Aud_LOW_JITTER_CLOCK << 12 ; //Low jitter mode
+            }
+
+            Afe_Set_Reg(AFE_I2S_CON3, u32AudioI2S, 0xFFFFFFFE);
+
+            Afe_Set_Reg(AUDIO_TOP_CON1, (0x0 << 4) | (0x0 << 7),  (0x1 << 4)|  (0x1 << 7));
+            //Afe_Set_Reg(AUDIO_TOP_CON1, 0x0 << 7,  0x1 << 7);
+
+            udelay(200);
+
+            if (low_jitter_on == true)
+            {
+                MclkDiv0 = SetCLkMclk(Soc_Aud_I2S0, samplerate); //select I2S
+                SetCLkBclk(MclkDiv0, samplerate, 2, Soc_Aud_I2S_WLEN_WLEN_32BITS);
+
+                MclkDiv3 = SetCLkMclk(Soc_Aud_I2S3, samplerate); //select I2S
+                SetCLkBclk(MclkDiv3, samplerate, 2, Soc_Aud_I2S_WLEN_WLEN_32BITS);
+            }
+
+
+            /** 4pin control sequence **/
+            Afe_Set_Reg(AFE_I2S_CON,  0x1, 0x1);
+            Afe_Set_Reg(AFE_I2S_CON3, 0x1, 0x1);
+            EnableAfe(true);
+            udelay(500);
+
+            Afe_Set_Reg(AFE_I2S_CON,  0x0, 0x1);
+            Afe_Set_Reg(AFE_I2S_CON3, 0x0, 0x1);
+            udelay(200);
+
+            Afe_Set_Reg(AUDIO_TOP_CON1, (0x1 << 4)| (0x1 << 7),  (0x1 << 4)|(0x1 << 7)); // Sets to 1 to gated I2S0 engine clock
+            //Afe_Set_Reg(AUDIO_TOP_CON1, 0x1 << 7,  0x1 << 7); // Sets to 1 to gated I2S3 engine clock
+            Afe_Set_Reg(AFE_DAC_CON0, 0x0, 0x1); /* Force disable AFE_ON!! */
+            udelay(200);
+
+            if (Afe_Get_Reg(AFE_DAC_CON0) & 0x08000000)
+            {
+                while (i < 100)
+                {
+                    i++;
+                    udelay(10);
+                    if (Afe_Get_Reg(AFE_DAC_CON0) & 0x08000000)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                printk("%s i=%d\n", __func__, i);
+            }
+            else
+            {
+                printk("AFE_DAC_CON0=0x%x\n", Afe_Get_Reg(AFE_DAC_CON0));
+            }
+
+            Afe_Set_Reg(AUDIO_TOP_CON1, 0x0,  0x2);  // // I2S0/I2S3 SOFT_Reset Lo
+            Afe_Set_Reg(AFE_I2S_CON,  0x1, 0x1);
+            Afe_Set_Reg(AFE_I2S_CON3, 0x1, 0x1);
+            Afe_Set_Reg(AUDIO_TOP_CON1, (0x0 << 4) | (0x0 << 7),  (0x1 << 4)|  (0x1 << 7));
+            udelay(200);
+
+            Afe_Set_Reg(AFE_DAC_CON0, 0x1, 0x1); /* Force recover AFE_ON!! */
+        }
+    }
+    else if (enable == false)
+    {
+        SetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_4PIN_IN_OUT, false);
+        if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_4PIN_IN_OUT) == false)
+        {
+            // Clear Low jitter mode setting
+            if (low_jitter_on == true)
+            {
+                if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2) == false)
+                {
+                    Afe_Set_Reg(AFE_I2S_CON,  0, 1 << 12);
+                }
+                Afe_Set_Reg(AFE_I2S_CON3, 0, 1 << 12);
+            }
+
+            if (GetMemoryPathEnable(Soc_Aud_Digital_Block_I2S_IN_2) == false)
+            {
+                Afe_Set_Reg(AFE_I2S_CON,  0x0, 0x1);
+            }
+            Afe_Set_Reg(AFE_I2S_CON3, 0x0, 0x1);
+            udelay(20);
+            Afe_Set_Reg(AUDIO_TOP_CON1, (0x1 << 4) | (0x1 << 7),  (0x1 << 4) | (0x1 << 7)); // Sets to 1 to gated I2S0/I2S3 engine clock
+            udelay(200);
+            Afe_Set_Reg(AUDIO_TOP_CON1, (0x0 << 4) | (0x0 << 7),  (0x1 << 4) | (0x1 << 7));
+
+            EnableAfe(false);
+        }
+    }
 }
 
 
@@ -2836,7 +3004,7 @@ void Auddrv_UL1_Spinlock_unlock(void)
 
 void Auddrv_HDMI_Interrupt_Handler(void)  // irq5 ISR handler
 {
-    // K2 removed
+    // 6752 removed
 }
 
 
@@ -2869,7 +3037,7 @@ void Auddrv_AWB_Interrupt_Handler(void)
 
     mBlock = &Mem_Block->rBlock;
     HW_Cur_ReadIdx = Align64ByteSize(Afe_Get_Reg(AFE_AWB_CUR));
-    PRINTK_AUD_AWB("Auddrv_AWB_Interrupt_Handler HW_Cur_ReadIdx = 0x%x\n ", HW_Cur_ReadIdx);
+    PRINTK_AUD_AWB("+Auddrv_AWB_Interrupt_Handler HW_Cur_ReadIdx = 0x%x\n ", HW_Cur_ReadIdx);
 
     if (CheckSize(HW_Cur_ReadIdx))
     {
@@ -2894,7 +3062,7 @@ void Auddrv_AWB_Interrupt_Handler(void)
         mBlock->u4DMAReadIdx +=  MaxCopySize;
         mBlock->u4DMAReadIdx %=  mBlock->u4BufferSize;
         Clear_Mem_CopySize(Soc_Aud_Digital_Block_MEM_AWB);
-        PRINTK_AUD_AWB("update read pointer u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, pucPhysBufAddr:0x%x mBlock->u4MaxCopySize =0x%x\n",
+        PRINTK_AUD_AWB("Auddrv_AWB_Interrupt_Handler update read pointer u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, pucPhysBufAddr:0x%x mBlock->u4MaxCopySize =0x%x\n",
                        mBlock->u4DMAReadIdx, mBlock->u4WriteIdx, mBlock->pucPhysBufAddr, mBlock->u4MaxCopySize);
     }
 
@@ -2905,7 +3073,7 @@ void Auddrv_AWB_Interrupt_Handler(void)
         Hw_Get_bytes += mBlock->u4BufferSize;
     }
 
-    PRINTK_AUD_AWB("+Auddrv_Handle_Mem_context Hw_Get_bytes:0x%x, HW_Cur_ReadIdx:0x%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, pucPhysBufAddr:0x%x mBlock->u4MaxCopySize =0x%x mBlock->u4DataRemained = 0x%x\n",
+    PRINTK_AUD_AWB("Auddrv_AWB_Interrupt_Handler Hw_Get_bytes:0x%x, HW_Cur_ReadIdx:0x%x, u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, pucPhysBufAddr:0x%x mBlock->u4MaxCopySize =0x%x mBlock->u4DataRemained = 0x%x\n",
                    Hw_Get_bytes, HW_Cur_ReadIdx, mBlock->u4DMAReadIdx, mBlock->u4WriteIdx, mBlock->pucPhysBufAddr, mBlock->u4MaxCopySize, mBlock->u4DataRemained);
 
     mBlock->u4WriteIdx  += Hw_Get_bytes;
@@ -2914,8 +3082,8 @@ void Auddrv_AWB_Interrupt_Handler(void)
     // buffer overflow
     if (mBlock->u4DataRemained > mBlock->u4BufferSize)
     {
-        printk("Auddrv_Handle_Mem_context buffer overflow u4DMAReadIdx:%x, u4WriteIdx:%x, u4DataRemained:%x, u4BufferSize:%x \n",
-               mBlock->u4DMAReadIdx, mBlock->u4WriteIdx, mBlock->u4DataRemained, mBlock->u4BufferSize);
+        printk("Auddrv_AWB_Interrupt_Handler buffer overflow u4DMAReadIdx:0x%x, u4WriteIdx:0x%x, u4DataRemained:0x%x, u4BufferSize:0x%x, Hw_Get_bytes: 0x%x\n",
+               mBlock->u4DMAReadIdx, mBlock->u4WriteIdx, mBlock->u4DataRemained, mBlock->u4BufferSize, Hw_Get_bytes);
         mBlock->u4DataRemained %= mBlock->u4BufferSize;
     }
     Mem_Block->interruptTrigger = 1;
@@ -2943,8 +3111,8 @@ void Auddrv_AWB_Interrupt_Handler(void)
         }
     }
 
+    PRINTK_AUD_AWB("-Auddrv_AWB_Interrupt_Handler u4DMAReadIdx:0x%x, u4WriteIdx:0x%x mBlock->u4DataRemained = 0x%x \n", mBlock->u4DMAReadIdx, mBlock->u4WriteIdx, mBlock->u4DataRemained);
     spin_unlock_irqrestore(&Mem_Block->substream_lock, flags);
-    PRINTK_AUD_AWB("-Auddrv_Handle_Mem_context u4DMAReadIdx:0x%x, u4WriteIdx:0x%x mBlock->u4DataRemained = 0x%x \n", mBlock->u4DMAReadIdx, mBlock->u4WriteIdx, mBlock->u4DataRemained);
 }
 
 void Auddrv_DAI_Interrupt_Handler(void)
@@ -3166,6 +3334,8 @@ void Auddrv_UL1_Interrupt_Handler(void)
 
     mBlock = &Mem_Block->rBlock;
     HW_Cur_ReadIdx = Align64ByteSize(Afe_Get_Reg(AFE_VUL_CUR));
+    PRINTK_AUD_UL1("+Auddrv_UL1_Interrupt_Handler HW_Cur_ReadIdx = 0x%x\n ", HW_Cur_ReadIdx);
+
     if (CheckSize(HW_Cur_ReadIdx))
     {
         spin_unlock_irqrestore(&Mem_Block->substream_lock, flags);
@@ -3184,7 +3354,7 @@ void Auddrv_UL1_Interrupt_Handler(void)
         Hw_Get_bytes += mBlock->u4BufferSize;
     }
 
-    PRINTK_AUD_UL1("Auddrv_Handle_Mem_context Hw_Get_bytes:%x, HW_Cur_ReadIdx:%x, u4DMAReadIdx:%x, u4WriteIdx:0x%x, pucPhysBufAddr:%x Mem_Block->MemIfNum = %d \n",
+    PRINTK_AUD_UL1("Auddrv_UL1_Interrupt_Handler Hw_Get_bytes:%x, HW_Cur_ReadIdx:%x, u4DMAReadIdx:%x, u4WriteIdx:0x%x, pucPhysBufAddr:%x Mem_Block->MemIfNum = %d \n",
                    Hw_Get_bytes, HW_Cur_ReadIdx, mBlock->u4DMAReadIdx, mBlock->u4WriteIdx, mBlock->pucPhysBufAddr, Mem_Block->MemIfNum);
 
     mBlock->u4WriteIdx  += Hw_Get_bytes;
@@ -3194,7 +3364,7 @@ void Auddrv_UL1_Interrupt_Handler(void)
     // buffer overflow
     if (mBlock->u4DataRemained > mBlock->u4BufferSize)
     {
-        printk("Auddrv_Handle_Mem_context buffer overflow u4DMAReadIdx:%x, u4WriteIdx:%x, u4DataRemained:%x, u4BufferSize:%x \n",
+        printk("Auddrv_UL1_Interrupt_Handler buffer overflow u4DMAReadIdx:%x, u4WriteIdx:%x, u4DataRemained:%x, u4BufferSize:%x \n",
                mBlock->u4DMAReadIdx, mBlock->u4WriteIdx, mBlock->u4DataRemained, mBlock->u4BufferSize);
     }
     AFE_Mem_Control_context[Soc_Aud_Digital_Block_MEM_VUL]->interruptTrigger = 1;
@@ -3208,6 +3378,8 @@ void Auddrv_UL1_Interrupt_Handler(void)
             spin_lock_irqsave(&Mem_Block->substream_lock, flags);
         }
     }
+    
+    PRINTK_AUD_UL1("-Auddrv_UL1_Interrupt_Handler u4DMAReadIdx:0x%x, u4WriteIdx:0x%x mBlock->u4DataRemained = 0x%x \n", mBlock->u4DMAReadIdx, mBlock->u4WriteIdx, mBlock->u4DataRemained);
     spin_unlock_irqrestore(&Mem_Block->substream_lock, flags);
 }
 
@@ -3445,7 +3617,7 @@ bool BackUp_Audio_Register(void)
     mAudioRegCache.REG_AFE_IRQ_MCU_EN = Afe_Get_Reg(AFE_IRQ_MCU_EN);
     mAudioRegCache.REG_AFE_MEMIF_MAXLEN = Afe_Get_Reg(AFE_MEMIF_MAXLEN);
     mAudioRegCache.REG_AFE_MEMIF_PBUF_SIZE = Afe_Get_Reg(AFE_MEMIF_PBUF_SIZE);
-    mAudioRegCache.REG_AFE_IRQ_MCU_CNT7 = Afe_Get_Reg(AFE_IRQ_MCU_CNT7); // K2 add
+    mAudioRegCache.REG_AFE_IRQ_MCU_CNT7 = Afe_Get_Reg(AFE_IRQ_MCU_CNT7); // 6752 add
 
     mAudioRegCache.REG_AFE_APLL1_TUNER_CFG = Afe_Get_Reg(AFE_APLL1_TUNER_CFG);
     mAudioRegCache.REG_AFE_APLL2_TUNER_CFG = Afe_Get_Reg(AFE_APLL2_TUNER_CFG);
@@ -3468,7 +3640,7 @@ bool BackUp_Audio_Register(void)
     mAudioRegCache.REG_AFE_CONN7 = Afe_Get_Reg(AFE_CONN7);
     mAudioRegCache.REG_AFE_CONN8 = Afe_Get_Reg(AFE_CONN8);
     mAudioRegCache.REG_AFE_CONN9 = Afe_Get_Reg(AFE_CONN9);
-    mAudioRegCache.REG_AFE_CONN10 = Afe_Get_Reg(AFE_CONN10); // K2 add
+    mAudioRegCache.REG_AFE_CONN10 = Afe_Get_Reg(AFE_CONN10); // 6752 add
 
     mAudioRegCache.REG_FPGA_CFG2 = Afe_Get_Reg(FPGA_CFG2);
     mAudioRegCache.REG_FPGA_CFG3 = Afe_Get_Reg(FPGA_CFG3);
@@ -3490,7 +3662,7 @@ bool BackUp_Audio_Register(void)
     mAudioRegCache.REG_PCM_INTF_CON = Afe_Get_Reg(PCM_INTF_CON);
     mAudioRegCache.REG_PCM_INTF_CON2 = Afe_Get_Reg(PCM_INTF_CON2);
     mAudioRegCache.REG_PCM2_INTF_CON = Afe_Get_Reg(PCM2_INTF_CON);
-    //K2 add
+    //6752 add
     mAudioRegCache.REG_AUDIO_CLK_AUDDIV_0 = Afe_Get_Reg(AUDIO_CLK_AUDDIV_0);
     mAudioRegCache.REG_AUDIO_CLK_AUDDIV_1 = Afe_Get_Reg(AUDIO_CLK_AUDDIV_1);
     mAudioRegCache.REG_AUDIO_CLK_AUDDIV_2 = Afe_Get_Reg(AUDIO_CLK_AUDDIV_2);
@@ -3550,7 +3722,7 @@ bool BackUp_Audio_Register(void)
     mAudioRegCache.REG_AFE_ASRC3_CON12 = Afe_Get_Reg(AFE_ASRC3_CON12);
     mAudioRegCache.REG_AFE_ASRC3_CON13 = Afe_Get_Reg(AFE_ASRC3_CON13);
     mAudioRegCache.REG_AFE_ASRC3_CON14 = Afe_Get_Reg(AFE_ASRC3_CON14);
-    //K2 add
+    //6752 add
     mAudioRegCache.REG_AFE_ADDA4_TOP_CON0 = Afe_Get_Reg(AFE_ADDA4_TOP_CON0);
     mAudioRegCache.REG_AFE_ADDA4_UL_SRC_CON0 = Afe_Get_Reg(AFE_ADDA4_UL_SRC_CON0);
     mAudioRegCache.REG_AFE_ADDA4_UL_SRC_CON1 = Afe_Get_Reg(AFE_ADDA4_UL_SRC_CON1);
@@ -3578,7 +3750,7 @@ bool BackUp_Audio_Register(void)
 
 bool Restore_Audio_Register(void)
 {
-    // K2 TODO?
+    // 6752 TODO?
     return true;
 }
 

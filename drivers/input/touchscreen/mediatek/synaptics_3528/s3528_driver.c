@@ -574,7 +574,7 @@ static void Set_TapZone(char* arr_tap_zone);
 #define DO_IF(do_work, goto_error) 								\
 	do {												\
 		if(do_work){										\
-			printk(KERN_INFO "[Touch E] Action Failed [%s %d] \n",	\
+			pr_info("[Touch E] Action Failed [%s %d] \n",	\
 				__func__, __LINE__); \
 			goto goto_error;				\
 		}							\
@@ -823,7 +823,7 @@ int synaptics_ts_read_f54 ( struct i2c_client *client, u8 reg, int num, u8 *buf 
 #else
 	if (i2c_transfer(client->adapter, i2c_msgs.msg, message_count) < 0) {
 #endif
-		if ( printk_ratelimit() )
+		if ( pr_debug_ratelimit() )
 			TPD_ERR ( "transfer error\n" );
 		return -EIO;
 	}
@@ -854,7 +854,7 @@ int synaptics_ts_read ( struct i2c_client *client, u8 reg, int num, u8 *buf )
 #else
 	if (i2c_transfer(client->adapter, msgs, 2) < 0) {
 #endif
-		if ( printk_ratelimit() )
+		if ( pr_debug_ratelimit() )
 			TPD_ERR ( "transfer error\n" );
 		return -EIO;
 	}
@@ -884,7 +884,7 @@ int synaptics_ts_write ( struct i2c_client *client, u8 reg, u8 * buf, int len )
 #else
 	if (i2c_transfer(client->adapter, msgs, 1) < 0) {
 #endif
-		if ( printk_ratelimit() )
+		if ( pr_debug_ratelimit() )
 			TPD_ERR ( "transfer error\n" );
 		return -EIO;
 	}
@@ -1013,7 +1013,7 @@ int touch_i2c_read(struct i2c_client *client, u8 reg, int len, u8 *buf)
 
 	for(retry = 0; retry < I2C_MAX_TRY; retry++) {
 		if (i2c_transfer(client->adapter, msgs, 2) < 0) {
-			if (printk_ratelimit())
+			if (pr_debug_ratelimit())
 			TPD_LOG("transfer error, retry (%d)times\n",retry+1);
 			msleep(20);
 			}
@@ -1046,7 +1046,7 @@ int touch_i2c_write(struct i2c_client *client, u8 reg, int len, u8 * buf)
 
 	for(retry = 0; retry < I2C_MAX_TRY; retry++) {
 		if (i2c_transfer(client->adapter, msgs, 1) < 0) {
-			if (printk_ratelimit())
+			if (pr_debug_ratelimit())
 			TPD_LOG("transfer error, retry (%d)times\n",retry+1);
 			msleep(20);
 			}
@@ -1076,7 +1076,7 @@ int touch_i2c_write_byte(struct i2c_client *client, u8 reg, u8 data)
 	send_buf[1] = (unsigned char)data;
 
 	if (i2c_transfer(client->adapter, msgs, 1) < 0) {
-		if (printk_ratelimit())
+		if (pr_debug_ratelimit())
 			TPD_LOG("transfer error\n");
 		return -1;
 	} else

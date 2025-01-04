@@ -32,9 +32,6 @@
  * Chipeng Chang
  *
  *------------------------------------------------------------------------------
- * $Revision: #1 $
- * $Modtime:$
- * $Log:$
  *
  *
  *******************************************************************************/
@@ -59,6 +56,6 @@ void setHpGainZero(void);
 bool OpenHeadPhoneImpedanceSetting(bool bEnable);
 void SetAnalogSuspend(bool bEnable);
 void OpenTrimBufferHardware(bool bEnable);
+extern int PMIC_IMM_GetOneChannelValue(int channel , int num , int time);
 
 #endif
-

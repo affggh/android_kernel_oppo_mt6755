@@ -43,7 +43,7 @@ unsigned char F54_HighResistance(void)
 #ifdef F54_Porting
     ret = sprintf(buf, "\nBin #: 12        Name: High Resistance Test\n");
 #else
-    printk("\nBin #: 12        Name: High Resistance Test\n");
+    pr_debug("\nBin #: 12        Name: High Resistance Test\n");
 #endif
 
    // Set report mode
@@ -86,7 +86,7 @@ unsigned char F54_HighResistance(void)
 #ifdef F54_Porting
     ret += sprintf(buf+ret, "Parameters:\t");
 #else
-    printk("Parameters:\t");
+    pr_debug("Parameters:\t");
 #endif
     for(i=0; i<3; i++)
     {
@@ -94,7 +94,7 @@ unsigned char F54_HighResistance(void)
 #ifdef F54_Porting
         ret += sprintf(buf+ret, "%d,\t\t", (resistance[i]));
 #else
-        printk("%1.3f,\t\t", (float)(resistance[i])/1000);
+        pr_debug("%1.3f,\t\t", (float)(resistance[i])/1000);
 #endif
 
 #ifdef F54_Porting
@@ -107,22 +107,22 @@ unsigned char F54_HighResistance(void)
     ret += sprintf(buf+ret, "\n");
     ret += sprintf(buf+ret, "Limits:\t\t");
 #else
-    printk("\n");
+    pr_debug("\n");
 
-    printk("Limits:\t\t");
+    pr_debug("Limits:\t\t");
 #endif
     for(i=0; i<3; i++)
     {
 #ifdef F54_Porting
         ret += sprintf(buf+ret, "%d,%d\t", resistanceLimit[i][0], resistanceLimit[i][1]);
 #else
-        printk("%1.3f,%1.3f\t", resistanceLimit[i][0], resistanceLimit[i][1]);
+        pr_debug("%1.3f,%1.3f\t", resistanceLimit[i][0], resistanceLimit[i][1]);
 #endif
     }
 #ifdef F54_Porting
     ret += sprintf(buf+ret, "\n");
 #else
-    printk("\n");
+    pr_debug("\n");
 #endif
 
    // Set the Force Cal
@@ -147,7 +147,7 @@ unsigned char F54_HighResistance(void)
         ret += sprintf(buf+ret, "Test Result: Pass\n");
         write_log(buf);
 #else
-        printk("Test Result: Pass\n");
+        pr_debug("Test Result: Pass\n");
 #endif
         return 1; //Pass
     }
@@ -157,7 +157,7 @@ unsigned char F54_HighResistance(void)
         ret += sprintf(buf+ret, "Test Result: Fail, Result = %d\n", Result);
         write_log(buf);
 #else
-        printk("Test Result: Fail, Result = %d\n", Result);
+        pr_debug("Test Result: Fail, Result = %d\n", Result);
 #endif
         return 0; //Fail
     }

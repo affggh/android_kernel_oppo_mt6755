@@ -202,10 +202,10 @@ static int mtk_voice_md2_bt_close(struct snd_pcm_substream *substream)
     }
 
     // interconnection setting
-    SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I02, Soc_Aud_InterConnectionOutput_O17);
-    SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I02, Soc_Aud_InterConnectionOutput_O18);
-    SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I14, Soc_Aud_InterConnectionOutput_O02);
-    SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I21, Soc_Aud_InterConnectionOutput_O02);
+    SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I02, Soc_Aud_InterConnectionOutput_O07);
+    SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I02, Soc_Aud_InterConnectionOutput_O08);
+    SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I09, Soc_Aud_InterConnectionOutput_O02);
+    //SetConnection(Soc_Aud_InterCon_DisConnect, Soc_Aud_InterConnectionInput_I22, Soc_Aud_InterConnectionOutput_O02);
 
     // here start digital part
     SetMemoryPathEnable(Soc_Aud_Digital_Block_DAI_BT, false);
@@ -290,10 +290,10 @@ static int mtk_voice_md2_bt_prepare(struct snd_pcm_substream *substream)
     AudDrv_Clk_On();
 
     // here start digital part
-    SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I02, Soc_Aud_InterConnectionOutput_O17);
-    SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I02, Soc_Aud_InterConnectionOutput_O18);
-    SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I14, Soc_Aud_InterConnectionOutput_O02);
-    SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I21, Soc_Aud_InterConnectionOutput_O08);
+    SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I02, Soc_Aud_InterConnectionOutput_O07);
+    SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I02, Soc_Aud_InterConnectionOutput_O08);
+    SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I09, Soc_Aud_InterConnectionOutput_O02);
+    //SetConnection(Soc_Aud_InterCon_Connection, Soc_Aud_InterConnectionInput_I22, Soc_Aud_InterConnectionOutput_O08);
 
     if (GetMemoryPathEnable(Soc_Aud_Digital_Block_DAI_BT) == false)
     {

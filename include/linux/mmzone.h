@@ -44,6 +44,7 @@ enum {
 #endif
 	MIGRATE_PCPTYPES,	/* the number of types on the pcp lists */
 	MIGRATE_RESERVE = MIGRATE_PCPTYPES,
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP) /* SVP 16 */
 #ifdef CONFIG_CMA
 	/*
 	 * MIGRATE_CMA migration type is designed to mimic the way
@@ -60,16 +61,26 @@ enum {
 	 */
 	MIGRATE_CMA,
 #endif
+#endif
+#ifdef VENDOR_EDIT
+/* Hucai.Zhou@PSW.BSP.Kernel.MM, 2018-3-15
+ * Add a migrate type to manage special page alloc/free
+ */
+        MIGRATE_OPPO0,
+        MIGRATE_OPPO2,
+#endif /* VENDOR_EDIT */
 #ifdef CONFIG_MEMORY_ISOLATION
 	MIGRATE_ISOLATE,	/* can't allocate from here */
 #endif
 	MIGRATE_TYPES
 };
 
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP) /* SVP 16 */
 #ifdef CONFIG_CMA
 #  define is_migrate_cma(migratetype) unlikely((migratetype) == MIGRATE_CMA)
 #else
 #  define is_migrate_cma(migratetype) false
+#endif
 #endif
 
 #ifdef CONFIG_MTKPASR
@@ -84,9 +95,13 @@ enum {
 
 extern int page_group_by_mobility_disabled;
 
+#define NR_MIGRATETYPE_BITS (PB_migrate_end - PB_migrate + 1)
+#define MIGRATETYPE_MASK ((1UL << NR_MIGRATETYPE_BITS) - 1)
+
 static inline int get_pageblock_migratetype(struct page *page)
 {
-	return get_pageblock_flags_group(page, PB_migrate, PB_migrate_end);
+	BUILD_BUG_ON(PB_migrate_end - PB_migrate != 2);
+	return get_pageblock_flags_mask(page, PB_migrate_end, MIGRATETYPE_MASK);
 }
 
 struct free_area {
@@ -151,7 +166,17 @@ enum zone_stat_item {
 	NUMA_OTHER,		/* allocation from other node */
 #endif
 	NR_ANON_TRANSPARENT_HUGEPAGES,
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP) /* SVP 16 */
 	NR_FREE_CMA_PAGES,
+#endif
+#ifdef VENDOR_EDIT
+/* Hucai.Zhou@PSW.BSP.Kernel.MM, 2018-3-15
+ * Account free pages for MIGRATE_OPPO
+ */
+ 	NR_FREE_OPPO0_PAGES,
+	NR_FREE_OPPO2_PAGES,
+#endif /* VENDOR_EDIT */
+
 	NR_VM_ZONE_STAT_ITEMS };
 
 /*
@@ -314,6 +339,11 @@ enum zone_type {
 	ZONE_HIGHMEM,
 #endif
 	ZONE_MOVABLE,
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP) /* SVP 12 */
+#ifdef CONFIG_CMA
+	ZONE_CMA,
+#endif
+#endif
 	__MAX_NR_ZONES
 };
 
@@ -324,6 +354,13 @@ struct zone {
 
 	/* zone watermarks, access with *_wmark_pages(zone) macros */
 	unsigned long watermark[NR_WMARK];
+#ifdef VENDOR_EDIT
+/* Hucai.Zhou@PSW.BSP.Kernel.MM, 2018-3-15
+ * Number of MIGRATE_OPPO page block.
+ */
+	unsigned long nr_migrate_oppo0_block;
+	unsigned long nr_migrate_oppo2_block;
+#endif /* VENDOR_EDIT */
 
 	/*
 	 * When free pages are below this point, additional steps are taken
@@ -369,6 +406,18 @@ struct zone {
 	unsigned long		compact_cached_free_pfn;
 	unsigned long		compact_cached_migrate_pfn;
 #endif
+
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP) /* commit ad53f92eb416d81e469fa8ea57153e59455e7175 */
+#ifdef CONFIG_MEMORY_ISOLATION
+	/*
+	 * Number of isolated pageblock. It is used to solve incorrect
+	 * freepage counting problem due to racy retrieving migratetype
+	 * of pageblock. Protected by zone->lock.
+	 */
+	unsigned long		nr_isolate_pageblock;
+#endif
+#endif
+
 #ifdef CONFIG_MEMORY_HOTPLUG
 	/* see spanned/present_pages for more description */
 	seqlock_t		span_seqlock;
@@ -858,6 +907,32 @@ static inline int zone_movable_is_highmem(void)
 #endif
 }
 
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP) /* SVP 10 SVP 12 */
+static inline int is_zone_cma_idx(enum zone_type idx)
+{
+#ifdef CONFIG_CMA
+	return idx == ZONE_CMA;
+#else
+	return 0;
+#endif
+}
+
+static inline int is_zone_cma(struct zone *zone)
+{
+	int zone_idx = zone_idx(zone);
+
+	return is_zone_cma_idx(zone_idx);
+}
+
+static inline int zone_cma_is_highmem(void)
+{
+#ifdef CONFIG_HIGHMEM
+	return 1;
+#else
+	return 0;
+#endif
+}
+#else
 static inline int is_highmem_idx(enum zone_type idx)
 {
 #ifdef CONFIG_HIGHMEM
@@ -867,6 +942,7 @@ static inline int is_highmem_idx(enum zone_type idx)
 	return 0;
 #endif
 }
+#endif
 
 static inline int is_normal_idx(enum zone_type idx)
 {
@@ -874,7 +950,7 @@ static inline int is_normal_idx(enum zone_type idx)
 }
 
 /**
- * is_highmem - helper function to quickly check if a struct zone is a 
+ * is_highmem - helper function to quickly check if a struct zone is a
  *              highmem zone or not.  This is an attempt to keep references
  *              to ZONE_{DMA/NORMAL/HIGHMEM/etc} in general code to a minimum.
  * @zone - pointer to struct zone variable
@@ -882,10 +958,20 @@ static inline int is_normal_idx(enum zone_type idx)
 static inline int is_highmem(struct zone *zone)
 {
 #ifdef CONFIG_HIGHMEM
+#if !defined(CONFIG_CMA) || !defined(CONFIG_MTK_SVP) /* SVP 10 SVP 12 */
 	int zone_off = (char *)zone - (char *)zone->zone_pgdat->node_zones;
 	return zone_off == ZONE_HIGHMEM * sizeof(*zone) ||
 	       (zone_off == ZONE_MOVABLE * sizeof(*zone) &&
 		zone_movable_is_highmem());
+#else
+	int idx = zone_idx(zone);
+
+	return idx == ZONE_HIGHMEM ||
+/*		(idx == ZONE_MOVABLE && zone_movable_is_highmem()));
+*/
+		(idx == ZONE_MOVABLE && zone_movable_is_highmem()) ||
+		(is_zone_cma_idx(idx) && zone_cma_is_highmem());
+#endif
 #else
 	return 0;
 #endif
@@ -950,6 +1036,12 @@ extern struct pglist_data contig_page_data;
 #define MTKPASR_ZONE		(NODE_DATA(0)->node_zones + ZONE_HIGHMEM)
 #else
 #define MTKPASR_ZONE		(NODE_DATA(0)->node_zones)
+#endif
+#endif
+
+#if defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP) /* SVP 12 */
+#ifdef CONFIG_CMA
+#define	SVP_ZONE		(NODE_DATA(0)->node_zones + ZONE_CMA)
 #endif
 #endif
 

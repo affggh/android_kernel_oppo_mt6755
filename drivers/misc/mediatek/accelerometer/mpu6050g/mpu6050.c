@@ -59,7 +59,7 @@ static struct i2c_board_info __initdata i2c_mpu6050={ I2C_BOARD_INFO(MPU6050_DEV
 static int mpu6050_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id); 
 static int mpu6050_i2c_remove(struct i2c_client *client);
 static int mpu6050_i2c_detect(struct i2c_client *client, struct i2c_board_info *info);
-#ifndef CONFIG_HAS_EARLYSUSPEND
+#ifndef USE_EARLY_SUSPEND
 static int mpu6050_suspend(struct i2c_client *client, pm_message_t msg) ;
 static int mpu6050_resume(struct i2c_client *client);
 #endif
@@ -119,7 +119,7 @@ struct mpu6050_i2c_data
     struct data_filter      fir;
 #endif 
     /*early suspend*/
-#if defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(USE_EARLY_SUSPEND)
     struct early_suspend    early_drv;
 #endif     
     u8                      bandwidth;
@@ -135,7 +135,7 @@ static struct i2c_driver mpu6050_i2c_driver = {
     .probe              = mpu6050_i2c_probe,
     .remove             = mpu6050_i2c_remove,
     .detect             = mpu6050_i2c_detect,
-#if !defined(CONFIG_HAS_EARLYSUSPEND)    
+#if !defined(USE_EARLY_SUSPEND)    
     .suspend            = mpu6050_suspend,
     .resume             = mpu6050_resume,
 #endif
@@ -153,9 +153,9 @@ static char selftestRes[8]= {0};
 
 /*----------------------------------------------------------------------------*/
 #define GSE_TAG                  "[Gsensor] "
-#define GSE_FUN(f)               printk(GSE_TAG"%s\n", __FUNCTION__)
-#define GSE_ERR(fmt, args...)    printk(GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
-#define GSE_LOG(fmt, args...)    printk(GSE_TAG fmt, ##args)
+#define GSE_FUN(f)               		pr_debug(GSE_TAG"%s\n", __FUNCTION__)
+#define GSE_ERR(fmt, args...)    	pr_err(KERN_ERR GSE_TAG"%s %d : "fmt, __FUNCTION__, __LINE__, ##args)
+#define GSE_LOG(fmt, args...)    	pr_debug(KERN_ERR GSE_TAG fmt, ##args)
 /*----------------------------------------------------------------------------*/
 static struct data_resolution mpu6050_data_resolution[] = {
     /*8 combination by {FULL_RES,RANGE}*/
@@ -807,7 +807,7 @@ static int MPU6050_Dev_Reset(struct i2c_client *client)
         databuf[0] = 0x0;        
         res = i2c_master_recv(client, databuf, 0x01);
 
-        printk("[Gsensor] check reset bit");
+        GSE_LOG("[Gsensor] check reset bit");
 
     }while((databuf[0]&MPU6050_DEV_RESET) != 0);
 
@@ -1535,7 +1535,7 @@ static ssize_t store_selftest_value(struct device_driver *ddri, const char *buf,
     }
     else
     {
-        GSE_ERR("invalid content: '%s', length = %d\n", buf, count);   
+        GSE_ERR("invalid content: '%s', length = %zu\n", buf, count);   
     }
     return count;
 }
@@ -1626,7 +1626,7 @@ static ssize_t store_trace_value(struct device_driver *ddri, const char *buf, si
     }
     else
     {
-        GSE_ERR("invalid content: '%s', length = %d\n", buf, count);
+        GSE_ERR("invalid content: '%s', length = %zu\n", buf, count);
     }
 
     return count;    
@@ -1854,6 +1854,8 @@ static long mpu6050_unlocked_ioctl(struct file *file, unsigned int cmd,
     long err = 0;
     int cali[3];
 
+	memset(strbuf, 0, MPU6050_BUFSIZE);
+
     if (_IOC_DIR(cmd) & _IOC_READ)
     {
         err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
@@ -2035,7 +2037,7 @@ static struct miscdevice mpu6050_device = {
     .fops = &mpu6050_fops,
 };
 /*----------------------------------------------------------------------------*/
-#ifndef CONFIG_HAS_EARLYSUSPEND
+#ifndef USE_EARLY_SUSPEND
 /*----------------------------------------------------------------------------*/
 static int mpu6050_suspend(struct i2c_client *client, pm_message_t msg) 
 {
@@ -2237,7 +2239,7 @@ static int mpu6050_i2c_probe(struct i2c_client *client, const struct i2c_device_
         goto exit_kfree;
     }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
+#ifdef USE_EARLY_SUSPEND
     obj->early_drv.level    = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 2,
     obj->early_drv.suspend  = mpu6050_early_suspend,
     obj->early_drv.resume   = mpu6050_late_resume,    

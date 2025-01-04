@@ -5,6 +5,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
+#include <linux/uaccess.h>
 
 #include "trustzone/tz_cross/trustzone.h"
 #include "trustzone/tz_cross/ta_system.h"
@@ -12,6 +13,9 @@
 #include "kree_int.h"
 #include "sys_ipc.h"
 
+#ifdef CONFIG_ARM64
+#define ARM_SMC_CALLING_CONVENTION
+#endif
 
 static TZ_RESULT KREE_ServPuts(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE]);
 static TZ_RESULT KREE_ServUSleep(u32 op, u8 param[REE_SERVICE_BUFFER_SIZE]);
@@ -50,29 +54,84 @@ static const KREE_REE_Service_Func ree_service_funcs[] =
 };
 #define ree_service_funcs_num (sizeof(ree_service_funcs)/sizeof(ree_service_funcs[0]))
 
-static u32 tz_service_call(u32 handle, u32 op, u32 arg1, u32 arg2)
+#if defined( ARM_SMC_CALLING_CONVENTION )
+#define SMC_UNK 0xffffffff
+#define SMC_MTEE_SERVICE_CALL (0x32000008)
+
+static u32 tz_service_call(u32 handle, u32 op, u32 arg1, unsigned long arg2)
 {
+#ifdef CONFIG_ARM64
+	/* Reserve buffer for REE service call parameters */
+        u64 param[REE_SERVICE_BUFFER_SIZE / sizeof(u64)];
+        register u64 x0 asm("x0") = SMC_MTEE_SERVICE_CALL; //trusted os call function id for mtee
+        register u64 x1 asm("x1") = handle;
+        register u64 x2 asm("x2") = op;
+        register u64 x3 asm("x3") = arg1;
+        register u64 x4 asm("x4") = arg2;
+        register u64 x5 asm("x5") = (unsigned long)param;
+
+        asm volatile (
+                      __asmeq("%0", "x0")
+                      __asmeq("%1", "x1")
+                      __asmeq("%2", "x2")
+                      __asmeq("%3", "x3")
+                      __asmeq("%4", "x0")
+                      __asmeq("%5", "x1")
+                      __asmeq("%6", "x2")
+                      __asmeq("%7", "x3")
+                      __asmeq("%8", "x4")
+                      __asmeq("%9", "x5")
+                      "smc    #0\n" :
+                      "=r"(x0), "=r"(x1), "=r"(x2), "=r" (x3) :
+                      "r"(x0), "r"(x1), "r"(x2), "r" (x3), "r"(x4), "r"(x5) :                         "memory");
+
+        while (x1 != 0 && x0 != SMC_UNK) {
+                /* Need REE service */
+                /* r0 is the command, paramter in param buffer */
+                x1 = tz_ree_service(x2, (u8 *) param);
+
+                /* Work complete. Going Back to TZ again */
+                x0 = SMC_MTEE_SERVICE_CALL;
+                asm volatile (
+                              __asmeq("%0", "x0")
+                              __asmeq("%1", "x1")
+                              __asmeq("%2", "x2")
+                              __asmeq("%3", "x3")
+                              __asmeq("%4", "x0")
+                              __asmeq("%5", "x1")
+                              __asmeq("%6", "x2")
+                              __asmeq("%7", "x3")
+                              "smc    #0\n" :
+                              "=r"(x0), "=r"(x1), "=r"(x2), "=r"(x3) :
+                              "r"(x0), "r"(x1), "r"(x2), "r"(x3) :                                            "memory");
+        }
+
+        return x3;
+#else
     /* Reserve buffer for REE service call parameters */
     u32 param[REE_SERVICE_BUFFER_SIZE/sizeof(u32)];
-    register u32 r0 asm("r0") = handle;
-    register u32 r1 asm("r1") = op;
-    register u32 r2 asm("r2") = arg1;
-    register u32 r3 asm("r3") = arg2;
-    register u32 r4 asm("r4") = (u32)param;
+    register u32 r0 asm("r0") = SMC_MTEE_SERVICE_CALL; //trusted os call function id for mtee
+    register u32 r1 asm("r1") = handle;
+    register u32 r2 asm("r2") = op;
+    register u32 r3 asm("r3") = arg1;
+    register u32 r4 asm("r4") = arg2;
+    register u32 r5 asm("r5") = (unsigned long)param;
 
     asm volatile(
         ".arch_extension sec\n"
         __asmeq("%0", "r0")
         __asmeq("%1", "r1")
-        __asmeq("%2", "r0")
-        __asmeq("%3", "r1")
-        __asmeq("%4", "r2")
-        __asmeq("%5", "r3")
-        __asmeq("%6", "r4")
-        "smc    #0\n"
-        : "=r" (r0), "=r" (r1)
-        : "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4)
-        : "memory");
+        __asmeq("%2", "r2")
+        __asmeq("%3", "r0")
+        __asmeq("%4", "r1")
+        __asmeq("%5", "r2")
+        __asmeq("%6", "r3")
+        __asmeq("%7", "r4")
+        __asmeq("%8", "r5")
+        "smc    #0\n" :
+        "=r" (r0), "=r" (r1), "=r" (r2) : 
+        "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4), "r" (r5) :
+        "memory");
 
     while (r1 != 0)
     {
@@ -81,21 +140,23 @@ static u32 tz_service_call(u32 handle, u32 op, u32 arg1, u32 arg2)
         r1 = tz_ree_service(r0, (u8*)param);
 
         /* Work complete. Going Back to TZ again */
-        r0 = 0xffffffff;
+        r0 = SMC_MTEE_SERVICE_CALL;
         asm volatile(
             ".arch_extension sec\n"
             __asmeq("%0", "r0")
             __asmeq("%1", "r1")
-            __asmeq("%2", "r0")
-            __asmeq("%3", "r1")
-            __asmeq("%4", "r4")
-            "smc    #0\n"
-            : "=r" (r0), "=r" (r1)
-            : "r" (r0), "r" (r1), "r" (r4)
-            : "memory");
+            __asmeq("%2", "r2")
+            __asmeq("%3", "r0")
+            __asmeq("%4", "r1")
+            __asmeq("%5", "r5")
+            "smc    #0\n" :
+            "=r" (r0), "=r" (r1), "=r" (r2) :
+            "r" (r0), "r" (r1), "r" (r5) :
+            "memory");
     }
 
-    return r0;
+    return r2;
+#endif
 }
 
 TZ_RESULT KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle, 
@@ -103,9 +164,62 @@ TZ_RESULT KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle,
                                      uint32_t paramTypes, 
                                      MTEEC_PARAM param[4])
 {
-    return (TZ_RESULT)tz_service_call((u32)handle, command,
-                                      paramTypes, (u32)param);
+    return (TZ_RESULT)tz_service_call(handle, command,
+                                      paramTypes, (unsigned long)param);
 }
+#else
+static u32 tz_service_call(u32 handle, u32 op, u32 arg1, u32 arg2)
+{                                                                                       /* Reserve buffer for REE service call parameters */
+        u32 param[REE_SERVICE_BUFFER_SIZE / sizeof(u32)];
+        register u32 r0 asm("r0") = handle;
+        register u32 r1 asm("r1") = op;
+        register u32 r2 asm("r2") = arg1;
+        register u32 r3 asm("r3") = arg2;
+        register u32 r4 asm("r4") = (u32) param;
+
+        asm volatile (".arch_extension sec\n"
+                      __asmeq("%0", "r0")
+                      __asmeq("%1", "r1")
+                      __asmeq("%2", "r0")
+                      __asmeq("%3", "r1")
+                      __asmeq("%4", "r2")
+                      __asmeq("%5", "r3") 
+                      __asmeq("%6", "r4")
+                      "smc    #0\n" :
+                      "=r"(r0), "=r"(r1) :
+                      "r"(r0), "r"(r1), "r"(r2), "r"(r3), "r"(r4) :
+                      "memory");
+
+        while (r1 != 0) {
+                /* Need REE service */
+                /* r0 is the command, paramter in param buffer */
+                r1 = tz_ree_service(r0, (u8 *) param);
+
+                /* Work complete. Going Back to TZ again */
+                r0 = 0xffffffff;
+                asm volatile (".arch_extension sec\n"
+                              __asmeq("%0", "r0")
+                              __asmeq("%1", "r1")
+                              __asmeq("%2", "r0")
+                              __asmeq("%3", "r1")
+                              __asmeq("%4", "r4")
+                              "smc    #0\n" :
+                              "=r"(r0), "=r"(r1) :
+                              "r"(r0), "r"(r1), "r"(r4) :
+                              "memory");
+        }
+
+        return r0;
+}
+
+TZ_RESULT KREE_TeeServiceCallNoCheck(KREE_SESSION_HANDLE handle,
+                                     uint32_t command, uint32_t paramTypes, MTEEC_PARAM param[4])
+{
+        return (TZ_RESULT) tz_service_call(handle, command, paramTypes, (u32) param);
+}
+
+#endif
+
 
 TZ_RESULT KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
                               uint32_t paramTypes, MTEEC_PARAM oparam[4])
@@ -135,8 +249,8 @@ TZ_RESULT KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
             case TZPT_MEM_INOUT:
                 // Check if point to kernel low memory
                 param[i] = oparam[i];
-                if ((unsigned int)param[i].mem.buffer < PAGE_OFFSET ||
-                    (unsigned int)param[i].mem.buffer >= (unsigned int)high_memory)
+                if (param[i].mem.buffer < (void *)PAGE_OFFSET ||
+                    param[i].mem.buffer >= high_memory)
                 {
                     // No, we need to copy....
                     if (param[i].mem.size > TEE_PARAM_MEM_LIMIT)
