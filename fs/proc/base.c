@@ -2518,11 +2518,7 @@ static int do_io_accounting(struct task_struct *task, char *buffer, int whole)
 			(unsigned long long)acct.read_bytes,
 			(unsigned long long)acct.write_bytes,
 			(unsigned long long)acct.cancelled_write_bytes);
-#ifdef VENDOR_EDIT
-//Haiping.Zhong@Swdp.Android.BuildConfig, 2016/11/22, Add for cts bug881673
-//Fang.Pan@Swdp.Android.BuildConfig,2015/10/09, Add for resmon kernel module
-//out_unlock:
-#endif
+out_unlock:
 	mutex_unlock(&task->signal->cred_guard_mutex);
 	return result;
 }

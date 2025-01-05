@@ -172,8 +172,7 @@ static inline bool unconditional(const struct ipt_ip *ip)
 {
 	static const struct ipt_ip uncond;
 
-	return e->target_offset == sizeof(struct ipt_entry) &&
-	       memcmp(&e->ip, &uncond, sizeof(uncond)) == 0;
+	return memcmp(ip, &uncond, sizeof(uncond)) == 0;
 #undef FWINV
 }
 
@@ -646,10 +645,6 @@ find_check_entry(struct ipt_entry *e, struct net *net, const char *name,
 	struct xt_mtchk_param mtpar;
 	struct xt_entry_match *ematch;
 
-	ret = check_entry(e, name);
-	if (ret)
-		return ret;
-
 	j = 0;
 	mtpar.net	= net;
 	mtpar.table     = name;
@@ -713,6 +708,7 @@ check_entry_size_and_hooks(struct ipt_entry *e,
 			   unsigned int valid_hooks)
 {
 	unsigned int h;
+	int err;
 
 	if ((unsigned long)e % __alignof__(struct ipt_entry) != 0 ||
 	    (unsigned char *)e + sizeof(struct ipt_entry) >= limit) {

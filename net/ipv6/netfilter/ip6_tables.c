@@ -199,8 +199,7 @@ static inline bool unconditional(const struct ip6t_ip6 *ipv6)
 {
 	static const struct ip6t_ip6 uncond;
 
-	return e->target_offset == sizeof(struct ip6t_entry) &&
-	       memcmp(&e->ipv6, &uncond, sizeof(uncond)) == 0;
+	return memcmp(ipv6, &uncond, sizeof(uncond)) == 0;
 }
 
 static inline const struct xt_entry_target *
@@ -657,10 +656,6 @@ find_check_entry(struct ip6t_entry *e, struct net *net, const char *name,
 	struct xt_mtchk_param mtpar;
 	struct xt_entry_match *ematch;
 
-	ret = check_entry(e, name);
-	if (ret)
-		return ret;
-
 	j = 0;
 	mtpar.net	= net;
 	mtpar.table     = name;
@@ -724,6 +719,7 @@ check_entry_size_and_hooks(struct ip6t_entry *e,
 			   unsigned int valid_hooks)
 {
 	unsigned int h;
+	int err;
 
 	if ((unsigned long)e % __alignof__(struct ip6t_entry) != 0 ||
 	    (unsigned char *)e + sizeof(struct ip6t_entry) >= limit) {
